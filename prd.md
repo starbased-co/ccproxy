@@ -1,160 +1,148 @@
-# Product Requirements Document: `ccproxy` Claude Code Router via LiteLLM Hooks
+# Product Requirements Document: ccproxy - Context-Aware Proxy for Claude Code
 
 ## Executive Summary
 
-This PRD outlines the requirements for reimplementing [`claude-code-router`](https://github.com/musistudio/claude-code-router), a proxy server that Claude Code's LLM requests to different providers based on properties of the request such as tool usage, number of tokens, thinking, etc. `ccproxy` will be a similartransformation server using LiteLLM call hooks for redirecting Claude Code API requests. This approach leverages LiteLLM's mature infrastructure while providing the advanced transformation capabilities of the original project.
+ccproxy is a context-aware proxy specifically designed for Claude Code that intelligently routes requests to different AI models based on the request context. By analyzing incoming Claude Code requests (simple queries, complex code generation, debugging tasks, refactoring operations, etc.), ccproxy routes them to the most appropriate model - using fast, cost-effective models for simple queries and powerful models for complex tasks.
+
+This PRD outlines the requirements for reimplementing [`claude-code-router`](https://github.com/musistudio/claude-code-router) as a Python-based transformation server using LiteLLM call hooks. **ccproxy is NOT a general-purpose LLM proxy** but is specifically tuned for Claude Code's usage patterns and request context analysis.
 
 ## Problem Statement
 
-The current TypeScript project attempts to create a standalone LLM transformation server but:
+Claude Code needs intelligent request routing based on context to optimize both performance and cost:
+
+### Context-Based Routing Specifications
+
+- **Simple queries** ("What is X?", "How do I...") don't need powerful models
+
+- ## **Complex tasks** (debugging, architecture design, large refactoring) require advanced reasoning
+
+- **Background tasks** (formatting, simple fixes) can use lightweight models
+- **Large context operations** (analyzing entire codebases) need specialized handling
+- **Web search queries** benefit from models with internet access
+
+### Current Implementation Limitations
+
+The existing TypeScript implementation has several limitations:
 
 - Duplicates functionality already available in LiteLLM
-- Lacks tests, documentation, and community support
+- Lacks comprehensive tests and documentation
 - Requires maintaining separate infrastructure
+- Limited extensibility for new routing rules
 
-By reimplementing as LiteLLM hooks, we can provide the same transformation capabilities while leveraging LiteLLM's:
+### Solution: LiteLLM-Based Context Router
 
-- Battle-tested infrastructure handling 100+ providers
-- Existing security measures and best practices
-- Active community and documentation
-- Built-in observability and monitoring
+By reimplementing as LiteLLM hooks specifically for Claude Code, we can:
+
+- Analyze Claude Code request patterns (token count, tool usage, code complexity)
+- Route to appropriate models based on context-aware rules
+- Leverage LiteLLM's mature infrastructure and provider support
+- Maintain Claude Code-specific optimizations and patterns
 
 ## Goals & Objectives
 
 ### Primary Goals
 
-1. **Provide Advanced Transformation Capabilities** - Enable complex request/response transformations beyond basic modifications
-2. **Simplify Deployment** - Leverage LiteLLM's existing infrastructure
-3. **Enable Composability** - Allow multiple transformations to be chained and combined
+1. **Context-Aware Routing** - Analyze Claude Code requests and route to optimal models
+2. **Cost Optimization** - Use cheaper models for simple tasks without sacrificing quality
+3. **Performance Enhancement** - Faster responses for simple queries, powerful models for complex tasks
+4. **Claude Code Integration** - Seamless drop-in replacement maintaining API compatibility
 
 ### Success Metrics
 
-- Support for all transformation patterns from the original project
+- Maintain or improve response quality across all request types
+- Zero breaking changes for Claude Code users
 - Comprehensive test coverage (>90%)
 
 ## User Stories
 
+### As a Claude Code User
+
+1. I want my simple questions answered quickly using fast models
+2. I want complex debugging tasks to use powerful reasoning models
+3. I want large file operations to use models with extended context windows
+4. I want my costs optimized without manually switching models
+5. I want the proxy to be transparent - no changes to my workflow
+
 ### As a Developer
 
-1. I want to dynamically select transformations based on request context
+1. I want to customize routing rules for my specific use cases
+2. I want detailed logs showing routing decisions
+3. I want to add new model providers easily
+4. I want to monitor performance and cost metrics
+5. I want fallback behavior when preferred models are unavailable
 
-## `claude-code-router` Overview
+## Claude Code Request Classification
 
-### `claude-code-router` Configuration Example
+### Request Types and Routing
 
-```
-{
-  "Providers": [
-    {
-      "name": "openrouter",
-      "api_base_url": "https://openrouter.ai/api/v1/chat/completions",
-      "api_key": "sk-xxx",
-      "models": [
-        "google/gemini-2.5-pro-preview",
-        "anthropic/claude-sonnet-4",
-        "anthropic/claude-3.5-sonnet",
-        "anthropic/claude-3.7-sonnet:thinking"
-      ],
-      "transformer": {
-        "use": ["openrouter"]
-      }
-    },
-    {
-      "name": "ollama",
-      "api_base_url": "http://localhost:11434/v1/chat/completions",
-      "api_key": "ollama",
-      "models": ["qwen2.5-coder:latest"]
-    },
-    {
-      "name": "gemini",
-      "api_base_url": "https://generativelanguage.googleapis.com/v1beta/models/",
-      "api_key": "sk-xxx",
-      "models": ["gemini-2.5-flash", "gemini-2.5-pro"],
-      "transformer": {
-        "use": ["gemini"]
-      }
-    },
-  ],
-  "Router": {
-    "default": "deepseek,deepseek-chat",
-    "background": "ollama,qwen2.5-coder:latest",
-    "think": "deepseek,deepseek-reasoner",
-    "longContext": "openrouter,google/gemini-2.5-pro-preview",
-    "longContextThreshold": 60000,
-    "webSearch": "gemini,gemini-2.5-flash"
-  },
-  "APIKEY": "your-secret-key",
-  "HOST": "0.0.0.0",
-  "API_TIMEOUT_MS": 600000
-}
+| Request Type      | Characteristics                      | Recommended Model                     | Label           |
+| ----------------- | ------------------------------------ | ------------------------------------- | --------------- |
+| Default Query     | normal use+tools, basic questions    | Claude Sonnet, Gemini 2.5 Flash       | `default`       |
+| Background Task   | Model explicitly set to haiku        | Claude Haiku                          | `background`    |
+| Complex Reasoning | Has thinking blocks, complex prompts | Claude Opus, Gemini 2.5 Flash         | `think`         |
+| Large Context     | >60,000 tokens                       | Gemini 2.5 Pro                        | `large_context` |
+| Web Search        | Uses web_search tools                | Perplexity, Claude/Gemini with search | `web_search`    |
+
+### Classification Logic (Priority Order)
+
+```python
+def classify_request(request):
+    # 1. Check token count first (most objective)
+    if request.token_count > CONTEXT_THRESHOLD:
+        return "large_context"
+
+    # 2. Check if explicitly using background model
+    if request.model == "claude-3-5-haiku":
+        return "background"
+
+    # 3. Check for thinking
+    if request.body.thinking:
+        return "think"
+
+    # 4. Check for web search tools
+    if "web_search" in request.tools:
+        return "web_search"
+
+    # 5. Default
+    return "default"
 ```
 
-The `Router` object defines which model to use for different scenarios:
+## Technical Architecture
 
-- `default`: The default model for general tasks.
-- `background`: A model for background tasks. This can be a smaller, local model to save costs.
-- `think`: A model for reasoning-heavy tasks, like Plan Mode.
-- `longContext`: A model for handling long contexts (e.g., > 60K tokens).
-- `longContextThreshold` (optional): The token count threshold for triggering the long context model. Defaults to 60000 if not specified.
-- `webSearch`: Used for handling web search tasks and this requires the model itself to support the feature. If you're using openrouter, you need to add the `:online` suffix after the model name.
+### Core Components
 
-> [!NOTE]
-> `longContextThreshold` will be specified through an environment variable `$CCPROXY_CONTEXT_THRESHOLD`
+1. **CCProxyHandler** - Main LiteLLM CustomLogger implementation
+2. **RequestClassifier** - Analyzes requests and assigns routing labels
 
-For `claude-code-router`, specifying custom models for these fields are mandatory. This is not desirable behavior
+### LiteLLM replaces the need for
 
-For `ccproxy`, these fields will be optional. Every request will still be labeled as one of `default`, `background`, `think`, `large_context`, or `websearch`, just as they are in `claude-code-router`. For `ccproxy` when one of these is not specified the request will be left unmodified and continue to Anthropic's API.
+3. **ConfigurationManager** - Handles YAML config and environment overrides
+4. **ModelRouter** - Maps labels to specific model configurations
+5. **MetricsCollector** - Tracks routing decisions and performance
 
-Here is how `claude-code-router` determines which label to apply to every request (will be re-implemented in litellm hook):
+### Integration with LiteLLM
 
-### `claude-code-router` Model Router Example
+```python
+from litellm.integrations.custom_logger import CustomLogger
 
-```typescript
-const getUseModel = async (req: any, tokenCount: number, config: any) => {
-  if (req.body.model.includes(",")) {
-    return req.body.model;
-  }
-  // if tokenCount is greater than the configured threshold, use the long context model
-  const longContextThreshold = config.Router.longContextThreshold || 60000;
-  if (tokenCount > longContextThreshold && config.Router.longContext) {
-    log(
-      "Using long context model due to token count:",
-      tokenCount,
-      "threshold:",
-      longContextThreshold,
-    );
-    return config.Router.longContext;
-  }
-  // If the model is claude-3-5-haiku, use the background model
-  if (
-    req.body.model?.startsWith("claude-3-5-haiku") &&
-    config.Router.background
-  ) {
-    log("Using background model for ", req.body.model);
-    return config.Router.background;
-  }
-  // if thinking exists, use the think model
-  if (req.body.thinking && config.Router.think) {
-    log("Using think model for ", req.body.thinking);
-    return config.Router.think;
-  }
-  // if a web_search tool is present, use the web_search model
-  if (
-    Array.isArray(req.body.tools) &&
-    req.body.tools.some((tool: any) => tool.type?.startsWith("web_search")) &&
-    config.Router.webSearch
-  ) {
-    return config.Router.webSearch;
-  }
-  return config.Router!.default;
-};
+class CCProxyHandler(CustomLogger):
+    async def async_pre_call_hook(self, data, **kwargs):
+        # Analyze request context
+        label = self.classifier.classify(data)
+
+        # Route to appropriate model
+        data["model"] = self.router.get_model_for_label(label)
+
+        # Log routing decision
+        self.logger.info(f"Routed to {data['model']} (label: {label})")
+
+        return data
 ```
 
-## `ccproxy` Technical Specifications
-
-### `ccproxy` Configuration Example
+### Example LiteLLM Configuration Schema
 
 ```yaml
+# LiteLLM proxy config.yaml
 model_list:
   - model_name: default # model used for `default` requests
     litellm_params: # all params accepted by litellm.completion() - https://docs.litellm.ai/docs/completion/input
@@ -184,138 +172,82 @@ litellm_settings:
     log_transformations: true
     metrics_enabled: true
     slow_transformation_threshold: 50ms
+
+ccproxy_settings:
+  context_threshold: 60000
 ```
 
-## `ccproxy` Model Router Example
+## Implementation Requirements
 
-Adapted from the [LiteLLM call hooks documentation](https://docs.litellm.ai/docs/proxy/call_hooks).
+### Phase 1: Core Routing (MVP)
 
-```python
-from litellm.integrations.custom_logger import CustomLogger
-import litellm
-from litellm.proxy.proxy_server import UserAPIKeyAuth, DualCache
-from litellm.types.utils import ModelResponseStream
-from typing import Any, AsyncGenerator, Optional, Literal
+- Implement CCProxyHandler with basic routing logic
+- Support all 5 routing labels from claude-code-router
+- LiteLLM Proxy YAML configuration with environment overrides
+- Basic logging of routing decisions
 
-# EXAMPLE: Roughly equivalent implementation to `getUseModel`
-def ccproxy_router(self, user_api_key_dict: UserAPIKeyAuth, cache: DualCache, data: dict, call_type: Literal[
-            "completion",
-            "text_completion",
-            "embeddings",
-            "image_generation",
-            "moderation",
-            "audio_transcription",
-        ]):
-    # Re-implement claude-code-router's `getUseModel` function here, see the "`claude-code-router` Model Router Example" section above
-    request_type = ccproxy_get_model(user_api_key_dict, cache, data, call_type)
-    match request_type:
-        case "background":
-          # uses background model
-        case "think":
-          # uses think model
-        case "long_context":
-          # uses long_context model
-        case "web_search":
-          # uses web_search model
-        case "default":
-        case _: # default case
-          # uses default model
+### Phase 2: Enhanced Features
 
-# This file includes the custom callbacks for LiteLLM Proxy
-# Once defined, these can be passed in proxy_config.yaml
-class CCProxyHandler(CustomLogger): # https://docs.litellm.ai/docs/observability/custom_callback#callback-class
-    # Class variables or attributes
-    def __init__(self):
-        pass
+- Request/response transformation capabilities
+- Metrics collection and reporting
 
-    #### CALL HOOKS - proxy only ####
+### Phase 3: Production Readiness
 
-    async def async_pre_call_hook(self, user_api_key_dict: UserAPIKeyAuth, cache: DualCache, data: dict, call_type: Literal[
-            "completion",
-            "text_completion",
-            "embeddings",
-            "image_generation",
-            "moderation",
-            "audio_transcription",
-        ]):
-        return ccproxy_router(user_api_key_dict, cache, data, call_type)
+- Comprehensive test suite (>90% coverage)
+- Performance benchmarking
+- Documentation and examples
+- Claude Code Wrapper
 
-    async def async_post_call_failure_hook(
-        self,
-        request_data: dict,
-        original_exception: Exception,
-        user_api_key_dict: UserAPIKeyAuth,
-        traceback_str: Optional[str] = None,
-    ):
-        pass
+## Security Considerations
 
-    async def async_post_call_success_hook(
-        self,
-        data: dict,
-        user_api_key_dict: UserAPIKeyAuth,
-        response,
-    ):
-        pass
+- API keys stored securely in environment variables
+- No logging of sensitive request/response content
+- HTTPS enforcement for all external calls
+- Rate limiting and abuse prevention
 
-    async def async_moderation_hook( # call made in parallel to llm api call
-        self,
-        data: dict,
-        user_api_key_dict: UserAPIKeyAuth,
-        call_type: Literal["completion", "embeddings", "image_generation", "moderation", "audio_transcription"],
-    ):
-        pass
+## Testing Strategy
 
-    async def async_post_call_streaming_hook(
-        self,
-        user_api_key_dict: UserAPIKeyAuth,
-        response: str,
-    ):
-        pass
+### Unit Tests
 
-    async def async_post_call_streaming_iterator_hook(
-        self,
-        user_api_key_dict: UserAPIKeyAuth,
-        response: Any,
-        request_data: dict,
-    ) -> AsyncGenerator[ModelResponseStream, None]:
-        """
-        Passes the entire stream to the guardrail
+- Request classification logic
+- Configuration parsing
+- Model routing decisions
+- Fallback behavior
 
-        This is useful for plugins that need to see the entire stream.
-        """
-        async for item in response:
-            yield item
+### Integration Tests
 
-ccproxy = CCProxyHandler()
-```
+- Full request lifecycle through LiteLLM
+- Streaming and non-streaming responses
+- Error handling and retries
+- Provider-specific behaviors
 
-### Dependencies
+### Performance Tests
 
-- `typing-extensions`: Advanced type hints
-- LiteLLM core dependencies
+- Routing overhead measurement
+- Concurrent request handling
+- Memory usage under load
 
-## Implementation Plan
+## Documentation Requirements
 
-### Phase 1: Core Hook Framework
+1. **User Guide** - Installation, configuration, basic usage
+2. **API Reference** - All configuration options and APIs
+3. **Migration Guide** - Moving from claude-code-router
+4. **Examples** - Common routing scenarios
+5. **Troubleshooting** - Common issues and solutions
 
-- Implement base transformation hook classes
-- Add comprehensive error handling
-- Create configuration
+## Success Criteria
 
-### Phase 2: Testing & Documentation
+1. All claude-code-router routing patterns supported
+2. <10ms routing overhead per request
+3. Zero breaking changes for Claude Code users
+4. 90%+ test coverage
+5. Clear documentation with examples
+6. Active monitoring and metrics
 
-1. Unit tests for hook
-2. Integration tests with LiteLLM
-3. Comprehensive documentation
+## Future Enhancements
 
-## Appendix
-
-### A. Comparison with Original Project
-
-| Feature          | Original (`claude-code-router`) | New (`ccproxy`)     |
-| ---------------- | ------------------------------- | ------------------- |
-| Deployment       | Standalone server               | LiteLLM integration |
-| Provider Support | Limited                         | 100+ via LiteLLM    |
-| Testing          | None                            | Comprehensive       |
-| Documentation    | Minimal                         | Extensive           |
-| Community        | Single maintainer               | LiteLLM ecosystem   |
+- Machine learning-based classification
+- Dynamic model selection based on load
+- Cost prediction before routing
+- Custom routing rules via plugins
+- Multi-model ensemble responses
