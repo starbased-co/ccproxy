@@ -36,200 +36,11 @@ By reimplementing as LiteLLM hooks, we can provide the same transformation capab
 
 ### As a Developer
 
-1. I want to enhance tool call parsing to handle malformed JSON from LLMs safely
-2. I want to transform provider-specific formats to/from unified formats
-3. I want to add custom streaming transformations without writing complex stream handling
-4. I want to compose multiple transformations in a specific order
-5. I want to dynamically select transformations based on request context
+1. I want to dynamically select transformations based on request context
 
-### As a Security Engineer
+## `claude-code-router` Overview
 
-1. I want confidence that malformed LLM responses cannot execute arbitrary code
-2. I want audit logs of all transformations applied
-3. I want to validate and sanitize all transformed data
-
-## Functional Requirements
-
-### Core Hook Implementation
-
-#### 1. Enhanced Tool Call Parser Hook
-
-```python
-class EnhancedToolCallHook(CustomLogger):
-    """Safely parse and repair malformed tool calls from LLMs"""
-
-    def __init__(self):
-        self.jsonrepair = jsonrepair  # Safe JSON repair library
-
-    async def async_post_call_success_hook(
-        self,
-        data: dict,
-        user_api_key_dict: UserAPIKeyAuth,
-        response,
-    ):
-        # Parse and repair tool calls in responses
-        if "tool_calls" in response.get("choices", [{}])[0].get("message", {}):
-            response = self._repair_tool_calls(response)
-        return response
-
-    async def async_post_call_streaming_hook(
-        self,
-        user_api_key_dict: UserAPIKeyAuth,
-        response: str,
-    ):
-        # Handle streaming tool call repairs
-        return self._repair_streaming_chunk(response)
-```
-
-#### 2. Unified Format Transformer Hook
-
-```python
-class UnifiedFormatHook(CustomLogger):
-    """Transform between provider-specific and unified formats"""
-
-    def __init__(self, transformers: Dict[str, BaseTransformer]):
-        self.transformers = transformers
-
-    async def async_pre_call_hook(
-        self,
-        user_api_key_dict: UserAPIKeyAuth,
-        cache: DualCache,
-        data: dict,
-        call_type: str
-    ):
-        # Transform unified format to provider format
-        provider = self._extract_provider(data)
-        if provider in self.transformers:
-            data = await self.transformers[provider].transform_request_out(data)
-        return data
-
-    async def async_post_call_success_hook(
-        self,
-        data: dict,
-        user_api_key_dict: UserAPIKeyAuth,
-        response,
-    ):
-        # Transform provider format to unified format
-        provider = self._extract_provider(data)
-        if provider in self.transformers:
-            response = await self.transformers[provider].transform_response_in(response)
-        return response
-```
-
-#### 3. Composable Transformation Pipeline
-
-```python
-class TransformationPipeline(CustomLogger):
-    """Compose multiple transformations in order"""
-
-    def __init__(self, pipeline_config: List[Dict]):
-        self.pre_hooks = []
-        self.post_hooks = []
-        self.stream_hooks = []
-        self._build_pipeline(pipeline_config)
-
-    async def async_pre_call_hook(self, *args, **kwargs):
-        data = kwargs.get("data")
-        for hook in self.pre_hooks:
-            data = await hook(data, *args, **kwargs)
-        return data
-```
-
-### Transformation Features
-
-#### 1. Safe JSON Repair
-
-- Use `jsonrepair` library instead of dangerous `vm` module
-- Handle common LLM JSON errors:
-  - Missing quotes around keys/values
-  - Trailing commas
-  - Comments in JSON
-  - Incomplete JSON structures
-  - Mixed single/double quotes
-
-#### 2. Provider-Specific Transformations
-
-Transform between different provider formats:
-
-- OpenAI ↔ Anthropic format conversion
-- Google Vertex AI ↔ unified format
-- Custom provider format support
-
-#### 3. Streaming Transformations
-
-- Buffer management for incomplete chunks
-- State tracking across streaming chunks
-- Tool call accumulation and repair
-- Efficient memory usage with size limits
-
-#### 4. Dynamic Transformation Selection
-
-```python
-async def async_pre_call_hook(self, *args, **kwargs):
-    # Select transformer based on context
-    if kwargs.get("user_api_key_dict").metadata.get("transform_mode") == "enhanced":
-        return await self.enhanced_transformer(*args, **kwargs)
-    return await self.standard_transformer(*args, **kwargs)
-```
-
-## Technical Requirements
-
-### Architecture
-
-```
-┌─────────────────────┐
-│   LiteLLM Proxy     │
-├─────────────────────┤
-│   Hook Registry     │
-├─────────────────────┤
-│ Transformation Hooks│
-│ ┌─────────────────┐ │
-│ │ Tool Call Parser│ │
-│ ├─────────────────┤ │
-│ │ Format Unified  │ │
-│ ├─────────────────┤ │
-│ │ Custom Pipeline │ │
-│ └─────────────────┘ │
-├─────────────────────┤
-│  Provider Backends  │
-└─────────────────────┘
-```
-
-### Dependencies
-
-- `jsonrepair`: Safe JSON parsing and repair
-- `pydantic`: Data validation and serialization
-- `typing-extensions`: Advanced type hints
-- LiteLLM core dependencies
-
-### Security Requirements
-
-- No code execution vulnerabilities
-- Input validation on all transformations
-- Sanitization of transformed outputs
-- Audit logging of transformation activities
-- Rate limiting on transformation complexity
-
-## Implementation Plan
-
-### Phase 1: Core Hook Framework
-
-1. Implement base transformation hook classes
-2. Create safe JSON repair functionality
-3. Build streaming transformation support
-4. Add comprehensive error handling
-5. Implement transformation pipeline composer
-6. Add dynamic transformation selection
-7. Create configuration management
-8. Build monitoring and metrics
-
-### Phase 2: Testing & Documentation (Week 7-8)
-
-1. Unit tests for all transformers
-2. Integration tests with LiteLLM
-3. Comprehensive documentation
-
-## `claude-code-router` Configuration Example
+### `claude-code-router` Configuration Example
 
 ```
 {
@@ -296,7 +107,7 @@ For `ccproxy`, these fields will be optional. Every request will still be labele
 
 Here is how `claude-code-router` determines which label to apply to every request (will be re-implemented in litellm hook):
 
-## `claude-code-router` Model Router Example
+### `claude-code-router` Model Router Example
 
 ```typescript
 const getUseModel = async (req: any, tokenCount: number, config: any) => {
@@ -339,7 +150,9 @@ const getUseModel = async (req: any, tokenCount: number, config: any) => {
 };
 ```
 
-## `ccproxy` Configuration Example
+## `ccproxy` Technical Specifications
+
+### `ccproxy` Configuration Example
 
 ```yaml
 model_list:
@@ -373,7 +186,7 @@ litellm_settings:
     slow_transformation_threshold: 50ms
 ```
 
-## Hook Example
+## `ccproxy` Model Router Example
 
 Adapted from the [LiteLLM call hooks documentation](https://docs.litellm.ai/docs/proxy/call_hooks).
 
@@ -383,8 +196,6 @@ import litellm
 from litellm.proxy.proxy_server import UserAPIKeyAuth, DualCache
 from litellm.types.utils import ModelResponseStream
 from typing import Any, AsyncGenerator, Optional, Literal
-
-
 
 # EXAMPLE: Roughly equivalent implementation to `getUseModel`
 def ccproxy_router(self, user_api_key_dict: UserAPIKeyAuth, cache: DualCache, data: dict, call_type: Literal[
@@ -478,24 +289,33 @@ class CCProxyHandler(CustomLogger): # https://docs.litellm.ai/docs/observability
 ccproxy = CCProxyHandler()
 ```
 
-## Success Criteria
+### Dependencies
 
-1. **Security**: Zero vulnerabilities, passed security audit
-2. **Compatibility**: All original transformations working
-3. **Performance**: Meeting latency requirements
-4. **Adoption**: Clear migration path with minimal disruption
-5. **Maintenance**: Active community contributions
+- `typing-extensions`: Advanced type hints
+- LiteLLM core dependencies
+
+## Implementation Plan
+
+### Phase 1: Core Hook Framework
+
+- Implement base transformation hook classes
+- Add comprehensive error handling
+- Create configuration
+
+### Phase 2: Testing & Documentation
+
+1. Unit tests for hook
+2. Integration tests with LiteLLM
+3. Comprehensive documentation
 
 ## Appendix
 
 ### A. Comparison with Original Project
 
-| Feature           | Original (TypeScript) | New (LiteLLM Hooks) |
-| ----------------- | --------------------- | ------------------- |
-| Tool Call Parsing | vm module (unsafe)    | jsonrepair (safe)   |
-| Deployment        | Standalone server     | LiteLLM integration |
-| Provider Support  | Limited               | 100+ via LiteLLM    |
-| Testing           | None                  | Comprehensive       |
-| Documentation     | Minimal               | Extensive           |
-| Community         | Single maintainer     | LiteLLM ecosystem   |
-
+| Feature          | Original (`claude-code-router`) | New (`ccproxy`)     |
+| ---------------- | ------------------------------- | ------------------- |
+| Deployment       | Standalone server               | LiteLLM integration |
+| Provider Support | Limited                         | 100+ via LiteLLM    |
+| Testing          | None                            | Comprehensive       |
+| Documentation    | Minimal                         | Extensive           |
+| Community        | Single maintainer               | LiteLLM ecosystem   |
