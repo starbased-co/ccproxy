@@ -9,7 +9,7 @@
         "testStrategy": "Verify environment setup by running 'python -m litellm --version' and ensuring all dependencies install without errors.",
         "priority": "high",
         "dependencies": [],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -49,8 +49,8 @@
             "dependencies": [
               "1.3"
             ],
-            "details": "Install pre-commit, ruff, black, and mypy in the virtual environment. Create a .pre-commit-config.yaml file specifying the hooks. Run 'pre-commit install' to activate hooks for the repository.",
-            "status": "pending",
+            "details": "Install pre-commit, ruff, black, and mypy in the virtual environment. Create a .pre-commit-config.yaml file specifying the hooks. Run 'pre-commit install' to activate hooks for the repository.\n<info added on 2025-07-29T22:20:05.377Z>\nAdded a full-featured .pre-commit-config.yaml that includes:\n• pre-commit-hooks (trailing-whitespace, end-of-file-fixer, check-yaml/json/toml, detect-merge-conflict, debug-statements)  \n• ruff with --fix for linting and formatting  \n• mypy in strict mode with type stubs  \n• bandit for security scanning  \n\nConfigured Bandit settings in pyproject.toml under [tool.bandit].  \nInstalled and ran the hooks across the repository; ruff/black auto-formatted existing files, and all hooks now pass cleanly.\n</info added on 2025-07-29T22:20:05.377Z>",
+            "status": "done",
             "testStrategy": "Test by making a code change and committing it; verify that pre-commit hooks run and enforce linting and type checking rules."
           },
           {
@@ -60,8 +60,8 @@
             "dependencies": [
               "1.4"
             ],
-            "details": "Include step-by-step commands for each setup phase, explanations for each tool, and troubleshooting tips. Ensure documentation is sufficient for a new contributor to replicate the environment.",
-            "status": "pending",
+            "details": "Include step-by-step commands for each setup phase, explanations for each tool, and troubleshooting tips. Ensure documentation is sufficient for a new contributor to replicate the environment.\n<info added on 2025-07-29T22:22:22.173Z>\nREADME.md completed and committed, containing:\n• Project overview, feature list, and repository structure  \n• Prerequisites: Python 3.10+, Git, and uv installer  \n• Quick-start guide with numbered commands to clone, create virtualenv, install deps, and run sample command  \n• Development setup: directory layout, virtual-environment activation, hot-reload tips  \n• Tool reference pages for ruff, mypy, pytest, bandit, and pre-commit, each with install, run, and config snippets  \n• Testing section covering unit/integration tests, pytest-cov usage, and minimum 90 % coverage target  \n• Code-quality helper commands (lint, type-check, security scan) aggregated in Makefile examples  \n• YAML configuration examples plus corresponding environment-variable overrides table  \n• Troubleshooting FAQ enumerating common install and hook errors with resolutions  \n• Contributing guidelines aligned with Conventional Commits and pull-request checklist  \n• License section referencing newly added MIT LICENSE file\n\nAll instructions verified from a clean checkout; a new contributor can fully reproduce the environment without additional guidance.\n</info added on 2025-07-29T22:22:22.173Z>",
+            "status": "done",
             "testStrategy": "Have a team member follow the README.md instructions from scratch and confirm successful environment setup and repository configuration."
           }
         ]
@@ -740,7 +740,7 @@
     ],
     "metadata": {
       "created": "2025-07-29T21:53:30.361Z",
-      "updated": "2025-07-29T22:17:05.963Z",
+      "updated": "2025-07-29T22:22:39.771Z",
       "description": "Tasks for master context"
     }
   }
