@@ -9,7 +9,7 @@ Parse pipeline specification from arguments. Supported formats:
 ### Simple Pipeline
 `init → expand-all → sprint-plan`
 
-### Conditional Pipeline  
+### Conditional Pipeline
 `status → if:pending>10 → sprint-plan → else → next`
 
 ### Iterative Pipeline
@@ -19,10 +19,10 @@ Parse pipeline specification from arguments. Supported formats:
 
 **1. Project Setup Pipeline**
 ```
-init [prd] → 
-expand-all → 
-complexity-report → 
-sprint-plan → 
+init [prd] →
+expand-all →
+complexity-report →
+sprint-plan →
 show first-sprint
 ```
 

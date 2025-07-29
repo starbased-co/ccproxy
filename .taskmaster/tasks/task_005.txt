@@ -44,4 +44,3 @@ Design and implement a registration system that allows users to add custom trans
 ### Description: Create comprehensive documentation for the transformation pipeline, interfaces, registration mechanism, and usage examples for both built-in and custom transformations.
 ### Details:
 Write API documentation covering pipeline architecture, transformation interfaces, registration/configuration process, and example use cases. Include code samples and best practices for extending and composing transformations.
-

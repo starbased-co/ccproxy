@@ -19,6 +19,17 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+dependencies = [
+    "aiohttp>=3.12.15",
+    "litellm>=1.74.9.post1",
+    "opentelemetry-api>=1.36.0",
+    "opentelemetry-instrumentation>=0.57b0",
+    "opentelemetry-sdk>=1.36.0",
+    "prometheus-client>=0.22.1",
+    "pydantic>=2.11.7",
+    "pyyaml>=6.0.2",
+    "typing-extensions>=4.14.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/starbased/ccproxy"
@@ -94,4 +105,21 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "venv", ".taskmaster"]
+skips = ["B101"]  # assert_used - we use asserts in the code
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=1.17.0",
+    "pre-commit>=4.2.0",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.1",
+    "ruff>=0.12.6",
+    "types-pyyaml>=6.0.12.20250516",
 ]

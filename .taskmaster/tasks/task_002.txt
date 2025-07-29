@@ -44,4 +44,3 @@ Create a single entry point function that loads the YAML, applies overrides, and
 ### Description: Write comprehensive documentation covering all configuration options, expected YAML structure, environment variable overrides, and backward compatibility notes.
 ### Details:
 Provide example YAML files, a table of environment variables, and migration guidance for users of the original claude-code-router config. Include troubleshooting tips for common errors.
-

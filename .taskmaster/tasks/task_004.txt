@@ -23,26 +23,26 @@ Modify the LiteLLM proxy configuration file to register the custom routing hook,
 <info added on 2025-07-29T22:06:37.103Z>
 Add unified error-handling layer:
 
-• Create ccproxy_errors.py with base class ProxyError(msg: str, code: int = 500) exposing  
-  – type (class name), message, code  
+• Create ccproxy_errors.py with base class ProxyError(msg: str, code: int = 500) exposing
+  – type (class name), message, code
   – to_json() ⇒ {"error": {"type": self.type, "message": self.message, "code": self.code}}
 
-• Implement concrete subclasses:  
-  – UpstreamTimeout(code=504)  
-  – ValidationError(code=400)  
+• Implement concrete subclasses:
+  – UpstreamTimeout(code=504)
+  – ValidationError(code=400)
   – Unknown(code=500)
 
-• Update CCProxyHandler async_pre_call_hook:  
-  – Wrap all routing logic in try/except.  
-  – raise/propagate ProxyError variants for known issues; on generic Exception convert to Unknown.  
-  – When a ProxyError reaches the hook boundary, return JSON from to_json() with matching HTTP status and stop further processing (graceful degradation).  
+• Update CCProxyHandler async_pre_call_hook:
+  – Wrap all routing logic in try/except.
+  – raise/propagate ProxyError variants for known issues; on generic Exception convert to Unknown.
+  – When a ProxyError reaches the hook boundary, return JSON from to_json() with matching HTTP status and stop further processing (graceful degradation).
   – For streaming requests, send the error JSON as the first/only chunk and close the stream.
 
 • Ensure proxy.py registers a global exception handler that intercepts ProxyError, serialises via to_json(), and lets LiteLLM bubble the response to the client uniformly.
 
-• Add unit tests asserting:  
-  – ValidationError on malformed body returns 400 + correct JSON.  
-  – UpstreamTimeout surfaces when provider call exceeds timeout.  
+• Add unit tests asserting:
+  – ValidationError on malformed body returns 400 + correct JSON.
+  – UpstreamTimeout surfaces when provider call exceeds timeout.
   – Unknown wraps unexpected errors and yields 500.
 
 • Update README/error-handling section with the standard format and example responses.
@@ -77,4 +77,3 @@ Write step-by-step documentation covering registration, configuration, supported
 ### Description: Establish baseline performance metrics and measure routing overhead to ensure minimal latency impact.
 ### Details:
 Create performance benchmarks: 1) Baseline request latency without routing, 2) Measure routing overhead under 100 RPS load, 3) Set performance regression thresholds (target <2ms p99 overhead), 4) Create scripts/bench.sh with locust or ab for automated testing, 5) Integrate performance checks into CI pipeline.
-

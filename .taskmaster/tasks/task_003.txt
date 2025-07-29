@@ -57,4 +57,3 @@ Create a throwaway script to test: 1) Hook receives full request including metad
 ### Description: Implement comprehensive unit tests for the routing logic as it's developed, ensuring early validation and continuous quality.
 ### Details:
 Write pytest unit tests covering: 1) All routing scenarios (default, background, think, large_context, web_search), 2) Edge cases and error conditions, 3) Fallback behavior when labels are missing, 4) Token count thresholds, 5) Model name matching. Use pytest-mock for external dependencies.
-

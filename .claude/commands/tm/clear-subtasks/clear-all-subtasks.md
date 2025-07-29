@@ -21,7 +21,7 @@ task-master clear-subtasks --all
    - Completed: 15
    - In-progress: 8
    - Pending: 24
-   
+
    Work at risk: ~120 hours
    ```
 

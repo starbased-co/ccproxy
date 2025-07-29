@@ -50,4 +50,3 @@ Ensure all public APIs are documented with clear docstrings. Configure and run d
 ### Description: Write comprehensive migration documentation for users transitioning from claude-code-router to ccproxy.
 ### Details:
 Create MIGRATE.md covering: 1) Environment variable mapping table (CCR_* → CCPROXY_*), 2) Configuration file format changes, 3) Docker-compose migration examples, 4) Breaking changes and workarounds, 5) Deprecation timeline for claude-code-router, 6) Feature parity checklist, 7) Common migration issues and solutions.
-

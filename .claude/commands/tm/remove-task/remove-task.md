@@ -41,12 +41,12 @@ task-master remove-task --id=<id> [-y]
    ━━━━━━━━━━━━━━━━━━
    Task: #5 "Implement authentication" (in-progress)
    Status: 60% complete (~8 hours work)
-   
+
    Will affect:
    - 3 tasks depend on this (will be blocked)
    - Has 4 subtasks (will be deleted)
    - Part of critical path
-   
+
    ⚠️  This action cannot be undone
    ```
 

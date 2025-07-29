@@ -8,7 +8,7 @@ This command helps you get Task Master set up globally on your system.
    ```bash
    # Check if task-master command exists
    which task-master || echo "Task Master not found"
-   
+
    # Check npm global packages
    npm list -g task-master-ai
    ```
@@ -17,10 +17,10 @@ This command helps you get Task Master set up globally on your system.
    ```bash
    # Verify Node.js is installed
    node --version
-   
-   # Verify npm is installed  
+
+   # Verify npm is installed
    npm --version
-   
+
    # Check Node version (need 16+)
    ```
 
@@ -34,7 +34,7 @@ This command helps you get Task Master set up globally on your system.
    ```bash
    # Check version
    task-master --version
-   
+
    # Verify command is available
    which task-master
    ```
@@ -50,7 +50,7 @@ This command helps you get Task Master set up globally on your system.
    ```bash
    # Check current configuration
    task-master models --status
-   
+
    # If no API keys found, guide setup
    echo "You'll need at least one API key:"
    echo "- ANTHROPIC_API_KEY for Claude"
@@ -64,7 +64,7 @@ This command helps you get Task Master set up globally on your system.
    ```bash
    # Create a test PRD
    echo "Build a simple hello world API" > test-prd.txt
-   
+
    # Try parsing it
    task-master parse-prd test-prd.txt -n 3
    ```

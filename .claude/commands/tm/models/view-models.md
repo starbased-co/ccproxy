@@ -18,7 +18,7 @@ task-master models
    - Usage: Primary task generation
 
 2. **Research Provider**
-   - Model ID and name  
+   - Model ID and name
    - API key status
    - Usage: Enhanced research mode
 
@@ -33,7 +33,7 @@ task-master models
 Task Master AI Model Configuration
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Main:     ✅ claude-3-5-sonnet (configured)
-Research: ✅ perplexity-sonar (configured)  
+Research: ✅ perplexity-sonar (configured)
 Fallback: ⚠️  Not configured (optional)
 
 Available Models:

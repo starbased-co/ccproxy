@@ -64,7 +64,7 @@ task-master add-subtask --parent=<id> --task-id=<existing-id>
 /project:tm/add-subtask 5: setup, implement, test
 → Created 3 subtasks:
   #5.1: setup
-  #5.2: implement  
+  #5.2: implement
   #5.3: test
 ```
 

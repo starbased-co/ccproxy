@@ -55,7 +55,7 @@ Recommendations:
 
 Visual dependency analysis:
 ```
-Critical Path: 
+Critical Path:
 #12 → #15 → #23 → #45 → #50 (20 days)
          ↘ #24 → #46 ↗
 

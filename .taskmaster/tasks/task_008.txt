@@ -44,4 +44,3 @@ Add coverage configuration to pytest.ini or pyproject.toml. Set up reporting to 
 ### Description: Set up a continuous integration workflow (e.g., GitHub Actions) to automatically run all tests and coverage checks on push and pull request events.
 ### Details:
 Create a CI configuration file that installs dependencies, runs pytest with coverage, and enforces pass/fail criteria. Ensure results are visible in PRs and that failures block merges.
-

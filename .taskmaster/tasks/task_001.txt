@@ -45,4 +45,3 @@ Install pre-commit, ruff, black, and mypy in the virtual environment. Create a .
 ### Description: Write clear instructions in README.md detailing repository initialization, environment setup, dependency installation, and pre-commit configuration.
 ### Details:
 Include step-by-step commands for each setup phase, explanations for each tool, and troubleshooting tips. Ensure documentation is sufficient for a new contributor to replicate the environment.
-

@@ -10,7 +10,7 @@ Based on your input, I'll help you discover capabilities:
 
 If $ARGUMENTS contains:
 - "start" / "begin" → Show project initialization workflows
-- "manage" / "organize" → Show task management commands  
+- "manage" / "organize" → Show task management commands
 - "automate" / "auto" → Show automation workflows
 - "analyze" / "report" → Show analysis tools
 - "fix" / "problem" → Show troubleshooting commands
@@ -25,7 +25,7 @@ Based on your project state:
 You'll want to start with:
 1. /project:task-master:init <prd-file>
    → Creates tasks from requirements
-   
+
 2. /project:task-master:parse-prd <file>
    → Alternative task generation
 

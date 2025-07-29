@@ -1,2 +1,2 @@
 def main() -> None:
-    print("Hello from ccproxy!")
+    print('Hello from ccproxy!')
