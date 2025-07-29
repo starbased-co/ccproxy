@@ -1,0 +1,80 @@
+# Task ID: 4
+# Title: Integrate Model Routing with LiteLLM Proxy Server
+# Status: pending
+# Dependencies: 3
+# Priority: high
+# Description: Wire up the custom routing hook into LiteLLM's proxy server, ensuring seamless request transformation and provider selection.
+# Details:
+- Register the custom callback class (e.g., CCProxyHandler) in the LiteLLM proxy configuration.
+- Ensure the hook is invoked for all relevant call types (completion, embeddings, etc.).
+- Validate that transformed requests are routed to the correct provider/model as per config.
+- Support streaming and non-streaming responses.
+- Document integration steps for users.
+
+# Test Strategy:
+Integration test with LiteLLM proxy using mock and real provider endpoints. Validate correct routing and transformation for all supported call types.
+
+# Subtasks:
+## 1. Register Custom Routing Hook in LiteLLM Proxy Configuration [pending]
+### Dependencies: None
+### Description: Integrate the custom callback class (e.g., CCProxyHandler) into the LiteLLM proxy server configuration to enable routing logic.
+### Details:
+Modify the LiteLLM proxy configuration file to register the custom routing hook, ensuring it is loaded at proxy startup and available for all incoming requests.
+<info added on 2025-07-29T22:06:37.103Z>
+Add unified error-handling layer:
+
+• Create ccproxy_errors.py with base class ProxyError(msg: str, code: int = 500) exposing  
+  – type (class name), message, code  
+  – to_json() ⇒ {"error": {"type": self.type, "message": self.message, "code": self.code}}
+
+• Implement concrete subclasses:  
+  – UpstreamTimeout(code=504)  
+  – ValidationError(code=400)  
+  – Unknown(code=500)
+
+• Update CCProxyHandler async_pre_call_hook:  
+  – Wrap all routing logic in try/except.  
+  – raise/propagate ProxyError variants for known issues; on generic Exception convert to Unknown.  
+  – When a ProxyError reaches the hook boundary, return JSON from to_json() with matching HTTP status and stop further processing (graceful degradation).  
+  – For streaming requests, send the error JSON as the first/only chunk and close the stream.
+
+• Ensure proxy.py registers a global exception handler that intercepts ProxyError, serialises via to_json(), and lets LiteLLM bubble the response to the client uniformly.
+
+• Add unit tests asserting:  
+  – ValidationError on malformed body returns 400 + correct JSON.  
+  – UpstreamTimeout surfaces when provider call exceeds timeout.  
+  – Unknown wraps unexpected errors and yields 500.
+
+• Update README/error-handling section with the standard format and example responses.
+</info added on 2025-07-29T22:06:37.103Z>
+
+## 2. Ensure Hook Invocation for All Supported Call Types [pending]
+### Dependencies: 4.1
+### Description: Verify that the custom routing hook is triggered for all relevant call types, including completions, embeddings, and any additional supported endpoints.
+### Details:
+Review LiteLLM's proxy server internals and update the integration to guarantee the hook is called for each supported API route.
+
+## 3. Validate Correct Request Transformation and Provider Routing [pending]
+### Dependencies: 4.2
+### Description: Confirm that requests are properly transformed and routed to the correct provider/model according to the configuration and routing logic.
+### Details:
+Test various routing scenarios, including different labels and model selections, to ensure the transformed requests reach the intended provider/model.
+
+## 4. Support Streaming and Non-Streaming Responses [pending]
+### Dependencies: 4.3
+### Description: Implement and verify support for both streaming and non-streaming response modes in the proxy integration.
+### Details:
+Ensure the routing hook and proxy server handle both response types correctly, preserving response format and client expectations.
+
+## 5. Document Integration Steps and Usage for Users [pending]
+### Dependencies: 4.4
+### Description: Create clear documentation outlining the integration process, configuration steps, and usage instructions for end users.
+### Details:
+Write step-by-step documentation covering registration, configuration, supported call types, streaming support, and troubleshooting.
+
+## 6. Implement Performance Benchmarking [pending]
+### Dependencies: 4.3
+### Description: Establish baseline performance metrics and measure routing overhead to ensure minimal latency impact.
+### Details:
+Create performance benchmarks: 1) Baseline request latency without routing, 2) Measure routing overhead under 100 RPS load, 3) Set performance regression thresholds (target <2ms p99 overhead), 4) Create scripts/bench.sh with locust or ab for automated testing, 5) Integrate performance checks into CI pipeline.
+

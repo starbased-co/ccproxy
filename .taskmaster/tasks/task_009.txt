@@ -1,0 +1,53 @@
+# Task ID: 9
+# Title: Write Documentation and Usage Examples
+# Status: pending
+# Dependencies: 1, 2, 3, 4, 5, 6, 7
+# Priority: medium
+# Description: Produce comprehensive documentation covering setup, configuration, extension, and troubleshooting.
+# Details:
+- Write README.md with project overview, setup instructions, and configuration examples.
+- Document all configuration fields, environment variables, and transformation APIs.
+- Provide usage examples for common scenarios and advanced transformations.
+- Add troubleshooting and FAQ sections.
+- Generate API docs using docstrings and tools like mkdocs or sphinx if appropriate.
+
+# Test Strategy:
+Peer review documentation for completeness and clarity. Test setup and usage instructions from scratch.
+
+# Subtasks:
+## 1. Draft Project Overview and Setup Instructions [pending]
+### Dependencies: None
+### Description: Create a README.md that provides a clear project overview, installation steps, and initial setup instructions tailored for new users.
+### Details:
+Summarize the project's purpose, features, and prerequisites. Write step-by-step installation and setup instructions using concise language and active voice. Include configuration examples for common environments.
+
+## 2. Document Configuration Fields, Environment Variables, and APIs [pending]
+### Dependencies: 9.1
+### Description: Produce detailed documentation for all configuration options, environment variables, and transformation APIs, ensuring each field is clearly described.
+### Details:
+List and explain each configuration field and environment variable, including data types, defaults, and usage notes. Document transformation APIs with parameter descriptions and expected behaviors.
+
+## 3. Develop Usage Examples for Common and Advanced Scenarios [pending]
+### Dependencies: 9.2
+### Description: Provide practical usage examples demonstrating typical and advanced use cases, including transformation chaining and custom extensions.
+### Details:
+Write example configurations and code snippets for common scenarios. Include advanced examples such as chaining transformations and registering custom plugins. Use clear, annotated examples to illustrate each case.
+
+## 4. Add Troubleshooting and FAQ Sections [pending]
+### Dependencies: 9.3
+### Description: Create troubleshooting guides and a Frequently Asked Questions (FAQ) section addressing common setup, configuration, and runtime issues.
+### Details:
+Identify likely user problems and error messages. Provide step-by-step troubleshooting steps and concise answers to frequent questions. Reference relevant documentation sections for deeper context.
+
+## 5. Generate and Integrate API Documentation [pending]
+### Dependencies: 9.2
+### Description: Generate API documentation from code docstrings using tools such as mkdocs or sphinx, and integrate it with the main documentation set.
+### Details:
+Ensure all public APIs are documented with clear docstrings. Configure and run documentation generators to produce browsable API docs. Link these docs from the README and other relevant sections.
+
+## 6. Create Migration Guide from claude-code-router [pending]
+### Dependencies: 9.2
+### Description: Write comprehensive migration documentation for users transitioning from claude-code-router to ccproxy.
+### Details:
+Create MIGRATE.md covering: 1) Environment variable mapping table (CCR_* → CCPROXY_*), 2) Configuration file format changes, 3) Docker-compose migration examples, 4) Breaking changes and workarounds, 5) Deprecation timeline for claude-code-router, 6) Feature parity checklist, 7) Common migration issues and solutions.
+
