@@ -1,0 +1,148 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Project Repository and Environment",
+        "description": "Initialize the ccproxy project repository with Python tooling, environment management, and CI/CD setup.",
+        "details": "Use Python 3.11+ for best async support. Initialize with Poetry or pip-tools for dependency management. Set up pre-commit hooks (black, isort, flake8). Configure GitHub Actions for CI (lint, test, coverage). Add .env.example for environment variables (API keys, config paths). Ensure all dependencies are pinned to latest compatible versions. Use pyproject.toml for unified configuration.",
+        "testStrategy": "Verify environment setup by running lint, format, and a sample test in CI. Ensure .env.example is present and all scripts run without error.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement Configuration Manager",
+        "description": "Develop a configuration loader supporting YAML config and environment variable overrides for model routing and proxy settings.",
+        "details": "Use PyYAML (>=6.0) for YAML parsing. Support merging of config.yaml and environment variables (os.environ). Validate schema using pydantic (v2.x) for type safety. Allow hot-reload if config changes. Expose config as a singleton or dependency-injectable object.",
+        "testStrategy": "Unit test config parsing, environment override precedence, and schema validation. Test with malformed and missing configs.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Develop RequestClassifier Module",
+        "description": "Implement request classification logic to assign routing labels based on request context (token count, model, tools, etc.).",
+        "details": "Encapsulate classification logic as a class with a classify(request) method. Use the priority order from the PRD. Accept request as a dict or pydantic model. Make context threshold configurable. Write pure functions for each rule for testability. Prepare for future extensibility (e.g., ML-based classification).",
+        "testStrategy": "Unit test all classification branches with representative request fixtures. Achieve 100% branch coverage.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Implement ModelRouter Component",
+        "description": "Map classification labels to model configurations as defined in the YAML config, supporting dynamic provider/model selection.",
+        "details": "Load model mapping from config. Provide get_model_for_label(label) method. Support fallback logic if preferred model is unavailable. Validate model existence at startup. Prepare for hot-reload if config changes.",
+        "testStrategy": "Unit test label-to-model mapping, fallback behavior, and error handling for missing models.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Build CCProxyHandler as LiteLLM CustomLogger",
+        "description": "Implement the main LiteLLM CustomLogger handler with async_pre_call_hook for context-aware routing and logging.",
+        "details": "Inherit from litellm.integrations.custom_logger.CustomLogger. In async_pre_call_hook, use RequestClassifier to label requests and ModelRouter to set the model. Log routing decisions with structured logging (use structlog or standard logging with JSON formatter). Ensure compatibility with LiteLLM v1.13+ proxy mode. Avoid logging sensitive content. Support both streaming and non-streaming requests.",
+        "testStrategy": "Integration test with LiteLLM proxy, verifying correct model routing and logging output for all request types.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Integrate MetricsCollector for Routing and Performance",
+        "description": "Track routing decisions, performance metrics, and error rates for monitoring and optimization.",
+        "details": "Implement MetricsCollector using Prometheus client (prometheus_client >=0.18) or OpenTelemetry. Expose metrics endpoint (/metrics) for scraping. Track per-label routing counts, latency, error rates, and fallback events. Integrate with CCProxyHandler to record metrics on each request.",
+        "testStrategy": "Unit and integration test metrics emission. Use Prometheus query to verify metrics are updated correctly under simulated load.",
+        "priority": "medium",
+        "dependencies": [
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement Secure API Key and Secrets Management",
+        "description": "Ensure all API keys and secrets are securely loaded from environment variables and never logged or exposed.",
+        "details": "Use python-dotenv for local development. Validate presence of required secrets at startup. Mask secrets in logs and error messages. Enforce HTTPS for all outbound requests using httpx (>=0.27) with verify=True. Document required environment variables.",
+        "testStrategy": "Unit test secret loading and masking. Attempt to log secrets and verify they are redacted. Integration test HTTPS enforcement.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Develop Comprehensive Test Suite",
+        "description": "Achieve >90% code coverage with unit, integration, and performance tests for all core modules and routing logic.",
+        "details": "Use pytest (>=8.0) and pytest-asyncio for async tests. Mock LiteLLM and external APIs. Cover all classification, routing, config, and fallback logic. Add integration tests simulating full request lifecycle. Use coverage.py to enforce coverage threshold. Include performance tests for routing overhead (<10ms per request).",
+        "testStrategy": "Run pytest with coverage. Fail CI if coverage <90%. Benchmark routing latency under load.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Write Documentation and Usage Examples",
+        "description": "Produce user guide, API reference, migration guide, and troubleshooting docs with real-world examples.",
+        "details": "Use MkDocs or Sphinx for documentation site. Include installation, configuration, and migration from claude-code-router. Document all config options, environment variables, and extension points. Provide example YAML configs and request scenarios. Add troubleshooting for common errors.",
+        "testStrategy": "Manual review for completeness and clarity. Validate all code snippets and examples run as documented.",
+        "priority": "medium",
+        "dependencies": [
+          5,
+          8
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Productionize: Performance, Security, and Monitoring Hardening",
+        "description": "Finalize production readiness with benchmarking, rate limiting, abuse prevention, and deployment best practices.",
+        "details": "Benchmark concurrent request handling (use locust or wrk). Implement rate limiting with slowapi or similar. Harden HTTP endpoints (CORS, timeouts, error handling). Document deployment (Dockerfile, k8s manifests). Ensure logging and metrics are production-grade. Prepare for future extensibility (plugin hooks).",
+        "testStrategy": "Run load tests to verify performance targets. Penetration test for security. Review deployment with best practices checklist.",
+        "priority": "medium",
+        "dependencies": [
+          6,
+          7,
+          8,
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-07-29T23:37:48.816Z",
+      "updated": "2025-07-29T23:37:48.816Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
