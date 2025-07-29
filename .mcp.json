@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "gitmcp": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://gitmcp.io/BerriAI/litellm"
+      ]
+    }
+  }
+}

@@ -68,10 +68,10 @@
       },
       {
         "id": 2,
-        "title": "Design and Implement Configuration Loader",
-        "description": "Implement a robust configuration loader supporting YAML and environment variable overrides for ccproxy settings.",
-        "details": "- Use PyYAML (>=6.0) to parse YAML config files.\n- Support environment variable overrides (e.g., CCPROXY_CONTEXT_THRESHOLD).\n- Validate config schema using pydantic (>=2.0) for type safety and error reporting.\n- Ensure backward compatibility with original claude-code-router config fields where relevant.\n- Document configuration options and expected structure.",
-        "testStrategy": "Unit test config loader with valid/invalid YAML, missing fields, and environment variable overrides. Ensure errors are descriptive.",
+        "title": "Design and Implement Configuration Loader for Claude Code Proxy",
+        "description": "Implement a robust configuration loader for ccproxy—the Claude Code–specific proxy that intelligently routes requests to different AI models based on request context. The loader must support YAML files and environment-variable overrides so operators can tweak routing thresholds (e.g., when to use fast vs. powerful models) and other Claude Code–specific options.",
+        "details": "• Use PyYAML (>=6.0) to parse YAML config files.\n• Support environment-variable overrides (e.g., CCPROXY_CONTEXT_THRESHOLD, CCPROXY_FAST_MODEL).\n• Validate config schema with pydantic (>=2.0) for type safety and descriptive errors.\n• Include fields that map Claude Code request contexts (token count, presence of tools, file sizes, etc.) to target models.\n• Maintain backward compatibility with original claude-code-router fields where relevant.\n• Document configuration options, default values, and expected structure, highlighting that ccproxy is not a general LLM proxy but purpose-built for Claude Code.",
+        "testStrategy": "Unit-test the loader with valid/invalid YAML, missing fields, Claude Code–specific overrides, and environment-variable precedence. Confirm that error messages clearly reference Claude Code routing settings.",
         "priority": "high",
         "dependencies": [
           1
@@ -80,65 +80,65 @@
         "subtasks": [
           {
             "id": 1,
-            "title": "Define Configuration Schema with Pydantic",
-            "description": "Design a Pydantic model representing all ccproxy configuration fields, ensuring type safety, validation, and backward compatibility with original claude-code-router config fields.",
+            "title": "Define Configuration Schema with Pydantic for Claude Code Routing",
+            "description": "Design a Pydantic model representing all ccproxy configuration fields used to route Claude Code requests, ensuring type safety, validation, and backward compatibility with original claude-code-router fields.",
             "dependencies": [],
-            "details": "Enumerate all required and optional configuration options, mapping them to Pydantic fields. Include legacy fields for backward compatibility and document any deprecated or renamed fields.",
+            "details": "Enumerate required/optional configuration options (e.g., context_thresholds, fast_model, powerful_model, tool_routing_rules). Include legacy fields for backward compatibility and mark any deprecated or renamed fields.",
             "status": "pending",
-            "testStrategy": "Unit test schema validation with valid and invalid config dictionaries, including legacy field names and types."
+            "testStrategy": "Unit-test schema validation with valid/invalid config dicts, including legacy field names and Claude Code–specific scenarios."
           },
           {
             "id": 2,
             "title": "Implement YAML Configuration File Parsing",
-            "description": "Use PyYAML (>=6.0) to load and parse YAML configuration files, converting them into Python dictionaries for further processing.",
+            "description": "Use PyYAML to load and parse YAML configuration files for ccproxy, converting them into Python dictionaries.",
             "dependencies": [
               "2.1"
             ],
-            "details": "Write a loader function that reads a YAML file, parses its contents, and returns a dictionary. Handle file not found, syntax errors, and empty files gracefully.",
+            "details": "Write a loader function that reads a YAML file, parses its contents, and returns a dictionary. Handle file-not-found, syntax errors, and empty files gracefully.",
             "status": "pending",
-            "testStrategy": "Test with valid YAML, malformed YAML, and missing files. Ensure errors are descriptive and do not crash the loader."
+            "testStrategy": "Test with valid YAML, malformed YAML, and missing files; ensure errors reference configuration for Claude Code routing."
           },
           {
             "id": 3,
             "title": "Support Environment Variable Overrides",
-            "description": "Implement logic to override configuration values from the YAML file with environment variables (e.g., CCPROXY_CONTEXT_THRESHOLD), following a defined precedence order.",
+            "description": "Implement logic to override configuration values from YAML with environment variables (e.g., CCPROXY_FAST_MODEL), following a defined precedence order.",
             "dependencies": [
               "2.2"
             ],
-            "details": "Scan for environment variables matching config fields, convert their values to the correct types, and override the corresponding YAML values. Document the precedence and supported variable names.",
+            "details": "Scan for environment variables matching config fields, convert their values to correct types, and override YAML values. Document precedence and supported variable names relevant to Claude Code routing.",
             "status": "pending",
-            "testStrategy": "Test with various combinations of YAML and environment variables, including type mismatches and missing variables."
+            "testStrategy": "Test with various YAML and environment-variable combinations, including type mismatches and missing variables."
           },
           {
             "id": 4,
             "title": "Integrate Loader and Validate Final Configuration",
-            "description": "Combine YAML parsing and environment variable overrides, then validate the resulting configuration using the Pydantic schema. Ensure errors are clear and actionable.",
+            "description": "Combine YAML parsing and environment-variable overrides, then validate the resulting configuration using the Pydantic schema.",
             "dependencies": [
               "2.3"
             ],
-            "details": "Create a single entry point function that loads the YAML, applies overrides, and validates the result. Raise descriptive errors for missing or invalid fields.",
+            "details": "Create a single entry-point function that loads YAML, applies overrides, and validates the result. Raise descriptive errors for missing or invalid Claude Code routing fields.",
             "status": "pending",
-            "testStrategy": "Test with complete, incomplete, and invalid configurations. Confirm that validation errors are informative and that valid configs load successfully."
+            "testStrategy": "Test with complete, incomplete, and invalid configurations. Confirm that validation errors mention Claude Code routing context."
           },
           {
             "id": 5,
             "title": "Document Configuration Structure and Usage",
-            "description": "Write comprehensive documentation covering all configuration options, expected YAML structure, environment variable overrides, and backward compatibility notes.",
+            "description": "Write comprehensive documentation covering all configuration options, YAML structure, environment-variable overrides, and backward-compatibility notes for Claude Code users.",
             "dependencies": [
               "2.4"
             ],
-            "details": "Provide example YAML files, a table of environment variables, and migration guidance for users of the original claude-code-router config. Include troubleshooting tips for common errors.",
+            "details": "Provide example YAML files, an environment-variable table, and migration guidance from claude-code-router. Include troubleshooting tips specific to Claude Code routing.",
             "status": "pending",
-            "testStrategy": "Review documentation for completeness and clarity. Validate examples by loading them with the implemented loader."
+            "testStrategy": "Review documentation for completeness and clarity. Validate by loading examples with the implemented loader."
           }
         ]
       },
       {
         "id": 3,
-        "title": "Implement Model Routing Logic as LiteLLM Hook",
-        "description": "Reimplement claude-code-router's model selection logic as a LiteLLM call hook, supporting all routing scenarios and labels.",
-        "details": "- Create a Python module (e.g., ccproxy_router.py) implementing the routing logic as per PRD.\n- Use the async_pre_call_hook interface from LiteLLM's custom callback API.\n- Map request context (token count, model, tools, etc.) to routing labels: default, background, think, large_context, web_search.\n- Support optional fields: if a label is not configured, pass through to Anthropic.\n- Ensure logic is easily extensible for future routing rules.\n- Add detailed logging for routing decisions (using LiteLLM's logging facilities).",
-        "testStrategy": "Unit test routing logic with all edge cases (token thresholds, tool presence, model names, missing config). Validate correct label assignment and fallback behavior.",
+        "title": "Implement Claude Code Model Routing Logic as LiteLLM Hook",
+        "description": "Reimplement claude-code-router’s model-selection logic as a LiteLLM async_pre_call_hook that analyzes incoming Claude Code requests and routes them to the most appropriate model (fast vs. powerful, etc.) based on context-aware rules.",
+        "details": "• Create ccproxy_router.py implementing routing logic per PRD.\n• Use LiteLLM’s async_pre_call_hook interface.\n• Analyze Claude Code request context (token count, tool usage, code size, etc.) and map to routing labels: default, background, think, large_context, web_search.\n• If a label or model mapping is not configured, pass through to Anthropic’s default Claude model.\n• Emphasize that ccproxy is tuned for Claude Code usage patterns, not a general LLM proxy.\n• Add detailed logging for routing decisions.",
+        "testStrategy": "Unit-test routing logic with edge cases (token thresholds, tool presence, model names, missing config) to validate correct label assignment and graceful fallback.",
         "priority": "high",
         "dependencies": [
           2
@@ -147,71 +147,71 @@
         "subtasks": [
           {
             "id": 1,
-            "title": "Analyze and Extract Model Routing Logic from claude-code-router",
-            "description": "Review the existing claude-code-router implementation and PRD to extract all model selection and routing rules, including all supported routing scenarios and label mappings.",
+            "title": "Analyze and Extract Claude Code Routing Rules",
+            "description": "Review claude-code-router and PRD to capture all routing rules specific to Claude Code request patterns.",
             "dependencies": [],
-            "details": "Document all routing scenarios, label definitions (default, background, think, large_context, web_search), and the logic for mapping request context (token count, model, tools, etc.) to these labels. Identify any optional or fallback behaviors.",
+            "details": "Document routing scenarios, label definitions, and mapping logic based on Claude Code context (e.g., code length, background tasks). Identify optional/fallback behaviors.",
             "status": "pending",
-            "testStrategy": "Cross-reference extracted logic with PRD and existing unit tests to ensure completeness and correctness."
+            "testStrategy": "Cross-reference extracted rules with PRD and existing tests to ensure completeness."
           },
           {
             "id": 2,
             "title": "Design Extensible Routing Logic API for LiteLLM Hook",
-            "description": "Design a Python API that encapsulates the routing logic in a modular and extensible way, suitable for integration as a LiteLLM async_pre_call_hook.",
+            "description": "Design a modular Python API that encapsulates Claude Code routing logic for integration as a LiteLLM async_pre_call_hook.",
             "dependencies": [
               "3.1"
             ],
-            "details": "Define clear interfaces for routing rule evaluation, label assignment, and fallback handling. Ensure the design allows for easy addition of future routing rules and labels.",
+            "details": "Define interfaces for rule evaluation, label assignment, and fallback handling so new Claude Code–specific rules can be added easily.",
             "status": "pending",
-            "testStrategy": "Review API design for extensibility and alignment with LiteLLM's callback requirements. Validate with example extension scenarios."
+            "testStrategy": "Review API design for extensibility within Claude Code context."
           },
           {
             "id": 3,
-            "title": "Implement Routing Logic as async_pre_call_hook in ccproxy_router.py",
-            "description": "Develop the ccproxy_router.py module implementing the extracted routing logic as a LiteLLM async_pre_call_hook, modifying the request payload as needed.",
+            "title": "Implement Routing Logic as async_pre_call_hook",
+            "description": "Develop ccproxy_router.py implementing extracted Claude Code routing logic as a LiteLLM async_pre_call_hook.",
             "dependencies": [
               "3.2"
             ],
-            "details": "Use the async_pre_call_hook interface to intercept and modify requests before LLM calls. Map request context to routing labels, support optional label configuration, and ensure fallback to Anthropic when labels are missing.",
+            "details": "Intercept and modify requests before LLM calls. Assign routing labels, handle optional configuration, and fallback when labels are missing.",
             "status": "pending",
-            "testStrategy": "Unit test the hook with diverse request payloads, covering all routing scenarios, label assignments, and fallback cases."
+            "testStrategy": "Unit-test with diverse request payloads covering all Claude Code scenarios."
           },
           {
             "id": 4,
             "title": "Integrate Detailed Logging for Routing Decisions",
-            "description": "Add comprehensive logging to the routing logic using LiteLLM's logging facilities, capturing all routing decisions and relevant context.",
+            "description": "Add comprehensive logging to capture Claude Code routing decisions using LiteLLM facilities.",
             "dependencies": [
               "3.3"
             ],
-            "details": "Log input parameters, routing decisions, label assignments, and fallback events. Ensure logs are structured and compatible with LiteLLM observability features.",
+            "details": "Log input parameters, routing decisions, assigned models, and fallback events.",
             "status": "pending",
-            "testStrategy": "Simulate routing events and verify that logs capture all required details for debugging and auditability."
+            "testStrategy": "Simulate routing events and verify logs contain required context."
           },
           {
             "id": 5,
-            "title": "Validate Extensibility and Maintainability of Routing Logic",
-            "description": "Review and test the implementation to ensure the routing logic is easily extensible for future rules and labels, with clear documentation and modular structure.",
+            "title": "Validate Extensibility and Maintainability",
+            "description": "Ensure routing logic is easily extendable for future Claude Code rules and labels.",
             "dependencies": [
               "3.4"
             ],
-            "details": "Attempt to add a new routing rule or label as a test. Update documentation to reflect extension points and usage patterns.",
+            "details": "Attempt to add a sample new rule/label. Update documentation accordingly.",
             "status": "pending",
-            "testStrategy": "Perform code review and extension exercises. Validate that new rules can be added with minimal changes and that documentation is clear."
+            "testStrategy": "Perform code review and extension exercise."
           },
           {
             "id": 6,
             "title": "Validate LiteLLM async_pre_call_hook Behavior (Spike)",
-            "description": "Build minimal proof-of-concept to validate LiteLLM hook behavior before full implementation. This de-risks the entire project's core dependency.",
-            "details": "Create a throwaway script to test: 1) Hook receives full request including metadata, 2) Streaming/non-streaming modes work correctly, 3) Error propagation from hook to client, 4) Model modification capabilities, 5) Concurrency under load (1k+ tasks). Freeze LiteLLM version after validation.",
+            "description": "Build a PoC to validate LiteLLM hook behavior before full Claude Code–specific implementation.",
+            "details": "Create a script to test hook reception, streaming/non-streaming modes, error propagation, model modification, and concurrency under load.",
             "status": "pending",
             "dependencies": [],
             "parentTaskId": 3
           },
           {
             "id": 7,
-            "title": "Write Unit Tests for Routing Logic",
-            "description": "Implement comprehensive unit tests for the routing logic as it's developed, ensuring early validation and continuous quality.",
-            "details": "Write pytest unit tests covering: 1) All routing scenarios (default, background, think, large_context, web_search), 2) Edge cases and error conditions, 3) Fallback behavior when labels are missing, 4) Token count thresholds, 5) Model name matching. Use pytest-mock for external dependencies.",
+            "title": "Write Unit Tests for Claude Code Routing",
+            "description": "Implement comprehensive pytest unit tests for Claude Code routing logic.",
+            "details": "Cover scenarios: default, background, think, large_context, web_search, edge cases, error conditions, and fallback behavior.",
             "status": "pending",
             "dependencies": [
               "3.3"
@@ -222,10 +222,10 @@
       },
       {
         "id": 4,
-        "title": "Integrate Model Routing with LiteLLM Proxy Server",
-        "description": "Wire up the custom routing hook into LiteLLM's proxy server, ensuring seamless request transformation and provider selection.",
-        "details": "- Register the custom callback class (e.g., CCProxyHandler) in the LiteLLM proxy configuration.\n- Ensure the hook is invoked for all relevant call types (completion, embeddings, etc.).\n- Validate that transformed requests are routed to the correct provider/model as per config.\n- Support streaming and non-streaming responses.\n- Document integration steps for users.",
-        "testStrategy": "Integration test with LiteLLM proxy using mock and real provider endpoints. Validate correct routing and transformation for all supported call types.",
+        "title": "Integrate Claude Code Routing with LiteLLM Proxy Server",
+        "description": "Wire the custom Claude Code routing hook into LiteLLM’s proxy server so ccproxy seamlessly transforms and routes Claude Code requests to appropriate models.",
+        "details": "• Register CCProxyHandler (Claude Code-specific) in LiteLLM proxy config.\n• Ensure hook is invoked for completions, embeddings, and other Claude Code endpoints.\n• Validate transformed requests reach the correct model as configured for Claude Code use cases.\n• Support streaming and non-streaming responses.\n• Provide user documentation emphasizing Claude Code focus.",
+        "testStrategy": "Integration-test with LiteLLM proxy (mock/real endpoints) to validate Claude Code routing for all call types.",
         "priority": "high",
         "dependencies": [
           3
@@ -235,61 +235,61 @@
           {
             "id": 1,
             "title": "Register Custom Routing Hook in LiteLLM Proxy Configuration",
-            "description": "Integrate the custom callback class (e.g., CCProxyHandler) into the LiteLLM proxy server configuration to enable routing logic.",
+            "description": "Integrate CCProxyHandler (Claude Code focused) into LiteLLM proxy configuration.",
             "dependencies": [],
-            "details": "Modify the LiteLLM proxy configuration file to register the custom routing hook, ensuring it is loaded at proxy startup and available for all incoming requests.\n<info added on 2025-07-29T22:06:37.103Z>\nAdd unified error-handling layer:\n\n• Create ccproxy_errors.py with base class ProxyError(msg: str, code: int = 500) exposing  \n  – type (class name), message, code  \n  – to_json() ⇒ {\"error\": {\"type\": self.type, \"message\": self.message, \"code\": self.code}}\n\n• Implement concrete subclasses:  \n  – UpstreamTimeout(code=504)  \n  – ValidationError(code=400)  \n  – Unknown(code=500)\n\n• Update CCProxyHandler async_pre_call_hook:  \n  – Wrap all routing logic in try/except.  \n  – raise/propagate ProxyError variants for known issues; on generic Exception convert to Unknown.  \n  – When a ProxyError reaches the hook boundary, return JSON from to_json() with matching HTTP status and stop further processing (graceful degradation).  \n  – For streaming requests, send the error JSON as the first/only chunk and close the stream.\n\n• Ensure proxy.py registers a global exception handler that intercepts ProxyError, serialises via to_json(), and lets LiteLLM bubble the response to the client uniformly.\n\n• Add unit tests asserting:  \n  – ValidationError on malformed body returns 400 + correct JSON.  \n  – UpstreamTimeout surfaces when provider call exceeds timeout.  \n  – Unknown wraps unexpected errors and yields 500.\n\n• Update README/error-handling section with the standard format and example responses.\n</info added on 2025-07-29T22:06:37.103Z>",
+            "details": "Modify the proxy configuration to load CCProxyHandler at startup.\n<info added on 2025-07-29T22:06:37.103Z>\nAdd unified error-handling layer … (unchanged)\n</info added on 2025-07-29T22:06:37.103Z>",
             "status": "pending",
-            "testStrategy": "Start the LiteLLM proxy with the updated configuration and verify that the custom callback is invoked for test requests."
+            "testStrategy": "Start proxy and verify hook invocation on Claude Code requests."
           },
           {
             "id": 2,
             "title": "Ensure Hook Invocation for All Supported Call Types",
-            "description": "Verify that the custom routing hook is triggered for all relevant call types, including completions, embeddings, and any additional supported endpoints.",
+            "description": "Verify CCProxyHandler triggers for completions, embeddings, etc., used by Claude Code.",
             "dependencies": [
               "4.1"
             ],
-            "details": "Review LiteLLM's proxy server internals and update the integration to guarantee the hook is called for each supported API route.",
+            "details": "Review LiteLLM internals and ensure coverage of each API route.",
             "status": "pending",
-            "testStrategy": "Send test requests for each call type and confirm via logs or debugging that the hook executes as expected."
+            "testStrategy": "Send test requests and confirm hook execution via logs."
           },
           {
             "id": 3,
             "title": "Validate Correct Request Transformation and Provider Routing",
-            "description": "Confirm that requests are properly transformed and routed to the correct provider/model according to the configuration and routing logic.",
+            "description": "Confirm requests are transformed and routed to the correct model per Claude Code routing rules.",
             "dependencies": [
               "4.2"
             ],
-            "details": "Test various routing scenarios, including different labels and model selections, to ensure the transformed requests reach the intended provider/model.",
+            "details": "Test scenarios with different labels and model selections.",
             "status": "pending",
-            "testStrategy": "Use integration tests with mock and real provider endpoints to verify routing accuracy for all supported scenarios."
+            "testStrategy": "Integration tests with mock/real endpoints."
           },
           {
             "id": 4,
             "title": "Support Streaming and Non-Streaming Responses",
-            "description": "Implement and verify support for both streaming and non-streaming response modes in the proxy integration.",
+            "description": "Ensure ccproxy handles both response modes for Claude Code clients.",
             "dependencies": [
               "4.3"
             ],
-            "details": "Ensure the routing hook and proxy server handle both response types correctly, preserving response format and client expectations.",
+            "details": "Validate response format and client expectations.",
             "status": "pending",
-            "testStrategy": "Test streaming and non-streaming requests for all supported call types, validating correct behavior and response delivery."
+            "testStrategy": "Test streaming/non-streaming request flows."
           },
           {
             "id": 5,
-            "title": "Document Integration Steps and Usage for Users",
-            "description": "Create clear documentation outlining the integration process, configuration steps, and usage instructions for end users.",
+            "title": "Document Integration Steps and Usage",
+            "description": "Create documentation for integrating ccproxy with LiteLLM proxy for Claude Code.",
             "dependencies": [
               "4.4"
             ],
-            "details": "Write step-by-step documentation covering registration, configuration, supported call types, streaming support, and troubleshooting.",
+            "details": "Step-by-step guide covering registration, configuration, streaming support, troubleshooting.",
             "status": "pending",
-            "testStrategy": "Review documentation for completeness and clarity; have a user follow the guide to perform the integration successfully."
+            "testStrategy": "Peer review documentation."
           },
           {
             "id": 6,
             "title": "Implement Performance Benchmarking",
-            "description": "Establish baseline performance metrics and measure routing overhead to ensure minimal latency impact.",
-            "details": "Create performance benchmarks: 1) Baseline request latency without routing, 2) Measure routing overhead under 100 RPS load, 3) Set performance regression thresholds (target <2ms p99 overhead), 4) Create scripts/bench.sh with locust or ab for automated testing, 5) Integrate performance checks into CI pipeline.",
+            "description": "Measure routing overhead to ensure minimal latency impact for Claude Code users.",
+            "details": "Benchmark baseline vs. routing overhead (<2 ms p99).",
             "status": "pending",
             "dependencies": [
               "4.3"
@@ -300,10 +300,10 @@
       },
       {
         "id": 5,
-        "title": "Implement Advanced Transformation Capabilities",
-        "description": "Enable complex request/response transformations beyond basic routing, supporting chaining and composability of transformations.",
-        "details": "- Design a transformation pipeline allowing multiple transformations to be chained (e.g., via a list of functions or classes).\n- Implement at least one advanced transformation (e.g., request rewriting, response post-processing, tool augmentation).\n- Ensure transformations are composable and order-preserving.\n- Provide a mechanism for users to register custom transformations via config or plugin interface.\n- Document transformation API and usage examples.",
-        "testStrategy": "Unit and integration test transformation chaining with various combinations. Validate correct order, composability, and error handling.",
+        "title": "Implement Advanced Transformation Capabilities for Claude Code",
+        "description": "Enable complex request/response transformations beyond basic routing, supporting chaining and composability tailored to Claude Code workflows.",
+        "details": "• Design a transformation pipeline that can chain multiple operations on Claude Code requests/responses.\n• Implement at least one advanced transformation (e.g., auto-inserting code-analysis tools for large files).\n• Ensure order-preserving composability.\n• Provide a mechanism for users to register custom transformations via config or plugins.\n• Document API and Claude Code usage examples.",
+        "testStrategy": "Unit/integration test transformation chaining with various combinations and Claude Code scenarios.",
         "priority": "medium",
         "dependencies": [
           4
@@ -313,67 +313,67 @@
           {
             "id": 1,
             "title": "Design Transformation Pipeline Architecture",
-            "description": "Define and implement a pipeline structure that allows multiple request/response transformations to be chained in a specific order, ensuring composability and maintainability.",
+            "description": "Define a pipeline that chains transformations on Claude Code requests/responses.",
             "dependencies": [],
-            "details": "Select an appropriate pipeline pattern (e.g., middleware chain or function/class sequence) to enable ordered chaining of transformations. Ensure the design supports both synchronous and asynchronous operations, and can be easily extended with new transformation types.",
+            "details": "Use middleware or sequence pattern supporting sync/async operations.",
             "status": "pending",
-            "testStrategy": "Unit test pipeline with mock transformations to verify correct chaining, order preservation, and error propagation."
+            "testStrategy": "Unit test with mock transformations."
           },
           {
             "id": 2,
             "title": "Implement Core Transformation Interfaces and Base Classes",
-            "description": "Develop abstract interfaces or base classes for transformations, establishing a consistent contract for input/output and chaining.",
+            "description": "Create abstract interfaces/base classes for transformations.",
             "dependencies": [
               "5.1"
             ],
-            "details": "Define clear interfaces or abstract base classes for transformations, specifying required methods (e.g., transform(request), transform(response)). Ensure compatibility with the pipeline architecture and support for both request and response flows.",
+            "details": "Define transform_request and transform_response methods compatible with Claude Code payloads.",
             "status": "pending",
-            "testStrategy": "Unit test interface compliance and chaining with sample transformation subclasses."
+            "testStrategy": "Unit test interface compliance."
           },
           {
             "id": 3,
             "title": "Develop Advanced Transformation Modules",
-            "description": "Implement at least one advanced transformation module, such as request rewriting, response post-processing, or tool augmentation, demonstrating the pipeline's capabilities.",
+            "description": "Implement at least one advanced transformation relevant to Claude Code (e.g., code snippet summarization).",
             "dependencies": [
               "5.2"
             ],
-            "details": "Choose and implement advanced transformation(s) that go beyond basic routing, such as modifying request payloads, enriching responses, or integrating external tools. Ensure these modules are compatible with the pipeline and composable with other transformations.",
+            "details": "Ensure compatibility with pipeline.",
             "status": "pending",
-            "testStrategy": "Integration test advanced transformations within the pipeline, verifying correct behavior and interaction with other modules."
+            "testStrategy": "Integration test within pipeline."
           },
           {
             "id": 4,
             "title": "Enable User Registration of Custom Transformations",
-            "description": "Provide a mechanism for users to register and configure custom transformations via configuration files or a plugin interface.",
+            "description": "Allow users to register custom Claude Code transformations via config/plugins.",
             "dependencies": [
               "5.2"
             ],
-            "details": "Design and implement a registration system that allows users to add custom transformation classes or functions through configuration or plugin discovery. Ensure user-defined transformations are loaded, validated, and integrated into the pipeline at runtime.",
+            "details": "Design registration system to load user-defined classes at runtime.",
             "status": "pending",
-            "testStrategy": "Test registration and execution of user-supplied transformations, including error handling for invalid or misconfigured modules."
+            "testStrategy": "Test registration and execution of user transformations."
           },
           {
             "id": 5,
-            "title": "Document Transformation API and Provide Usage Examples",
-            "description": "Create comprehensive documentation for the transformation pipeline, interfaces, registration mechanism, and usage examples for both built-in and custom transformations.",
+            "title": "Document Transformation API and Examples",
+            "description": "Document pipeline architecture, registration, and examples for Claude Code.",
             "dependencies": [
               "5.1",
               "5.2",
               "5.3",
               "5.4"
             ],
-            "details": "Write API documentation covering pipeline architecture, transformation interfaces, registration/configuration process, and example use cases. Include code samples and best practices for extending and composing transformations.",
+            "details": "Include code samples and best practices.",
             "status": "pending",
-            "testStrategy": "Review documentation for completeness and clarity. Validate examples by running them in a test environment."
+            "testStrategy": "Review documentation and validate examples."
           }
         ]
       },
       {
         "id": 6,
-        "title": "Implement Observability, Logging, and Metrics",
-        "description": "Add comprehensive logging, monitoring, and metrics for transformation events and performance, leveraging LiteLLM's observability features.",
-        "details": "- Use LiteLLM's built-in monitoring and logging hooks (log_transformations, metrics_enabled).\n- Log all routing decisions, transformation steps, and errors with context.\n- Track metrics such as transformation latency, error rates, and slow transformation events (configurable threshold).\n- Integrate with Prometheus or OpenTelemetry if supported by LiteLLM for external monitoring.\n- Document observability setup and log formats.",
-        "testStrategy": "Simulate various request scenarios and verify logs/metrics are emitted as expected. Test slow transformation threshold triggers.",
+        "title": "Implement Observability, Logging, and Metrics for Claude Code Routing",
+        "description": "Add comprehensive logging, monitoring, and metrics for Claude Code routing and transformation events, leveraging LiteLLM’s observability features.",
+        "details": "• Enable LiteLLM logging/monitoring hooks.\n• Log routing decisions, transformation steps, and errors with Claude Code context.\n• Track metrics like routing latency, error rates, slow transformations, and model-selection distribution.\n• Integrate with Prometheus/OpenTelemetry if supported.\n• Document observability setup.",
+        "testStrategy": "Simulate Claude Code requests and verify logs/metrics.",
         "priority": "medium",
         "dependencies": [
           4
@@ -383,66 +383,66 @@
           {
             "id": 1,
             "title": "Enable and Configure LiteLLM Logging and Monitoring Hooks",
-            "description": "Activate LiteLLM's built-in logging and monitoring hooks (such as log_transformations and metrics_enabled) to capture transformation events and performance data.",
+            "description": "Activate LiteLLM hooks to capture Claude Code transformation events.",
             "dependencies": [],
-            "details": "Set up LiteLLM's predefined callbacks for logging and monitoring by configuring environment variables and specifying the desired logging backends (e.g., MLflow, Langfuse, Helicone, Lunary). Ensure hooks are enabled for all relevant transformation events.",
+            "details": "Configure backends (e.g., Langfuse, Helicone).",
             "status": "pending",
-            "testStrategy": "Trigger transformation events and verify that logs and metrics are emitted to the configured backends."
+            "testStrategy": "Trigger events and verify output."
           },
           {
             "id": 2,
-            "title": "Implement Contextual Logging for Routing, Transformations, and Errors",
-            "description": "Log all routing decisions, transformation steps, and errors with sufficient context to enable traceability and debugging.",
+            "title": "Implement Contextual Logging",
+            "description": "Log routing decisions, transformation steps, and errors with Claude Code context.",
             "dependencies": [
               "6.1"
             ],
-            "details": "Instrument the code to log detailed information for each routing decision, transformation step, and error, including relevant context such as input parameters, model names, and error messages. Use LiteLLM's logging hooks and custom callbacks as needed.",
+            "details": "Include input parameters such as file sizes, tool usage.",
             "status": "pending",
-            "testStrategy": "Simulate various routing and transformation scenarios, including error cases, and verify that logs contain the expected contextual information."
+            "testStrategy": "Simulate scenarios and inspect logs."
           },
           {
             "id": 3,
-            "title": "Track and Emit Key Metrics for Transformations",
-            "description": "Collect and emit metrics such as transformation latency, error rates, and slow transformation events (with a configurable threshold).",
+            "title": "Track and Emit Key Metrics",
+            "description": "Record metrics like routing latency and slow transformation events.",
             "dependencies": [
               "6.1"
             ],
-            "details": "Use LiteLLM's metrics hooks or custom callbacks to record metrics for each transformation event. Implement logic to detect and flag slow transformations based on a configurable latency threshold.",
+            "details": "Detect slow events based on configurable threshold.",
             "status": "pending",
-            "testStrategy": "Run transformations with varying latencies and error rates, and verify that metrics are accurately tracked and slow events are flagged."
+            "testStrategy": "Run transformations with varying latencies."
           },
           {
             "id": 4,
-            "title": "Integrate with External Observability Tools (Prometheus/OpenTelemetry)",
-            "description": "Integrate LiteLLM with external observability platforms such as Prometheus or OpenTelemetry for centralized monitoring and alerting.",
+            "title": "Integrate with External Observability Tools",
+            "description": "Export metrics/traces to Prometheus or OpenTelemetry.",
             "dependencies": [
               "6.3"
             ],
-            "details": "Follow LiteLLM and OpenTelemetry integration guides to export metrics and traces to supported external systems. Configure exporters and environment variables as required for the chosen observability backend.",
+            "details": "Follow integration guides.",
             "status": "pending",
-            "testStrategy": "Verify that metrics and traces from LiteLLM are visible and queryable in the external observability platform."
+            "testStrategy": "Verify metrics visibility externally."
           },
           {
             "id": 5,
             "title": "Document Observability Setup and Log Formats",
-            "description": "Create comprehensive documentation for the observability setup, including configuration steps, log formats, and metric definitions.",
+            "description": "Document logging/metrics setup for Claude Code routing.",
             "dependencies": [
               "6.2",
               "6.3",
               "6.4"
             ],
-            "details": "Document how to enable and configure logging, monitoring, and metrics in LiteLLM, including integration with external tools. Provide examples of log entries and metric outputs, and explain how to interpret them.",
+            "details": "Provide examples and interpretation guidance.",
             "status": "pending",
-            "testStrategy": "Review documentation for completeness and clarity. Have a peer follow the documentation to set up observability and confirm expected outputs."
+            "testStrategy": "Review documentation and follow setup."
           }
         ]
       },
       {
         "id": 7,
-        "title": "Implement Security and API Key Management",
-        "description": "Ensure secure handling of API keys and sensitive configuration, leveraging LiteLLM's security best practices.",
-        "details": "- Use LiteLLM's UserAPIKeyAuth for API key validation.\n- Store sensitive config (API keys) in environment variables or secure vaults (e.g., HashiCorp Vault, AWS Secrets Manager) as per deployment best practices.\n- Enforce HTTPS for all external API calls.\n- Document security model and key management procedures.",
-        "testStrategy": "Test with valid/invalid API keys, attempt unauthorized access, and verify secure handling of secrets in logs/config.",
+        "title": "Implement Security and API Key Management for Claude Code Proxy",
+        "description": "Ensure secure handling of API keys and sensitive configuration for ccproxy, following LiteLLM security best practices.",
+        "details": "• Use LiteLLM UserAPIKeyAuth for request validation.\n• Store secrets in env vars or secure vaults.\n• Enforce HTTPS for all external API calls.\n• Document security model and key-management procedures, noting Claude Code specificity.",
+        "testStrategy": "Test with valid/invalid keys, unauthorized access attempts, and secret handling.",
         "priority": "high",
         "dependencies": [
           1,
@@ -452,68 +452,68 @@
         "subtasks": [
           {
             "id": 1,
-            "title": "Integrate LiteLLM UserAPIKeyAuth for API Key Validation",
-            "description": "Implement LiteLLM's UserAPIKeyAuth mechanism to validate API keys for all incoming requests, ensuring only authorized users can access the service.",
+            "title": "Integrate UserAPIKeyAuth",
+            "description": "Validate API keys for Claude Code requests.",
             "dependencies": [],
-            "details": "Configure the LiteLLM proxy to require API key authentication using UserAPIKeyAuth. Ensure that invalid or missing keys result in immediate rejection of requests.",
+            "details": "Configure proxy to require authentication.",
             "status": "pending",
-            "testStrategy": "Test with valid and invalid API keys, and attempt unauthorized access to verify correct enforcement of authentication."
+            "testStrategy": "Test valid/invalid keys."
           },
           {
             "id": 2,
             "title": "Secure Storage of API Keys and Sensitive Configuration",
-            "description": "Store all API keys and sensitive configuration in environment variables or secure vaults, following best practices for secret management.",
+            "description": "Store secrets in env vars or vaults.",
             "dependencies": [
               "7.1"
             ],
-            "details": "Leverage environment variables or integrate with secure vault solutions such as HashiCorp Vault or AWS Secrets Manager to prevent hardcoding secrets in code or configuration files.",
+            "details": "Integrate with HashiCorp Vault or AWS Secrets Manager.",
             "status": "pending",
-            "testStrategy": "Verify that no sensitive data is present in code or config files and that secrets are correctly loaded from secure sources at runtime."
+            "testStrategy": "Verify no secrets in code/config."
           },
           {
             "id": 3,
             "title": "Enforce HTTPS for All External API Calls",
-            "description": "Ensure all external API communications use HTTPS to protect data in transit and prevent interception of sensitive information.",
+            "description": "Guarantee encrypted traffic.",
             "dependencies": [
               "7.2"
             ],
-            "details": "Configure the application and any HTTP clients to reject non-HTTPS endpoints. Validate that all outgoing requests to external APIs are encrypted.",
+            "details": "Reject non-HTTPS endpoints.",
             "status": "pending",
-            "testStrategy": "Attempt to make API calls over HTTP and confirm they are blocked or redirected to HTTPS. Use network inspection tools to verify encryption."
+            "testStrategy": "Attempt HTTP calls and ensure blockage."
           },
           {
             "id": 4,
-            "title": "Implement API Key Rotation and Monitoring Procedures",
-            "description": "Establish processes for regular API key rotation and monitor API usage for anomalies, leveraging LiteLLM's built-in monitoring tools.",
+            "title": "Implement API Key Rotation and Monitoring",
+            "description": "Establish rotation schedule and monitoring.",
             "dependencies": [
               "7.2"
             ],
-            "details": "Define a rotation schedule (e.g., quarterly) and automate key updates where possible. Set up monitoring to track API usage patterns and detect unauthorized access attempts.",
+            "details": "Automate key updates and track usage anomalies.",
             "status": "pending",
-            "testStrategy": "Rotate API keys and confirm continued secure operation. Simulate abnormal usage to verify monitoring and alerting mechanisms."
+            "testStrategy": "Rotate keys and simulate misuse."
           },
           {
             "id": 5,
             "title": "Document Security Model and Key Management Procedures",
-            "description": "Create comprehensive documentation detailing the security architecture, API key management lifecycle, and operational procedures for secure configuration.",
+            "description": "Document security architecture for ccproxy.",
             "dependencies": [
               "7.1",
               "7.2",
               "7.3",
               "7.4"
             ],
-            "details": "Document authentication flow, secret storage mechanisms, HTTPS enforcement, key rotation policy, and incident response steps. Include configuration examples and compliance notes.",
+            "details": "Include auth flow, secret storage, HTTPS enforcement, rotation policy, and incident response.",
             "status": "pending",
-            "testStrategy": "Review documentation for completeness and clarity. Validate that it enables new team members to understand and follow security best practices."
+            "testStrategy": "Review documentation for clarity."
           }
         ]
       },
       {
         "id": 8,
-        "title": "Develop Comprehensive Unit and Integration Tests",
-        "description": "Achieve >90% test coverage for all core modules, including routing, transformation, and error handling.",
-        "details": "- Use pytest (>=8.0) for unit and integration tests.\n- Mock external API calls and LiteLLM interfaces where appropriate.\n- Cover all edge cases, error paths, and configuration permutations.\n- Integrate coverage.py for coverage reporting.\n- Add CI workflow (e.g., GitHub Actions) to run tests on push/PR.",
-        "testStrategy": "Run 'pytest --cov' and ensure >90% coverage. Validate tests fail on regressions or unhandled cases.",
+        "title": "Develop Comprehensive Tests for Claude Code Proxy",
+        "description": "Achieve >90 % coverage across routing, transformation, and error handling modules tuned for Claude Code.",
+        "details": "• Use pytest (>=8.0) for unit/integration tests.\n• Mock external API calls and LiteLLM interfaces.\n• Cover Claude Code edge cases, error paths, and configuration permutations.\n• Integrate coverage.py and add CI enforcement.",
+        "testStrategy": "Run ‘pytest --cov’; ensure >90 % coverage and failures on regressions.",
         "priority": "high",
         "dependencies": [
           3,
@@ -527,65 +527,65 @@
           {
             "id": 1,
             "title": "Design Test Structure and Organize Test Suites",
-            "description": "Establish a clear directory and file structure separating unit and integration tests for all core modules, following the testing pyramid and grouping by functionality (routing, transformation, error handling).",
+            "description": "Organize unit/integration tests for Claude Code modules.",
             "dependencies": [],
-            "details": "Create a test/ directory with subfolders for unit and integration tests. Ensure each core module has corresponding test files. Use naming conventions and grouping to enhance clarity and maintainability.",
+            "details": "Create test directory hierarchy by functionality (routing, transformation, errors).",
             "status": "pending",
-            "testStrategy": "Verify that all modules have associated test files and that tests are discoverable and runnable by pytest."
+            "testStrategy": "Ensure tests are discoverable and runnable."
           },
           {
             "id": 2,
             "title": "Implement Unit Tests with Mocking and Edge Case Coverage",
-            "description": "Write unit tests for each core module, mocking external API calls and LiteLLM interfaces as needed. Ensure all edge cases, error paths, and configuration permutations are tested.",
+            "description": "Write unit tests for each Claude Code module.",
             "dependencies": [
               "8.1"
             ],
-            "details": "Use pytest and pytest-mock to isolate units under test. Parametrize tests to cover a wide range of inputs and configurations. Focus on fast, independent tests that validate individual functions and classes.",
+            "details": "Mock external dependencies and parametrize inputs.",
             "status": "pending",
-            "testStrategy": "Run 'pytest' and confirm all unit tests pass. Use coverage reports to ensure each function and branch is exercised."
+            "testStrategy": "Run pytest; verify coverage per module."
           },
           {
             "id": 3,
-            "title": "Develop Integration Tests for Core Module Interactions",
-            "description": "Create integration tests that validate interactions between modules (e.g., routing and transformation), simulating realistic workflows and error scenarios.",
+            "title": "Develop Integration Tests for Module Interactions",
+            "description": "Test end-to-end interactions for Claude Code flows.",
             "dependencies": [
               "8.1"
             ],
-            "details": "Set up integration test fixtures to mimic real application flows. Mock only external dependencies, allowing internal modules to interact. Include tests for error propagation and recovery.",
+            "details": "Simulate realistic workflows and error scenarios.",
             "status": "pending",
-            "testStrategy": "Run integration tests and verify correct behavior across module boundaries, including error handling and configuration effects."
+            "testStrategy": "Run integration tests and verify behavior."
           },
           {
             "id": 4,
-            "title": "Integrate coverage.py and Enforce Coverage Thresholds",
-            "description": "Configure coverage.py with pytest to measure code coverage, and enforce a >90% threshold for all core modules.",
+            "title": "Integrate coverage.py and Enforce Thresholds",
+            "description": "Configure coverage enforcement (>90 %).",
             "dependencies": [
               "8.2",
               "8.3"
             ],
-            "details": "Add coverage configuration to pytest.ini or pyproject.toml. Set up reporting to highlight uncovered lines and branches. Fail the test suite if coverage drops below the required threshold.",
+            "details": "Fail CI if coverage below threshold.",
             "status": "pending",
-            "testStrategy": "Run 'pytest --cov' and confirm that coverage reports show >90% for all targeted modules. Validate that the suite fails if coverage is insufficient."
+            "testStrategy": "Run tests and validate enforcement."
           },
           {
             "id": 5,
             "title": "Automate Test Execution with CI Workflow",
-            "description": "Set up a continuous integration workflow (e.g., GitHub Actions) to automatically run all tests and coverage checks on push and pull request events.",
+            "description": "Set up GitHub Actions to run tests on push/PR.",
             "dependencies": [
               "8.4"
             ],
-            "details": "Create a CI configuration file that installs dependencies, runs pytest with coverage, and enforces pass/fail criteria. Ensure results are visible in PRs and that failures block merges.",
+            "details": "Install deps, run pytest with coverage, enforce thresholds.",
             "status": "pending",
-            "testStrategy": "Trigger CI runs on code changes and verify that tests and coverage checks execute automatically, failing on regressions or coverage drops."
+            "testStrategy": "Trigger CI and verify automated checks."
           }
         ]
       },
       {
         "id": 9,
-        "title": "Write Documentation and Usage Examples",
-        "description": "Produce comprehensive documentation covering setup, configuration, extension, and troubleshooting.",
-        "details": "- Write README.md with project overview, setup instructions, and configuration examples.\n- Document all configuration fields, environment variables, and transformation APIs.\n- Provide usage examples for common scenarios and advanced transformations.\n- Add troubleshooting and FAQ sections.\n- Generate API docs using docstrings and tools like mkdocs or sphinx if appropriate.",
-        "testStrategy": "Peer review documentation for completeness and clarity. Test setup and usage instructions from scratch.",
+        "title": "Write Documentation and Usage Examples for Claude Code Proxy",
+        "description": "Produce comprehensive documentation tailored to Claude Code users covering setup, configuration, extension, and troubleshooting of ccproxy.",
+        "details": "• Write README with project overview and Claude Code focus.\n• Document configuration fields, environment variables, and transformation APIs.\n• Provide usage examples (simple vs. complex routing, custom transformations).\n• Add troubleshooting, FAQ, and migration guide from claude-code-router.\n• Generate API docs via mkdocs/sphinx.",
+        "testStrategy": "Peer-review documentation and test instructions.",
         "priority": "medium",
         "dependencies": [
           1,
@@ -601,61 +601,61 @@
           {
             "id": 1,
             "title": "Draft Project Overview and Setup Instructions",
-            "description": "Create a README.md that provides a clear project overview, installation steps, and initial setup instructions tailored for new users.",
+            "description": "Create a README for Claude Code users.",
             "dependencies": [],
-            "details": "Summarize the project's purpose, features, and prerequisites. Write step-by-step installation and setup instructions using concise language and active voice. Include configuration examples for common environments.",
+            "details": "Include overview, installation, and setup steps.",
             "status": "pending",
-            "testStrategy": "Have a peer follow the README to set up the project from scratch and provide feedback on clarity and completeness."
+            "testStrategy": "Have a peer follow README from scratch."
           },
           {
             "id": 2,
             "title": "Document Configuration Fields, Environment Variables, and APIs",
-            "description": "Produce detailed documentation for all configuration options, environment variables, and transformation APIs, ensuring each field is clearly described.",
+            "description": "Detail all config options and APIs used for Claude Code routing.",
             "dependencies": [
               "9.1"
             ],
-            "details": "List and explain each configuration field and environment variable, including data types, defaults, and usage notes. Document transformation APIs with parameter descriptions and expected behaviors.",
+            "details": "List fields, env vars, types, defaults, and usage notes.",
             "status": "pending",
-            "testStrategy": "Review documentation for completeness and accuracy. Validate by configuring the project using only the documentation."
+            "testStrategy": "Configure project using only docs."
           },
           {
             "id": 3,
             "title": "Develop Usage Examples for Common and Advanced Scenarios",
-            "description": "Provide practical usage examples demonstrating typical and advanced use cases, including transformation chaining and custom extensions.",
+            "description": "Provide examples demonstrating Claude Code routing and transformations.",
             "dependencies": [
               "9.2"
             ],
-            "details": "Write example configurations and code snippets for common scenarios. Include advanced examples such as chaining transformations and registering custom plugins. Use clear, annotated examples to illustrate each case.",
+            "details": "Include chaining transformations and custom plugins.",
             "status": "pending",
-            "testStrategy": "Test all examples to ensure they work as described. Peer review for clarity and relevance."
+            "testStrategy": "Test examples for accuracy."
           },
           {
             "id": 4,
             "title": "Add Troubleshooting and FAQ Sections",
-            "description": "Create troubleshooting guides and a Frequently Asked Questions (FAQ) section addressing common setup, configuration, and runtime issues.",
+            "description": "Create guides for common Claude Code issues.",
             "dependencies": [
               "9.3"
             ],
-            "details": "Identify likely user problems and error messages. Provide step-by-step troubleshooting steps and concise answers to frequent questions. Reference relevant documentation sections for deeper context.",
+            "details": "Identify likely problems and resolutions.",
             "status": "pending",
-            "testStrategy": "Simulate common issues and verify that the troubleshooting steps resolve them. Solicit feedback from users or testers on FAQ coverage."
+            "testStrategy": "Simulate issues and verify docs resolve them."
           },
           {
             "id": 5,
             "title": "Generate and Integrate API Documentation",
-            "description": "Generate API documentation from code docstrings using tools such as mkdocs or sphinx, and integrate it with the main documentation set.",
+            "description": "Generate API docs from docstrings.",
             "dependencies": [
               "9.2"
             ],
-            "details": "Ensure all public APIs are documented with clear docstrings. Configure and run documentation generators to produce browsable API docs. Link these docs from the README and other relevant sections.",
+            "details": "Configure mkdocs or sphinx and link from README.",
             "status": "pending",
-            "testStrategy": "Verify that generated API docs are complete, accurate, and accessible. Peer review for technical correctness and usability."
+            "testStrategy": "Verify generated docs for completeness."
           },
           {
             "id": 6,
             "title": "Create Migration Guide from claude-code-router",
-            "description": "Write comprehensive migration documentation for users transitioning from claude-code-router to ccproxy.",
-            "details": "Create MIGRATE.md covering: 1) Environment variable mapping table (CCR_* → CCPROXY_*), 2) Configuration file format changes, 3) Docker-compose migration examples, 4) Breaking changes and workarounds, 5) Deprecation timeline for claude-code-router, 6) Feature parity checklist, 7) Common migration issues and solutions.",
+            "description": "Write MIGRATE.md for users moving to ccproxy.",
+            "details": "Cover env-var mapping, config changes, Docker examples, breaking changes, and feature parity.",
             "status": "pending",
             "dependencies": [
               "9.2"
@@ -666,10 +666,10 @@
       },
       {
         "id": 10,
-        "title": "Prepare for Deployment and Release",
-        "description": "Package the project for deployment, including Docker support and release automation.",
-        "details": "- Write a Dockerfile for containerized deployment (use python:3.10-slim as base).\n- Add docker-compose.yaml for local development/testing.\n- Ensure all config can be provided via environment variables for 12-factor compliance.\n- Tag and release initial version (v1.0.0) on GitHub.\n- Document deployment steps and recommended production settings.",
-        "testStrategy": "Build and run Docker image locally. Deploy to test environment and verify end-to-end functionality.",
+        "title": "Prepare ccproxy for Deployment and Release",
+        "description": "Package ccproxy (Claude Code proxy) for deployment, including Docker support and release automation.",
+        "details": "• Write Dockerfile (python:3.10-slim) for ccproxy.\n• Add docker-compose.yaml for local development/testing.\n• Ensure all Claude Code routing config is injectable via environment variables.\n• Tag and release v1.0.0 on GitHub.\n• Document deployment steps and recommended production settings.",
+        "testStrategy": "Build and run Docker image locally; deploy to test environment and verify end-to-end Claude Code routing.",
         "priority": "medium",
         "dependencies": [
           8,
@@ -680,67 +680,81 @@
           {
             "id": 1,
             "title": "Create Dockerfile for Containerized Deployment",
-            "description": "Write a Dockerfile using python:3.10-slim as the base image, following best practices for Python applications.",
+            "description": "Write a Dockerfile using python:3.10-slim for ccproxy.",
             "dependencies": [],
-            "details": "Ensure the Dockerfile uses python:3.10-slim, separates dependencies from source code, minimizes layers, and includes a HEALTHCHECK instruction. Avoid storing secrets in the image and use a .dockerignore file.",
+            "details": "Follow Python best practices and include HEALTHCHECK.",
             "status": "pending",
-            "testStrategy": "Build the Docker image locally and verify it runs the application as expected."
+            "testStrategy": "Build image and verify app runs."
           },
           {
             "id": 2,
-            "title": "Add docker-compose.yaml for Local Development and Testing",
-            "description": "Create a docker-compose.yaml file to orchestrate the application and any required services for local development and testing.",
+            "title": "Add docker-compose.yaml for Local Development",
+            "description": "Create docker-compose.yaml to orchestrate ccproxy and dependencies.",
             "dependencies": [
               "10.1"
             ],
-            "details": "Define services, environment variables, volumes, and network settings needed for local development. Ensure compatibility with the Dockerfile and support for hot-reloading if applicable.",
+            "details": "Define services, env vars, volumes, and networks.",
             "status": "pending",
-            "testStrategy": "Start the application stack using docker-compose and verify all services start and communicate correctly."
+            "testStrategy": "Start stack with docker-compose."
           },
           {
             "id": 3,
             "title": "Implement 12-Factor Config via Environment Variables",
-            "description": "Refactor application configuration to be fully provided via environment variables for 12-factor compliance.",
+            "description": "Ensure all ccproxy config is provided via env vars.",
             "dependencies": [
               "10.1"
             ],
-            "details": "Audit all configuration points and ensure they can be set using environment variables. Update documentation and code as needed to remove hardcoded values.",
+            "details": "Audit config points and remove hard-coded values.",
             "status": "pending",
-            "testStrategy": "Run the container with different environment variable values and verify the application picks up the changes."
+            "testStrategy": "Run container with varied env vars."
           },
           {
             "id": 4,
             "title": "Automate Tagging and Release on GitHub",
-            "description": "Set up automation to tag and release the initial version (v1.0.0) of the project on GitHub.",
+            "description": "Set up automation to tag and release v1.0.0.",
             "dependencies": [
               "10.1",
               "10.2",
               "10.3"
             ],
-            "details": "Configure release workflows (e.g., GitHub Actions) to build, tag, and publish the Docker image and source code. Ensure release notes and versioning follow semantic conventions.",
+            "details": "Configure GitHub Actions to build, tag, and publish image and code.",
             "status": "pending",
-            "testStrategy": "Trigger the release workflow and verify that the tag, release, and Docker image are published correctly."
+            "testStrategy": "Trigger workflow and verify release artifacts."
           },
           {
             "id": 5,
             "title": "Document Deployment Steps and Production Settings",
-            "description": "Write comprehensive documentation covering deployment steps, environment configuration, and recommended production settings.",
+            "description": "Write deployment documentation for ccproxy.",
             "dependencies": [
               "10.1",
               "10.2",
               "10.3",
               "10.4"
             ],
-            "details": "Include step-by-step instructions for building, running, and configuring the application in both local and production environments. Highlight security, scaling, and monitoring recommendations.",
+            "details": "Include local and production instructions, security, scaling, and monitoring tips.",
             "status": "pending",
-            "testStrategy": "Have a team member follow the documentation to deploy the application from scratch and provide feedback on clarity and completeness."
+            "testStrategy": "Follow docs to deploy from scratch."
           }
         ]
+      },
+      {
+        "id": 11,
+        "title": "Create Comprehensive Project Overview Document (OVERVIEW.md)",
+        "description": "Author an OVERRVIEW.md that clearly explains what ccproxy is, how it analyzes Claude Code requests, and how it routes them to the correct AI model, with concrete examples and emphatic positioning as a Claude Code-only proxy.",
+        "details": "1. File location & naming\n   • Place OVERVIEW.md in the project root so GitHub automatically renders it.\n\n2. Required sections\n   • Purpose – 2–3 sentences on why ccproxy exists and its exclusively-for-Claude Code mandate.\n   • Architectural snapshot – one high-level diagram (ASCII or Mermaid) showing request → routing hook (Task 3) → LiteLLM proxy → target model.\n   • Context analysis pipeline – narrative that walks through what metadata is extracted (token count, tool usage, code size, etc.) and where (link to ccproxy_router.py once Task 3 lands).\n   • Routing labels & model mapping – bullet list describing default, background, think, large_context, web_search, and any future-proof “passthrough” label. Include a short YAML sample so readers see how Task 2’s config maps labels → models.\n   • Example routing decisions – at least five end-to-end examples:\n        1. Small snippet → \"fast\" Claude model.\n        2. Large multi-file refactor → \"powerful\" model.\n        3. Debug session with tool invocation → background model.\n        4. Long documentation generation (>16 k tokens) → large_context model.\n        5. Query containing a URL → web_search-augmented chain.\n   • Non-Goals – explicitly state ccproxy is NOT a general LLM proxy and does not attempt to optimise chat-bot traffic, summarisation tasks, etc.\n   • Extensibility hooks – brief paragraph pointing to forthcoming transformation pipeline (Task 5) and security layer (Task 7).\n   • Getting started – link to README for setup and to docs produced in Task 9.\n   • Contribution guidelines – point to coding standards (black/ruff), doc style (MD lint rules), and how to regenerate diagrams.\n\n3. Style & tooling\n   • Use GitHub-flavoured Markdown. \n   • Run markdownlint (pre-commit config from Task 1) – no MD004/MD007 violations.\n   • Keep line width ≤ 100 chars.\n\n4. Cross-references\n   • Inline links to specific source files or docs created by earlier tasks (e.g., `/ccproxy_router.py`).\n   • Tag sections with anchors (#) so other docs can deep-link.\n\n5. Commit etiquette\n   • Single commit titled “docs: add comprehensive OVERVIEW for ccproxy (Claude Code focus)”.\n   • Include screenshots/diagram images in `/docs/img/` if diagram tool requires, or embed Mermaid in-line.\n",
+        "testStrategy": "• Run markdownlint to ensure zero lint errors.\n• Render OVERVIEW.md in GitHub preview and verify all internal links resolve.\n• Peer review: at least one developer from routing (Task 3) team signs off that routing description and examples align with implemented logic.\n• Confirm the document clearly states Claude Code specificity by searching for the phrase “NOT a general-purpose proxy”.\n• Check each of the five example scenarios: they must list (a) request snippet, (b) inferred context label, (c) chosen model.\n",
+        "status": "pending",
+        "dependencies": [
+          1,
+          3
+        ],
+        "priority": "high",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-07-29T21:53:30.361Z",
-      "updated": "2025-07-29T22:22:39.771Z",
+      "updated": "2025-07-29T22:57:25.192Z",
       "description": "Tasks for master context"
     }
   }
