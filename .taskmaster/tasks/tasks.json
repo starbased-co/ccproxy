@@ -1,0 +1,151 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Initialize Project Repository and Environment",
+        "description": "Set up the project repository, initialize Python environment, and configure version control. Ensure compatibility with LiteLLM and required dependencies.",
+        "details": "- Create a new Git repository for ccproxy.\n- Initialize a Python 3.10+ virtual environment (recommended for latest LiteLLM compatibility).\n- Add .gitignore for Python, VSCode, and environment files.\n- Install LiteLLM (latest stable, e.g., >=2.5.0), typing-extensions, and any other required dependencies.\n- Set up pre-commit hooks for linting (e.g., ruff, black) and type checking (mypy).\n- Document setup steps in README.md.",
+        "testStrategy": "Verify environment setup by running 'python -m litellm --version' and ensuring all dependencies install without errors.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Design and Implement Configuration Loader",
+        "description": "Implement a robust configuration loader supporting YAML and environment variable overrides for ccproxy settings.",
+        "details": "- Use PyYAML (>=6.0) to parse YAML config files.\n- Support environment variable overrides (e.g., CCPROXY_CONTEXT_THRESHOLD).\n- Validate config schema using pydantic (>=2.0) for type safety and error reporting.\n- Ensure backward compatibility with original claude-code-router config fields where relevant.\n- Document configuration options and expected structure.",
+        "testStrategy": "Unit test config loader with valid/invalid YAML, missing fields, and environment variable overrides. Ensure errors are descriptive.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement Model Routing Logic as LiteLLM Hook",
+        "description": "Reimplement claude-code-router's model selection logic as a LiteLLM call hook, supporting all routing scenarios and labels.",
+        "details": "- Create a Python module (e.g., ccproxy_router.py) implementing the routing logic as per PRD.\n- Use the async_pre_call_hook interface from LiteLLM's custom callback API.\n- Map request context (token count, model, tools, etc.) to routing labels: default, background, think, large_context, web_search.\n- Support optional fields: if a label is not configured, pass through to Anthropic.\n- Ensure logic is easily extensible for future routing rules.\n- Add detailed logging for routing decisions (using LiteLLM's logging facilities).",
+        "testStrategy": "Unit test routing logic with all edge cases (token thresholds, tool presence, model names, missing config). Validate correct label assignment and fallback behavior.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Integrate Model Routing with LiteLLM Proxy Server",
+        "description": "Wire up the custom routing hook into LiteLLM's proxy server, ensuring seamless request transformation and provider selection.",
+        "details": "- Register the custom callback class (e.g., CCProxyHandler) in the LiteLLM proxy configuration.\n- Ensure the hook is invoked for all relevant call types (completion, embeddings, etc.).\n- Validate that transformed requests are routed to the correct provider/model as per config.\n- Support streaming and non-streaming responses.\n- Document integration steps for users.",
+        "testStrategy": "Integration test with LiteLLM proxy using mock and real provider endpoints. Validate correct routing and transformation for all supported call types.",
+        "priority": "high",
+        "dependencies": [
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Advanced Transformation Capabilities",
+        "description": "Enable complex request/response transformations beyond basic routing, supporting chaining and composability of transformations.",
+        "details": "- Design a transformation pipeline allowing multiple transformations to be chained (e.g., via a list of functions or classes).\n- Implement at least one advanced transformation (e.g., request rewriting, response post-processing, tool augmentation).\n- Ensure transformations are composable and order-preserving.\n- Provide a mechanism for users to register custom transformations via config or plugin interface.\n- Document transformation API and usage examples.",
+        "testStrategy": "Unit and integration test transformation chaining with various combinations. Validate correct order, composability, and error handling.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement Observability, Logging, and Metrics",
+        "description": "Add comprehensive logging, monitoring, and metrics for transformation events and performance, leveraging LiteLLM's observability features.",
+        "details": "- Use LiteLLM's built-in monitoring and logging hooks (log_transformations, metrics_enabled).\n- Log all routing decisions, transformation steps, and errors with context.\n- Track metrics such as transformation latency, error rates, and slow transformation events (configurable threshold).\n- Integrate with Prometheus or OpenTelemetry if supported by LiteLLM for external monitoring.\n- Document observability setup and log formats.",
+        "testStrategy": "Simulate various request scenarios and verify logs/metrics are emitted as expected. Test slow transformation threshold triggers.",
+        "priority": "medium",
+        "dependencies": [
+          4
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Implement Security and API Key Management",
+        "description": "Ensure secure handling of API keys and sensitive configuration, leveraging LiteLLM's security best practices.",
+        "details": "- Use LiteLLM's UserAPIKeyAuth for API key validation.\n- Store sensitive config (API keys) in environment variables or secure vaults (e.g., HashiCorp Vault, AWS Secrets Manager) as per deployment best practices.\n- Enforce HTTPS for all external API calls.\n- Document security model and key management procedures.",
+        "testStrategy": "Test with valid/invalid API keys, attempt unauthorized access, and verify secure handling of secrets in logs/config.",
+        "priority": "high",
+        "dependencies": [
+          1,
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Develop Comprehensive Unit and Integration Tests",
+        "description": "Achieve >90% test coverage for all core modules, including routing, transformation, and error handling.",
+        "details": "- Use pytest (>=8.0) for unit and integration tests.\n- Mock external API calls and LiteLLM interfaces where appropriate.\n- Cover all edge cases, error paths, and configuration permutations.\n- Integrate coverage.py for coverage reporting.\n- Add CI workflow (e.g., GitHub Actions) to run tests on push/PR.",
+        "testStrategy": "Run 'pytest --cov' and ensure >90% coverage. Validate tests fail on regressions or unhandled cases.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Write Documentation and Usage Examples",
+        "description": "Produce comprehensive documentation covering setup, configuration, extension, and troubleshooting.",
+        "details": "- Write README.md with project overview, setup instructions, and configuration examples.\n- Document all configuration fields, environment variables, and transformation APIs.\n- Provide usage examples for common scenarios and advanced transformations.\n- Add troubleshooting and FAQ sections.\n- Generate API docs using docstrings and tools like mkdocs or sphinx if appropriate.",
+        "testStrategy": "Peer review documentation for completeness and clarity. Test setup and usage instructions from scratch.",
+        "priority": "medium",
+        "dependencies": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Prepare for Deployment and Release",
+        "description": "Package the project for deployment, including Docker support and release automation.",
+        "details": "- Write a Dockerfile for containerized deployment (use python:3.10-slim as base).\n- Add docker-compose.yaml for local development/testing.\n- Ensure all config can be provided via environment variables for 12-factor compliance.\n- Tag and release initial version (v1.0.0) on GitHub.\n- Document deployment steps and recommended production settings.",
+        "testStrategy": "Build and run Docker image locally. Deploy to test environment and verify end-to-end functionality.",
+        "priority": "medium",
+        "dependencies": [
+          8,
+          9
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-07-29T21:53:30.361Z",
+      "updated": "2025-07-29T21:53:30.361Z",
+      "description": "Tasks for master context"
+    }
+  }
+}

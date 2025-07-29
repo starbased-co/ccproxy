@@ -43,7 +43,6 @@ task-master generate                                         # Update task markd
 - `.taskmaster/config.json` - AI model configuration (use `task-master models` to modify)
 - `.taskmaster/docs/prd.txt` - Product Requirements Document for parsing
 - `.taskmaster/tasks/*.txt` - Individual task files (auto-generated from tasks.json)
-- `.env` - API keys for CLI usage
 
 ### Claude Code Integration Files
 
