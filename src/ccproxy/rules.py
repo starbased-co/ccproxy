@@ -40,9 +40,9 @@ class TokenCountRule(ClassificationRule):
         # Check explicit token count fields
         token_count = max(
             token_count,
-            request.get("token_count", 0),
-            request.get("num_tokens", 0),
-            request.get("input_tokens", 0),
+            request.get("token_count", 0) or 0,
+            request.get("num_tokens", 0) or 0,
+            request.get("input_tokens", 0) or 0,
         )
 
         # Check against threshold
