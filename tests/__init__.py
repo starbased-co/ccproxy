@@ -1,1 +1,1 @@
-"""CCProxy test suite."""
+"""Tests for ccproxy."""
