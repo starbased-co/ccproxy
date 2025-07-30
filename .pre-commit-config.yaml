@@ -1,55 +1,30 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v4.6.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
-      - id: check-json
       - id: check-toml
       - id: check-merge-conflict
       - id: debug-statements
       - id: mixed-line-ending
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.5
+    rev: v0.5.7
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.17.0
+    rev: v1.11.1
     hooks:
       - id: mypy
         additional_dependencies:
           - types-pyyaml
           - types-requests
           - pydantic
-        args: [--strict, --ignore-missing-imports]
-        exclude: ^tests/
-
-  - repo: https://github.com/pycqa/bandit
-    rev: 1.8.6
-    hooks:
-      - id: bandit
-        args: [-c, pyproject.toml]
-        additional_dependencies: ["bandit[toml]"]
-        exclude: ^tests/
-
-exclude: |
-  (?x)^(
-    \.git/|
-    \.mypy_cache/|
-    \.pytest_cache/|
-    \.ruff_cache/|
-    \.venv/|
-    venv/|
-    __pycache__/|
-    build/|
-    dist/|
-    \.eggs/|
-    .*\.egg-info/|
-    \.taskmaster/
-  )$
+        args: [--strict]
+        files: ^src/

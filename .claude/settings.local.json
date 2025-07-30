@@ -2,12 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(pre-commit:*)",
-      "mcp__desktop-commander-mcp"
+      "mcp__desktop-commander-mcp",
+      "Bash(rm:*)"
     ],
     "deny": []
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "gitmcp"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }

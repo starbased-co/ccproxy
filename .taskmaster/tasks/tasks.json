@@ -10,7 +10,61 @@
         "priority": "high",
         "dependencies": [],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Initialize Git Repository and Project Structure",
+            "description": "Create a new Git repository for the ccproxy project and establish a standardized Python project structure, including source, tests, and configuration directories.",
+            "dependencies": [],
+            "details": "Set up the root directory with folders for source code (e.g., ccproxy/), tests/, and configs/. Add essential files such as README.md, .gitignore, and pyproject.toml. Ensure the structure supports future scalability and maintainability.",
+            "status": "done",
+            "testStrategy": "Verify that the repository contains the expected directories and files, and that the structure matches Python best practices."
+          },
+          {
+            "id": 2,
+            "title": "Configure Python Environment and Dependency Management",
+            "description": "Set up Python 3.11+ environment and initialize dependency management using Poetry or pip-tools.",
+            "dependencies": [
+              "1.1"
+            ],
+            "details": "Create a virtual environment targeting Python 3.11 or newer. Initialize dependency management with Poetry (preferred) or pip-tools. Add core development dependencies (black, isort, flake8, pytest). Ensure all dependencies are pinned to the latest compatible versions in pyproject.toml.",
+            "status": "done",
+            "testStrategy": "Activate the environment and install dependencies. Confirm that all tools are available and the environment is reproducible."
+          },
+          {
+            "id": 3,
+            "title": "Set Up Pre-commit Hooks for Code Quality",
+            "description": "Integrate pre-commit hooks to enforce code formatting and linting standards using black, isort, and flake8.",
+            "dependencies": [
+              "1.2"
+            ],
+            "details": "Install pre-commit and configure .pre-commit-config.yaml to run black, isort, and flake8 on staged files. Ensure hooks are installed in the repository so contributors automatically run checks before commits.",
+            "status": "in-progress",
+            "testStrategy": "Make a sample commit with code that violates formatting or linting rules and verify that pre-commit blocks the commit until issues are resolved."
+          },
+          {
+            "id": 4,
+            "title": "Configure GitHub Actions for CI/CD",
+            "description": "Set up GitHub Actions workflows to automate linting, testing, and coverage reporting on push and pull requests.",
+            "dependencies": [
+              "1.3"
+            ],
+            "details": "Create workflow YAML files under .github/workflows/ to run lint, test, and coverage jobs using the configured Python environment. Ensure the workflow uses the same dependency versions as local development and reports status checks.",
+            "status": "pending",
+            "testStrategy": "Push a commit to a feature branch and verify that all CI jobs run and report results as expected."
+          },
+          {
+            "id": 5,
+            "title": "Add Environment Variable Management and Example File",
+            "description": "Provide a .env.example file listing required environment variables and integrate environment variable loading into the project.",
+            "dependencies": [
+              "1.2"
+            ],
+            "details": "Create a .env.example file specifying placeholders for API keys and config paths. Ensure the project loads environment variables using python-dotenv or similar. Document usage in README.md.",
+            "status": "pending",
+            "testStrategy": "Copy .env.example to .env, populate with test values, and verify that the application can read all required variables without error."
+          }
+        ]
       },
       {
         "id": 2,
@@ -23,7 +77,61 @@
           1
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Configuration Schema with Pydantic",
+            "description": "Define a Pydantic v2.x model representing the configuration schema for model routing and proxy settings, ensuring type safety and validation.",
+            "dependencies": [],
+            "details": "Specify all required fields, types, and validation rules for the configuration. Include support for nested structures as needed for model routing and proxy settings.",
+            "status": "pending",
+            "testStrategy": "Unit test schema validation with valid, malformed, and missing configuration fields."
+          },
+          {
+            "id": 2,
+            "title": "Implement YAML Configuration Loader",
+            "description": "Develop a loader using PyYAML (>=6.0) to parse config.yaml and instantiate the Pydantic schema.",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Read and parse the YAML file, handle parsing errors, and map the data to the Pydantic model. Ensure compatibility with nested and complex YAML structures.",
+            "status": "pending",
+            "testStrategy": "Unit test YAML parsing with various config.yaml files, including malformed YAML and missing required fields."
+          },
+          {
+            "id": 3,
+            "title": "Integrate Environment Variable Overrides",
+            "description": "Merge environment variables (os.environ) into the loaded configuration, allowing them to override YAML values according to precedence rules.",
+            "dependencies": [
+              "2.2"
+            ],
+            "details": "Implement logic to map environment variables to configuration fields, supporting both flat and nested overrides. Ensure environment variables take precedence over YAML values.",
+            "status": "pending",
+            "testStrategy": "Unit test override logic with different combinations of YAML and environment variable inputs."
+          },
+          {
+            "id": 4,
+            "title": "Enable Hot-Reload on Configuration Changes",
+            "description": "Add support for detecting changes in config.yaml or relevant environment variables and reloading the configuration at runtime.",
+            "dependencies": [
+              "2.3"
+            ],
+            "details": "Monitor the config file for changes (e.g., using watchdog) and re-apply environment overrides and schema validation on reload. Provide hooks or signals for dependent components to react to config changes.",
+            "status": "pending",
+            "testStrategy": "Integration test hot-reload by modifying config.yaml and environment variables, verifying that changes are reflected without restarting the application."
+          },
+          {
+            "id": 5,
+            "title": "Expose Configuration as Singleton or Injectable Object",
+            "description": "Provide a globally accessible configuration instance, supporting singleton pattern or dependency injection for use throughout the application.",
+            "dependencies": [
+              "2.4"
+            ],
+            "details": "Implement a thread-safe singleton or dependency-injectable provider for the configuration object. Ensure consumers always access the latest configuration, including after hot-reload.",
+            "status": "pending",
+            "testStrategy": "Unit and integration test singleton/injection behavior, verifying correct config access and updates across multiple consumers."
+          }
+        ]
       },
       {
         "id": 3,
@@ -36,7 +144,64 @@
           2
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design RequestClassifier Class Structure",
+            "description": "Define the RequestClassifier class interface, including the classify(request) method, input types (dict or pydantic model), and encapsulation of classification logic.",
+            "dependencies": [],
+            "details": "Establish the class skeleton, document method signatures, and ensure the design supports future extensibility (e.g., ML-based classification).",
+            "status": "pending",
+            "testStrategy": "Review class and method signatures for compliance with requirements; verify acceptance of both dict and pydantic model inputs."
+          },
+          {
+            "id": 2,
+            "title": "Implement Rule-Based Classification Logic",
+            "description": "Develop pure functions for each classification rule (e.g., token count, model, tools) and integrate them into the classify method following the PRD priority order.",
+            "dependencies": [
+              "3.1"
+            ],
+            "details": "Ensure each rule is implemented as a standalone pure function for testability and maintainability. Integrate these functions within the main classification flow.",
+            "status": "pending",
+            "testStrategy": "Unit test each rule function independently with representative inputs; verify correct rule application order in the classify method."
+          },
+          {
+            "id": 3,
+            "title": "Add Configurable Context Thresholds",
+            "description": "Enable configuration of context thresholds (e.g., token count limits) via class parameters or external config, supporting dynamic adjustment without code changes.",
+            "dependencies": [
+              "3.1"
+            ],
+            "details": "Integrate context threshold parameters into the class, ensuring they can be set at initialization or updated dynamically. Document configuration options.",
+            "status": "pending",
+            "testStrategy": "Test classification behavior with varying threshold values; verify correct routing label assignment when thresholds are changed."
+          },
+          {
+            "id": 4,
+            "title": "Prepare for Extensibility and ML Integration",
+            "description": "Refactor classification logic to allow seamless addition of new rules or ML-based classifiers in the future.",
+            "dependencies": [
+              "3.2",
+              "3.3"
+            ],
+            "details": "Abstract rule evaluation and routing label assignment to support plug-in architectures or ML-based decision modules. Document extension points.",
+            "status": "pending",
+            "testStrategy": "Add a mock rule or stub ML classifier to verify extensibility; ensure existing logic remains unaffected."
+          },
+          {
+            "id": 5,
+            "title": "Develop Comprehensive Unit Tests for Classification",
+            "description": "Create unit tests covering all classification branches, edge cases, and input types to achieve 100% branch coverage.",
+            "dependencies": [
+              "3.2",
+              "3.3",
+              "3.4"
+            ],
+            "details": "Use representative request fixtures to test all rule combinations and context threshold scenarios. Ensure tests are isolated and repeatable.",
+            "status": "pending",
+            "testStrategy": "Run coverage analysis to confirm 100% branch coverage; review test cases for completeness and clarity."
+          }
+        ]
       },
       {
         "id": 4,
@@ -49,7 +214,64 @@
           2
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Load and Parse Model Mapping from YAML Config",
+            "description": "Implement logic to load and parse the model mapping definitions from the YAML configuration file, ensuring compatibility with the Configuration Manager and support for dynamic provider/model selection.",
+            "dependencies": [],
+            "details": "Utilize the configuration loader to extract model routing information, validate schema, and prepare internal data structures for fast lookup.",
+            "status": "pending",
+            "testStrategy": "Unit test with various YAML config samples, including malformed and missing mappings. Verify correct parsing and error handling."
+          },
+          {
+            "id": 2,
+            "title": "Implement get_model_for_label Method",
+            "description": "Develop the get_model_for_label(label) method to return the appropriate model configuration for a given classification label, as defined in the loaded mapping.",
+            "dependencies": [
+              "4.1"
+            ],
+            "details": "Ensure the method supports dynamic provider/model selection and returns the correct model or triggers fallback logic if the preferred model is unavailable.",
+            "status": "pending",
+            "testStrategy": "Unit test label-to-model mapping for all supported labels, including edge cases and unknown labels."
+          },
+          {
+            "id": 3,
+            "title": "Implement Fallback Logic for Unavailable Models",
+            "description": "Design and implement fallback mechanisms to select alternative models if the preferred model for a label is unavailable, based on configuration or predefined rules.",
+            "dependencies": [
+              "4.2"
+            ],
+            "details": "Support multiple fallback strategies (e.g., priority order, default model) and ensure robust error handling when no valid model is found.",
+            "status": "pending",
+            "testStrategy": "Unit test fallback behavior by simulating unavailable models and verifying correct alternative selection or error reporting."
+          },
+          {
+            "id": 4,
+            "title": "Validate Model Existence at Startup",
+            "description": "On component initialization, verify that all configured models exist and are accessible, raising clear errors for missing or misconfigured models.",
+            "dependencies": [
+              "4.1"
+            ],
+            "details": "Check model availability using provider APIs or local checks as appropriate. Aggregate and report all validation errors at startup.",
+            "status": "pending",
+            "testStrategy": "Unit test with configs referencing missing, invalid, or inaccessible models. Confirm that errors are detected and reported before serving requests."
+          },
+          {
+            "id": 5,
+            "title": "Support Hot-Reload of Model Mapping on Config Changes",
+            "description": "Implement logic to detect changes in the YAML config and reload the model mapping dynamically without requiring a service restart.",
+            "dependencies": [
+              "4.1",
+              "4.2",
+              "4.3",
+              "4.4"
+            ],
+            "details": "Integrate with the Configuration Manager's hot-reload mechanism. Ensure thread safety and atomic updates to the routing logic.",
+            "status": "pending",
+            "testStrategy": "Integration test by modifying the config at runtime and verifying that new mappings and fallbacks are applied immediately and safely."
+          }
+        ]
       },
       {
         "id": 5,
@@ -63,7 +285,61 @@
           4
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Define CCProxyHandler Class Structure",
+            "description": "Create the CCProxyHandler class inheriting from litellm.integrations.custom_logger.CustomLogger, ensuring all required methods for LiteLLM custom loggers are stubbed and ready for implementation.",
+            "dependencies": [],
+            "details": "Set up the class skeleton with async_pre_call_hook and other relevant async logging methods. Ensure compatibility with LiteLLM v1.13+ proxy mode and prepare for structured logging integration.",
+            "status": "pending",
+            "testStrategy": "Verify class can be instantiated and registered as a callback in LiteLLM proxy without errors."
+          },
+          {
+            "id": 2,
+            "title": "Integrate Request Classification and Model Routing",
+            "description": "Implement logic in async_pre_call_hook to use RequestClassifier for labeling requests and ModelRouter to select the appropriate model based on the label.",
+            "dependencies": [
+              "5.1"
+            ],
+            "details": "Call RequestClassifier.classify(request) to obtain a label, then use ModelRouter.get_model_for_label(label) to determine the model. Ensure the selected model is set in the request context for downstream processing.",
+            "status": "pending",
+            "testStrategy": "Unit test async_pre_call_hook with various request scenarios to confirm correct label assignment and model selection."
+          },
+          {
+            "id": 3,
+            "title": "Implement Structured Logging for Routing Decisions",
+            "description": "Add structured logging to record routing decisions, using structlog or standard logging with a JSON formatter, while ensuring no sensitive content is logged.",
+            "dependencies": [
+              "5.2"
+            ],
+            "details": "Log key routing metadata (label, selected model, request ID, timestamp) in structured JSON format. Mask or exclude sensitive fields such as prompts, completions, or API keys.",
+            "status": "pending",
+            "testStrategy": "Integration test logging output for both streaming and non-streaming requests, verifying correct structure and redaction of sensitive data."
+          },
+          {
+            "id": 4,
+            "title": "Support Streaming and Non-Streaming Request Handling",
+            "description": "Ensure CCProxyHandler correctly handles both streaming and non-streaming requests in async_pre_call_hook and logging methods.",
+            "dependencies": [
+              "5.3"
+            ],
+            "details": "Detect request type and adapt logging and routing logic as needed. Validate that all relevant events are logged for both request types without data leakage.",
+            "status": "pending",
+            "testStrategy": "Integration test with LiteLLM proxy, sending both streaming and non-streaming requests, and verify correct routing and logging behavior."
+          },
+          {
+            "id": 5,
+            "title": "Validate Compatibility and Security Requirements",
+            "description": "Test CCProxyHandler for compatibility with LiteLLM v1.13+ proxy mode and ensure no sensitive content is logged at any stage.",
+            "dependencies": [
+              "5.4"
+            ],
+            "details": "Run end-to-end tests with the full proxy stack, confirming handler registration, correct operation, and strict adherence to security requirements (no logging of prompts, completions, or secrets).",
+            "status": "pending",
+            "testStrategy": "Integration test with real and mock requests, inspect logs for absence of sensitive data, and verify handler works with the latest LiteLLM proxy."
+          }
+        ]
       },
       {
         "id": 6,
@@ -76,7 +352,62 @@
           5
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Metrics Schema and Labeling Strategy",
+            "description": "Define the metrics to be collected (routing counts, latency, error rates, fallback events) and establish a labeling strategy for per-label tracking.",
+            "dependencies": [],
+            "details": "Specify metric names, types (counter, histogram, gauge), and labels (e.g., route label, status, error type). Ensure schema supports both Prometheus and OpenTelemetry conventions for compatibility.",
+            "status": "pending",
+            "testStrategy": "Review schema with stakeholders and validate against monitoring requirements. Unit test label assignment logic."
+          },
+          {
+            "id": 2,
+            "title": "Implement MetricsCollector with Prometheus Client or OpenTelemetry SDK",
+            "description": "Develop the MetricsCollector class using prometheus_client (>=0.18) or OpenTelemetry SDK to record defined metrics.",
+            "dependencies": [
+              "6.1"
+            ],
+            "details": "Instrument code to create and update metrics objects. Ensure thread/process safety and efficient metric updates. Support both Prometheus and OpenTelemetry backends as needed.",
+            "status": "pending",
+            "testStrategy": "Unit test metric recording for all metric types and labels. Mock backend to verify correct metric emission."
+          },
+          {
+            "id": 3,
+            "title": "Expose /metrics Endpoint for Scraping",
+            "description": "Add an HTTP endpoint (/metrics) to expose collected metrics in Prometheus format for scraping by monitoring systems.",
+            "dependencies": [
+              "6.2"
+            ],
+            "details": "Integrate with the web framework to serve the /metrics endpoint. Ensure endpoint outputs metrics in the correct format and is accessible for Prometheus or OpenTelemetry Collector scraping.",
+            "status": "pending",
+            "testStrategy": "Integration test endpoint accessibility and output format. Use Prometheus or OTel Collector to scrape and validate metrics."
+          },
+          {
+            "id": 4,
+            "title": "Integrate MetricsCollector with CCProxyHandler",
+            "description": "Modify CCProxyHandler to record metrics for each request, capturing routing decisions, latency, errors, and fallback events.",
+            "dependencies": [
+              "6.2"
+            ],
+            "details": "Inject MetricsCollector into CCProxyHandler. Update handler logic to record metrics at appropriate points in the request lifecycle, ensuring all relevant events are tracked.",
+            "status": "pending",
+            "testStrategy": "Integration test with simulated requests to verify correct metrics are recorded for all routing and error scenarios."
+          },
+          {
+            "id": 5,
+            "title": "Test Metrics Emission and Monitoring Integration",
+            "description": "Validate that metrics are emitted correctly under simulated load and can be queried via Prometheus or OpenTelemetry.",
+            "dependencies": [
+              "6.3",
+              "6.4"
+            ],
+            "details": "Develop unit and integration tests to simulate various routing, error, and fallback scenarios. Use Prometheus queries to verify metrics accuracy and completeness.",
+            "status": "pending",
+            "testStrategy": "Automate load tests and metric queries. Confirm metrics reflect expected values for all test cases."
+          }
+        ]
       },
       {
         "id": 7,
@@ -89,7 +420,64 @@
           1
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Load Secrets from Environment Variables Using python-dotenv",
+            "description": "Configure the application to load all API keys and secrets from environment variables, utilizing python-dotenv for local development environments.",
+            "dependencies": [],
+            "details": "Set up a .env file for local use and ensure python-dotenv loads these variables at startup. Avoid hard-coding any secrets in the codebase. Confirm .env is excluded from version control.",
+            "status": "pending",
+            "testStrategy": "Unit test that secrets are correctly loaded from environment variables and .env files. Verify .env is not tracked by version control."
+          },
+          {
+            "id": 2,
+            "title": "Validate Presence of Required Secrets at Startup",
+            "description": "Implement logic to check that all required API keys and secrets are present in the environment at application startup, failing fast if any are missing.",
+            "dependencies": [
+              "7.1"
+            ],
+            "details": "Define a list of required environment variables. On startup, iterate through this list and raise a clear error if any are missing.",
+            "status": "pending",
+            "testStrategy": "Unit test startup with all, some, and no required secrets set. Confirm application fails with informative errors when secrets are missing."
+          },
+          {
+            "id": 3,
+            "title": "Mask Secrets in Logs and Error Messages",
+            "description": "Ensure that secrets are never logged or exposed in error messages by implementing masking or redaction logic throughout the codebase.",
+            "dependencies": [
+              "7.2"
+            ],
+            "details": "Intercept log and error outputs to detect and redact any values matching known secrets or secret patterns before outputting.",
+            "status": "pending",
+            "testStrategy": "Attempt to log secrets and verify that output is redacted. Unit test logging and error handling paths for secret exposure."
+          },
+          {
+            "id": 4,
+            "title": "Enforce HTTPS with Certificate Verification for Outbound Requests",
+            "description": "Configure all outbound HTTP requests using httpx (>=0.27) to require HTTPS with certificate verification enabled.",
+            "dependencies": [
+              "7.2"
+            ],
+            "details": "Set up httpx clients with verify=True for all requests. Audit code to ensure no insecure (HTTP) endpoints are used.",
+            "status": "pending",
+            "testStrategy": "Integration test outbound requests to ensure HTTPS is enforced and certificate verification failures are handled gracefully."
+          },
+          {
+            "id": 5,
+            "title": "Document Required Environment Variables and Security Practices",
+            "description": "Create and maintain documentation listing all required environment variables, their purpose, and best practices for secure secrets management.",
+            "dependencies": [
+              "7.1",
+              "7.2",
+              "7.3",
+              "7.4"
+            ],
+            "details": "Write documentation specifying each required secret, example .env usage, and guidelines for secure handling in different environments.",
+            "status": "pending",
+            "testStrategy": "Review documentation for completeness and clarity. Validate that all required secrets are documented and instructions are accurate."
+          }
+        ]
       },
       {
         "id": 8,
@@ -106,7 +494,64 @@
           7
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Unit Test Coverage for Core Modules",
+            "description": "Identify all core modules, including classification, routing, config, and fallback logic, and design unit tests to achieve comprehensive branch and logic coverage.",
+            "dependencies": [],
+            "details": "Enumerate all functions and classes in core modules. Define representative test cases for each logic branch, including edge cases. Use pytest (>=8.0) and pytest-asyncio for async code. Mock LiteLLM and external APIs as needed.",
+            "status": "pending",
+            "testStrategy": "Run pytest with coverage.py. Ensure each function and branch is exercised. Use mocks to isolate units. Target 100% branch coverage for each module."
+          },
+          {
+            "id": 2,
+            "title": "Implement Integration Tests for Full Request Lifecycle",
+            "description": "Develop integration tests that simulate the complete request lifecycle, covering interactions between modules and realistic scenarios.",
+            "dependencies": [
+              "8.1"
+            ],
+            "details": "Set up test cases that send requests through the full stack, including classification, routing, config, and fallback. Mock external APIs and LiteLLM. Use pytest-asyncio for async flows.",
+            "status": "pending",
+            "testStrategy": "Verify correct routing, config application, and fallback behavior for various request types. Assert end-to-end outcomes and log outputs."
+          },
+          {
+            "id": 3,
+            "title": "Mock LiteLLM and External API Dependencies",
+            "description": "Develop robust mocks for LiteLLM and all external APIs to ensure tests are deterministic and isolated from external failures.",
+            "dependencies": [
+              "8.1"
+            ],
+            "details": "Implement fixtures and mock classes for LiteLLM and any external services. Ensure mocks simulate expected responses and error conditions.",
+            "status": "pending",
+            "testStrategy": "Validate that all tests run without real network calls. Test error handling and fallback logic using mocked failures."
+          },
+          {
+            "id": 4,
+            "title": "Enforce and Monitor Code Coverage Thresholds",
+            "description": "Integrate coverage.py with pytest to enforce a minimum 90% code coverage threshold and fail CI if unmet.",
+            "dependencies": [
+              "8.1",
+              "8.2",
+              "8.3"
+            ],
+            "details": "Configure coverage.py to measure coverage during test runs. Set up CI to fail if coverage drops below 90%. Generate coverage reports for review.",
+            "status": "pending",
+            "testStrategy": "Run full test suite and inspect coverage reports. Confirm CI fails on insufficient coverage and passes when threshold is met."
+          },
+          {
+            "id": 5,
+            "title": "Develop Performance Tests for Routing Overhead",
+            "description": "Create performance tests to benchmark routing logic, ensuring average overhead remains below 10ms per request under load.",
+            "dependencies": [
+              "8.2",
+              "8.3"
+            ],
+            "details": "Use pytest and async benchmarking tools to simulate concurrent requests. Measure and record routing latency. Optimize code if overhead exceeds target.",
+            "status": "pending",
+            "testStrategy": "Run performance tests with varying concurrency. Assert that average routing latency is <10ms. Report and address regressions."
+          }
+        ]
       },
       {
         "id": 9,
@@ -120,7 +565,64 @@
           8
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Set Up Documentation Site Infrastructure",
+            "description": "Establish the documentation site using either MkDocs or Sphinx, configuring the structure for user guides, API reference, migration, and troubleshooting sections.",
+            "dependencies": [],
+            "details": "Select and configure MkDocs (Markdown-based, simpler setup) or Sphinx (reStructuredText, superior cross-referencing and API integration) as the documentation generator. Set up navigation, theming, and initial folder structure for all required documentation types.",
+            "status": "pending",
+            "testStrategy": "Verify site builds locally and deploys correctly. Confirm navigation and section structure matches requirements."
+          },
+          {
+            "id": 2,
+            "title": "Write Installation and Configuration Guides",
+            "description": "Document installation steps, configuration options, environment variables, and extension points, including example YAML configurations.",
+            "dependencies": [
+              "9.1"
+            ],
+            "details": "Provide clear installation instructions for all supported environments. List and explain all configuration options and environment variables. Include example YAML config files and describe extension points for customization.",
+            "status": "pending",
+            "testStrategy": "Manually review for completeness and clarity. Validate all example configs by running them in a test environment."
+          },
+          {
+            "id": 3,
+            "title": "Develop API Reference Documentation",
+            "description": "Generate and curate a comprehensive API reference, detailing all public classes, methods, and configuration interfaces.",
+            "dependencies": [
+              "9.1"
+            ],
+            "details": "Use Sphinx autodoc or MkDocs plugins to extract docstrings and type annotations. Supplement with manual explanations where needed. Ensure all config options and extension points are covered.",
+            "status": "pending",
+            "testStrategy": "Check that all public APIs are documented and cross-referenced. Validate that code snippets and references resolve correctly."
+          },
+          {
+            "id": 4,
+            "title": "Create Migration and Usage Example Guides",
+            "description": "Write a migration guide from claude-code-router and provide real-world usage examples, including request scenarios and YAML configs.",
+            "dependencies": [
+              "9.2",
+              "9.3"
+            ],
+            "details": "Detail step-by-step migration instructions, highlighting differences and compatibility notes. Provide annotated usage examples for common and advanced scenarios, including sample requests and configuration files.",
+            "status": "pending",
+            "testStrategy": "Test migration steps in a sandbox environment. Validate all example scenarios by executing them as described."
+          },
+          {
+            "id": 5,
+            "title": "Document Troubleshooting and Common Errors",
+            "description": "Compile troubleshooting documentation for common errors, including diagnostic steps and solutions.",
+            "dependencies": [
+              "9.2",
+              "9.3",
+              "9.4"
+            ],
+            "details": "Identify frequent user issues and error messages. Provide clear troubleshooting steps, diagnostic commands, and recommended fixes. Link to relevant sections of the documentation for deeper context.",
+            "status": "pending",
+            "testStrategy": "Simulate common errors and verify that troubleshooting steps resolve the issues as documented."
+          }
+        ]
       },
       {
         "id": 10,
@@ -136,12 +638,58 @@
           9
         ],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Benchmark Concurrent Request Handling",
+            "description": "Set up and execute benchmarking of the application's concurrent request handling using tools like locust or wrk to assess throughput and latency under load.",
+            "dependencies": [],
+            "details": "Configure benchmarking scenarios that simulate realistic traffic patterns, including varying levels of concurrency and request types. Collect and analyze performance metrics to identify bottlenecks and ensure the system meets production performance targets.",
+            "status": "pending",
+            "testStrategy": "Run load tests with locust or wrk, record throughput and latency, and verify results against defined performance thresholds."
+          },
+          {
+            "id": 2,
+            "title": "Implement and Test Rate Limiting",
+            "description": "Integrate rate limiting middleware (such as slowapi) to control the number of requests per client and prevent abuse.",
+            "dependencies": [],
+            "details": "Configure slowapi with appropriate rate limits for different endpoints and user types. Ensure correct integration with FastAPI or Starlette, and handle rate limit exceeded responses gracefully.",
+            "status": "pending",
+            "testStrategy": "Simulate excessive requests from single and multiple clients to verify rate limiting enforcement and correct error responses."
+          },
+          {
+            "id": 3,
+            "title": "Harden HTTP Endpoints for Security and Robustness",
+            "description": "Apply security best practices to all HTTP endpoints, including CORS configuration, request timeouts, and comprehensive error handling.",
+            "dependencies": [],
+            "details": "Set up CORS policies to restrict allowed origins, configure server and application-level timeouts, and implement structured error responses. Review endpoints for common vulnerabilities and ensure secure defaults.",
+            "status": "pending",
+            "testStrategy": "Perform penetration testing and automated security scans to validate endpoint hardening and error handling."
+          },
+          {
+            "id": 4,
+            "title": "Document and Automate Production Deployment",
+            "description": "Prepare and document all deployment artifacts, including Dockerfile and Kubernetes manifests, following best practices for production environments.",
+            "dependencies": [],
+            "details": "Write clear documentation for building, configuring, and deploying the application. Ensure Dockerfile and k8s manifests are optimized for security, scalability, and maintainability. Include environment variable and secret management guidance.",
+            "status": "pending",
+            "testStrategy": "Deploy to a staging environment using the documented process and verify successful startup, configuration, and operation."
+          },
+          {
+            "id": 5,
+            "title": "Ensure Production-Grade Logging, Metrics, and Extensibility",
+            "description": "Upgrade logging and metrics to production standards and prepare the codebase for future extensibility via plugin hooks.",
+            "dependencies": [],
+            "details": "Implement structured logging with appropriate log levels and sensitive data redaction. Integrate metrics collection (e.g., Prometheus) for key performance and health indicators. Design and document plugin hook interfaces for future extensibility.",
+            "status": "pending",
+            "testStrategy": "Review logs and metrics output under load, verify sensitive data is not exposed, and test plugin hook integration points."
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-07-29T23:37:48.816Z",
-      "updated": "2025-07-29T23:37:48.816Z",
+      "updated": "2025-07-29T23:55:17.115Z",
       "description": "Tasks for master context"
     }
   }
