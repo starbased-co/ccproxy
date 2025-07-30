@@ -4,7 +4,11 @@
       "Bash(pre-commit:*)",
       "mcp__desktop-commander-mcp",
       "Bash(rm:*)",
-      "Bash(timeout 10 uv run:*)"
+      "Bash(timeout 10 uv run:*)",
+      "mcp__gitmcp",
+      "mcp__gitmcp__fetch_litellm_documentation",
+      "mcp__gitmcp__search_litellm_documentation",
+      "mcp__gitmcp__fetch_generic_url_content"
     ],
     "deny": []
   },

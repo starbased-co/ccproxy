@@ -66,6 +66,21 @@ class TestTokenCountRule:
         }
         assert rule.evaluate(request, config) == RoutingLabel.LARGE_CONTEXT
 
+    def test_configurable_threshold(self, rule: TokenCountRule) -> None:
+        """Test that context threshold is configurable."""
+        # Test with low threshold
+        low_config = CCProxyConfig(context_threshold=5000)
+        request = {"token_count": 6000}
+        assert rule.evaluate(request, low_config) == RoutingLabel.LARGE_CONTEXT
+
+        # Same request with high threshold
+        high_config = CCProxyConfig(context_threshold=10000)
+        assert rule.evaluate(request, high_config) is None
+
+        # Test threshold boundary
+        boundary_config = CCProxyConfig(context_threshold=6000)
+        assert rule.evaluate(request, boundary_config) is None  # Equal to threshold, not above
+
 
 class TestModelNameRule:
     """Tests for ModelNameRule."""

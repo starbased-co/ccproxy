@@ -9,65 +9,27 @@ import yaml
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore[import-not-found]
 
-from ccproxy.types import LogFormat, LogLevel, ModelProvider
+
+class CCProxySettings(BaseModel):
+    """CCProxy-specific settings from LiteLLM config."""
+
+    context_threshold: int = Field(default=60000, ge=1000, description="Token threshold for large_context")
+    debug: bool = Field(default=False, description="Enable debug logging")
+    metrics_enabled: bool = Field(default=True, description="Enable metrics collection")
+    reload_config_on_change: bool = Field(default=False, description="Enable hot-reload of config")
 
 
-class ModelConfig(BaseModel):
-    """Configuration for a specific model."""
+class LiteLLMConfig(BaseModel):
+    """Representation of LiteLLM proxy configuration."""
 
-    provider: ModelProvider
-    model_name: str
-    api_base: str | None = None
-    api_version: str | None = None
-    max_tokens: int | None = None
-    temperature: float | None = Field(None, ge=0.0, le=2.0)
-
-
-class RoutingConfig(BaseModel):
-    """Configuration for request routing."""
-
-    # Model mappings for each routing label
-    default: ModelConfig
-    background: ModelConfig
-    think: ModelConfig
-    large_context: ModelConfig
-    web_search: ModelConfig
-
-    # Fallback configuration
-    fallback_model: ModelConfig | None = None
-    fallback_enabled: bool = True
-
-
-class MetricsConfig(BaseModel):
-    """Configuration for metrics collection."""
-
-    enabled: bool = True
-    port: int = Field(default=9090, ge=1024, le=65535)
-    path: str = "/metrics"
-
-
-class LoggingConfig(BaseModel):
-    """Configuration for logging."""
-
-    level: LogLevel = "INFO"
-    format: LogFormat = "json"
-    file_path: Path | None = None
-    max_file_size: int = Field(default=10_485_760, ge=1_048_576)  # 10MB default, min 1MB
-    backup_count: int = Field(default=5, ge=0, le=100)
-
-
-class SecurityConfig(BaseModel):
-    """Configuration for security settings."""
-
-    enable_rate_limiting: bool = True
-    rate_limit_per_minute: int = Field(default=60, ge=1)
-    enable_https_only: bool = True
-    verify_ssl: bool = True
-    allowed_origins: list[str] = Field(default_factory=lambda: ["*"])
+    model_list: list[dict[str, Any]] = Field(default_factory=list)
+    litellm_settings: dict[str, Any] = Field(default_factory=dict)
+    general_settings: dict[str, Any] = Field(default_factory=dict)
+    ccproxy_settings: CCProxySettings = Field(default_factory=CCProxySettings)
 
 
 class CCProxyConfig(BaseSettings):  # type: ignore[misc]
-    """Main configuration for ccproxy."""
+    """Main configuration for ccproxy that reads from LiteLLM proxy config."""
 
     model_config = SettingsConfigDict(
         env_prefix="CCPROXY_",
@@ -78,48 +40,65 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
         extra="ignore",
     )
 
-    # Core settings
+    # Core settings from ccproxy_settings section
     context_threshold: int = Field(default=60000, ge=1000)
-    config_path: Path = Field(default=Path("./config.yaml"))
-
-    # Sub-configurations
-    routing: RoutingConfig | None = None
-    metrics: MetricsConfig = Field(default_factory=MetricsConfig)
-    logging: LoggingConfig = Field(default_factory=LoggingConfig)
-    security: SecurityConfig = Field(default_factory=SecurityConfig)
-
-    # Development settings
     debug: bool = False
+    metrics_enabled: bool = True
     reload_config_on_change: bool = False
 
+    # Path to LiteLLM config
+    litellm_config_path: Path = Field(default_factory=lambda: Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml")))
+
+    # Cached LiteLLM config
+    _litellm_config: LiteLLMConfig | None = None
+
     @classmethod
-    def from_yaml(cls, yaml_path: Path, **kwargs: Any) -> "CCProxyConfig":
-        """Load configuration from YAML file with environment overrides."""
+    def from_litellm_config(cls, yaml_path: Path, **kwargs: Any) -> "CCProxyConfig":
+        """Load configuration from LiteLLM proxy YAML file."""
         config_data: dict[str, Any] = {}
 
         # Load YAML if it exists
         if yaml_path.exists():
             with yaml_path.open() as f:
-                yaml_data = yaml.safe_load(f) or {}
-                config_data.update(yaml_data)
+                litellm_data = yaml.safe_load(f) or {}
+
+                # Extract ccproxy_settings if present
+                if "ccproxy_settings" in litellm_data:
+                    ccproxy_settings = litellm_data["ccproxy_settings"]
+                    config_data.update(ccproxy_settings)
+
+                # Store the full LiteLLM config for reference
+                config_data["_litellm_config"] = LiteLLMConfig(**litellm_data)
 
         # Apply any kwargs overrides
         config_data.update(kwargs)
+        config_data["litellm_config_path"] = yaml_path
 
         # Create config instance (env vars will be auto-loaded by pydantic-settings)
         return cls(**config_data)
 
-    def to_yaml(self, yaml_path: Path) -> None:
-        """Save current configuration to YAML file."""
-        # Export to dict, excluding None values
-        config_dict = self.model_dump(exclude_none=True, exclude={"config_path"})
+    def get_litellm_config(self) -> LiteLLMConfig:
+        """Get the full LiteLLM configuration."""
+        if self._litellm_config is None:
+            # Reload from file if not cached
+            with self.litellm_config_path.open() as f:
+                litellm_data = yaml.safe_load(f) or {}
+                self._litellm_config = LiteLLMConfig(**litellm_data)
+        return self._litellm_config
 
-        # Ensure directory exists
-        yaml_path.parent.mkdir(parents=True, exist_ok=True)
+    def get_model_for_label(self, label: str) -> str | None:
+        """Get the model name for a given routing label from LiteLLM config."""
+        litellm_config = self.get_litellm_config()
 
-        # Write YAML
-        with yaml_path.open("w") as f:
-            yaml.dump(config_dict, f, default_flow_style=False, sort_keys=False)
+        # Look for model with matching model_name
+        for model in litellm_config.model_list:
+            if model.get("model_name") == label:
+                # Return the actual model identifier from litellm_params
+                litellm_params = model.get("litellm_params", {})
+                model_name = litellm_params.get("model")
+                return model_name if isinstance(model_name, str) else None
+
+        return None
 
 
 # Singleton instance holder with thread safety
@@ -136,7 +115,7 @@ def get_config() -> CCProxyConfig:
             # Double-check locking pattern
             if _config_instance is None:
                 config_path = Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml"))
-                _config_instance = CCProxyConfig.from_yaml(config_path)
+                _config_instance = CCProxyConfig.from_litellm_config(config_path)
 
     return _config_instance
 
@@ -147,7 +126,7 @@ def reload_config() -> CCProxyConfig:
 
     with _config_lock:
         config_path = Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml"))
-        _config_instance = CCProxyConfig.from_yaml(config_path)
+        _config_instance = CCProxyConfig.from_litellm_config(config_path)
 
     return _config_instance
 
@@ -188,15 +167,15 @@ class ConfigProvider:
         if self._config is None:
             with self._lock:
                 if self._config is None:
-                    config_path = Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml"))
-                    self._config = CCProxyConfig.from_yaml(config_path)
+                    # Use the global singleton if no config was provided
+                    self._config = get_config()
         return self._config
 
     def reload(self) -> CCProxyConfig:
         """Reload configuration from disk."""
         with self._lock:
             config_path = Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml"))
-            self._config = CCProxyConfig.from_yaml(config_path)
+            self._config = CCProxyConfig.from_litellm_config(config_path)
         return self._config
 
     def set(self, config: CCProxyConfig) -> None:
