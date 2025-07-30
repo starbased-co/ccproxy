@@ -1,42 +1,42 @@
 # Task ID: 7
-# Title: Implement Secure API Key and Secrets Management
+# Title: Integrate MetricsCollector for Routing and Performance
 # Status: pending
-# Dependencies: 1
-# Priority: high
-# Description: Ensure all API keys and secrets are securely loaded from environment variables and never logged or exposed.
+# Dependencies: 5
+# Priority: medium
+# Description: Track routing decisions, performance metrics, and error rates for monitoring and optimization.
 # Details:
-Use python-dotenv for local development. Validate presence of required secrets at startup. Mask secrets in logs and error messages. Enforce HTTPS for all outbound requests using httpx (>=0.27) with verify=True. Document required environment variables.
+Implement MetricsCollector using Prometheus client (prometheus_client >=0.18) or OpenTelemetry. Expose metrics endpoint (/metrics) for scraping. Track per-label routing counts, latency, error rates, and fallback events. Integrate with CCProxyHandler to record metrics on each request.
 
 # Test Strategy:
-Unit test secret loading and masking. Attempt to log secrets and verify they are redacted. Integration test HTTPS enforcement.
+Unit and integration test metrics emission. Use Prometheus query to verify metrics are updated correctly under simulated load.
 
 # Subtasks:
-## 1. Load Secrets from Environment Variables Using python-dotenv [pending]
+## 1. Design Metrics Schema and Labeling Strategy [pending]
 ### Dependencies: None
-### Description: Configure the application to load all API keys and secrets from environment variables, utilizing python-dotenv for local development environments.
+### Description: Define the metrics to be collected (routing counts, latency, error rates, fallback events) and establish a labeling strategy for per-label tracking.
 ### Details:
-Set up a .env file for local use and ensure python-dotenv loads these variables at startup. Avoid hard-coding any secrets in the codebase. Confirm .env is excluded from version control.
+Specify metric names, types (counter, histogram, gauge), and labels (e.g., route label, status, error type). Ensure schema supports both Prometheus and OpenTelemetry conventions for compatibility.
 
-## 2. Validate Presence of Required Secrets at Startup [pending]
+## 2. Implement MetricsCollector with Prometheus Client or OpenTelemetry SDK [pending]
 ### Dependencies: 7.1
-### Description: Implement logic to check that all required API keys and secrets are present in the environment at application startup, failing fast if any are missing.
+### Description: Develop the MetricsCollector class using prometheus_client (>=0.18) or OpenTelemetry SDK to record defined metrics.
 ### Details:
-Define a list of required environment variables. On startup, iterate through this list and raise a clear error if any are missing.
+Instrument code to create and update metrics objects. Ensure thread/process safety and efficient metric updates. Support both Prometheus and OpenTelemetry backends as needed.
 
-## 3. Mask Secrets in Logs and Error Messages [pending]
+## 3. Expose /metrics Endpoint for Scraping [pending]
 ### Dependencies: 7.2
-### Description: Ensure that secrets are never logged or exposed in error messages by implementing masking or redaction logic throughout the codebase.
+### Description: Add an HTTP endpoint (/metrics) to expose collected metrics in Prometheus format for scraping by monitoring systems.
 ### Details:
-Intercept log and error outputs to detect and redact any values matching known secrets or secret patterns before outputting.
+Integrate with the web framework to serve the /metrics endpoint. Ensure endpoint outputs metrics in the correct format and is accessible for Prometheus or OpenTelemetry Collector scraping.
 
-## 4. Enforce HTTPS with Certificate Verification for Outbound Requests [pending]
+## 4. Integrate MetricsCollector with CCProxyHandler [pending]
 ### Dependencies: 7.2
-### Description: Configure all outbound HTTP requests using httpx (>=0.27) to require HTTPS with certificate verification enabled.
+### Description: Modify CCProxyHandler to record metrics for each request, capturing routing decisions, latency, errors, and fallback events.
 ### Details:
-Set up httpx clients with verify=True for all requests. Audit code to ensure no insecure (HTTP) endpoints are used.
+Inject MetricsCollector into CCProxyHandler. Update handler logic to record metrics at appropriate points in the request lifecycle, ensuring all relevant events are tracked.
 
-## 5. Document Required Environment Variables and Security Practices [pending]
-### Dependencies: 7.1, 7.2, 7.3, 7.4
-### Description: Create and maintain documentation listing all required environment variables, their purpose, and best practices for secure secrets management.
+## 5. Test Metrics Emission and Monitoring Integration [pending]
+### Dependencies: 7.3, 7.4
+### Description: Validate that metrics are emitted correctly under simulated load and can be queried via Prometheus or OpenTelemetry.
 ### Details:
-Write documentation specifying each required secret, example .env usage, and guidelines for secure handling in different environments.
+Develop unit and integration tests to simulate various routing, error, and fallback scenarios. Use Prometheus queries to verify metrics accuracy and completeness.

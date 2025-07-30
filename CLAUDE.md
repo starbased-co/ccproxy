@@ -157,6 +157,9 @@ task-master set-status --id=<id> --status=done
 - `tests/test_router.py` - Router logic tests
 - `pyproject.toml` - Project configuration
 
+## Dev Notes
+- ignore the demo directory for now
+
 ---
 
 *This CLAUDE.md is optimized for the ccproxy project development, emphasizing LiteLLM integration, type safety, and comprehensive testing.*

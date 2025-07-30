@@ -1,42 +1,53 @@
 # Task ID: 6
-# Title: Integrate MetricsCollector for Routing and Performance
+# Title: Implement Claude Wrapper Script with Auto-Managed CCProxy
 # Status: pending
-# Dependencies: 5
-# Priority: medium
-# Description: Track routing decisions, performance metrics, and error rates for monitoring and optimization.
+# Dependencies: 2, 5
+# Priority: high
+# Description: Create a Python CLI wrapper that transparently starts/reuses a LiteLLM+CCProxy instance, forwards all user-supplied "claude" arguments through the proxy, and shuts the proxy down when no Claude sessions remain.
 # Details:
-Implement MetricsCollector using Prometheus client (prometheus_client >=0.18) or OpenTelemetry. Expose metrics endpoint (/metrics) for scraping. Track per-label routing counts, latency, error rates, and fallback events. Integrate with CCProxyHandler to record metrics on each request.
+1. Placement & Packaging
+   • Add module ccproxy.claude_wrapper and expose an entry-point "claude" via pyproject.toml so users simply run "claude ...".
+   • Keep the original Anthropic CLI semantics: forward every CLI arg/flag untouched.
+
+2. Runtime Flow
+   a) Process Co-ordination
+      • Acquire a file lock (e.g., fasteners.InterProcessLock at ~/.ccproxy/claude.lock) to serialize start/stop decisions.
+      • Inside the lock read ~/.ccproxy/claude_proxy.json containing {pid, port, start_time, refcount} if it exists.
+   b) Proxy Reuse or Spawn
+      • Validate the recorded PID is alive and listening; if so, increment refcount and continue.
+      • Otherwise choose a free port (socket.bind(('',0)).getsockname()[1]), construct env vars (LITELLM_PROXY_PORT, HTTP_PROXY, HTTPS_PROXY, OPENAI_BASE_URL, etc.) and launch:
+        subprocess.Popen([
+          sys.executable,
+          "-m","ccproxy.run_proxy",
+          "--port", str(port),
+          "--handler","ccproxy.handlers.CCProxyHandler"
+        ], stdout=logfile, stderr=logfile, env=clean_env)
+      • Persist new pid/port/refcount=1 to claude_proxy.json.
+   c) Execute Real Claude
+      • Build env for the child process: inherit current env + proxy vars so Anthropic CLI routes through LiteLLM.
+      • Use subprocess.call(["anthropic","..."], env=wrapped_env, pass_fds=[]).
+   d) Shutdown Logic (finally block)
+      • Re-acquire lock, decrement refcount; if 0 send SIGINT then SIGTERM (5-second grace) to proxy pid and delete state file.
+
+3. Cross-Platform & Robustness
+   • Use psutil where available for PID liveness; fall back to os.kill on POSIX and ctypes on Windows.
+   • Redirect proxy stdout/stderr to ~/.ccproxy/proxy.log; rotate daily with logging.handlers.RotatingFileHandler.
+   • Never print API keys; redact with **** if the user enables --verbose on wrapper.
+   • Respect existing user proxy settings by only overriding for Anthropic-specific variables.
+
+4. Configuration Hooks
+   • Honour CC_PROXY_CONFIG, CC_PROXY_PORT, and CC_PROXY_LOG env vars for power users.
+   • Consume Configuration Manager (Task 2) to load yaml/env overrides if present so the spawned proxy picks up the same routing table.
+
+5. Documentation Stub
+   • Add a section in docs/usage.md: “Running the Anthropic CLI via ccproxy” with examples and troubleshooting tips.
 
 # Test Strategy:
-Unit and integration test metrics emission. Use Prometheus query to verify metrics are updated correctly under simulated load.
+
 
 # Subtasks:
-## 1. Design Metrics Schema and Labeling Strategy [pending]
-### Dependencies: None
-### Description: Define the metrics to be collected (routing counts, latency, error rates, fallback events) and establish a labeling strategy for per-label tracking.
+## 1. Productionize: Performance, Security, and Monitoring Hardening [pending]
+### Dependencies: 6.7, 6.8, 6.9, 6.10
+### Description: Finalize production readiness with benchmarking, rate limiting, abuse prevention, and deployment best practices.
 ### Details:
-Specify metric names, types (counter, histogram, gauge), and labels (e.g., route label, status, error type). Ensure schema supports both Prometheus and OpenTelemetry conventions for compatibility.
-
-## 2. Implement MetricsCollector with Prometheus Client or OpenTelemetry SDK [pending]
-### Dependencies: 6.1
-### Description: Develop the MetricsCollector class using prometheus_client (>=0.18) or OpenTelemetry SDK to record defined metrics.
-### Details:
-Instrument code to create and update metrics objects. Ensure thread/process safety and efficient metric updates. Support both Prometheus and OpenTelemetry backends as needed.
-
-## 3. Expose /metrics Endpoint for Scraping [pending]
-### Dependencies: 6.2
-### Description: Add an HTTP endpoint (/metrics) to expose collected metrics in Prometheus format for scraping by monitoring systems.
-### Details:
-Integrate with the web framework to serve the /metrics endpoint. Ensure endpoint outputs metrics in the correct format and is accessible for Prometheus or OpenTelemetry Collector scraping.
-
-## 4. Integrate MetricsCollector with CCProxyHandler [pending]
-### Dependencies: 6.2
-### Description: Modify CCProxyHandler to record metrics for each request, capturing routing decisions, latency, errors, and fallback events.
-### Details:
-Inject MetricsCollector into CCProxyHandler. Update handler logic to record metrics at appropriate points in the request lifecycle, ensuring all relevant events are tracked.
-
-## 5. Test Metrics Emission and Monitoring Integration [pending]
-### Dependencies: 6.3, 6.4
-### Description: Validate that metrics are emitted correctly under simulated load and can be queried via Prometheus or OpenTelemetry.
-### Details:
-Develop unit and integration tests to simulate various routing, error, and fallback scenarios. Use Prometheus queries to verify metrics accuracy and completeness.
+Benchmark concurrent request handling (use locust or wrk). Implement rate limiting with slowapi or similar. Harden HTTP endpoints (CORS, timeouts, error handling). Document deployment (Dockerfile, k8s manifests). Ensure logging and metrics are production-grade. Prepare for future extensibility (plugin hooks).

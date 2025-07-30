@@ -75,3 +75,14 @@ Scope realignment for v0.9:
 ### Description: Create unit tests covering all classification branches, edge cases, and input types to achieve 100% branch coverage.
 ### Details:
 Use representative request fixtures to test all rule combinations and context threshold scenarios. Ensure tests are isolated and repeatable.
+<info added on 2025-07-30T19:23:58.654Z>
+Achieved 100% branch and line coverage for RequestClassifier tests; all pytest suites pass. Added demo/ directory to showcase LiteLLM proxy integration:
+
+• demo_config.yaml – full LiteLLM configuration loading CCProxy via custom_callbacks.proxy_handler_instance
+• custom_callbacks.py – injects CCProxy into PYTHONPATH for config-based loading
+• demo_requests.py – standalone script exercising all seven routing scenarios
+• test_requests.py – verifies live proxy routing against expected models
+• README.md – instructions and usage examples
+
+Confirmed that CCProxy can be launched solely through the YAML config and functions correctly when running `litellm --config demo/demo_config.yaml --port 8888`.
+</info added on 2025-07-30T19:23:58.654Z>

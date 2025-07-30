@@ -1,42 +1,42 @@
 # Task ID: 10
-# Title: Productionize: Performance, Security, and Monitoring Hardening
+# Title: Write Documentation and Usage Examples
 # Status: pending
-# Dependencies: 6, 7, 8, 9
+# Dependencies: 5, 9
 # Priority: medium
-# Description: Finalize production readiness with benchmarking, rate limiting, abuse prevention, and deployment best practices.
+# Description: Produce user guide, API reference, migration guide, and troubleshooting docs with real-world examples.
 # Details:
-Benchmark concurrent request handling (use locust or wrk). Implement rate limiting with slowapi or similar. Harden HTTP endpoints (CORS, timeouts, error handling). Document deployment (Dockerfile, k8s manifests). Ensure logging and metrics are production-grade. Prepare for future extensibility (plugin hooks).
+Use MkDocs or Sphinx for documentation site. Include installation, configuration, and migration from claude-code-router. Document all config options, environment variables, and extension points. Provide example YAML configs and request scenarios. Add troubleshooting for common errors.
 
 # Test Strategy:
-Run load tests to verify performance targets. Penetration test for security. Review deployment with best practices checklist.
+Manual review for completeness and clarity. Validate all code snippets and examples run as documented.
 
 # Subtasks:
-## 1. Benchmark Concurrent Request Handling [pending]
+## 1. Set Up Documentation Site Infrastructure [pending]
 ### Dependencies: None
-### Description: Set up and execute benchmarking of the application's concurrent request handling using tools like locust or wrk to assess throughput and latency under load.
+### Description: Establish the documentation site using either MkDocs or Sphinx, configuring the structure for user guides, API reference, migration, and troubleshooting sections.
 ### Details:
-Configure benchmarking scenarios that simulate realistic traffic patterns, including varying levels of concurrency and request types. Collect and analyze performance metrics to identify bottlenecks and ensure the system meets production performance targets.
+Select and configure MkDocs (Markdown-based, simpler setup) or Sphinx (reStructuredText, superior cross-referencing and API integration) as the documentation generator. Set up navigation, theming, and initial folder structure for all required documentation types.
 
-## 2. Implement and Test Rate Limiting [pending]
-### Dependencies: None
-### Description: Integrate rate limiting middleware (such as slowapi) to control the number of requests per client and prevent abuse.
+## 2. Write Installation and Configuration Guides [pending]
+### Dependencies: 10.1
+### Description: Document installation steps, configuration options, environment variables, and extension points, including example YAML configurations.
 ### Details:
-Configure slowapi with appropriate rate limits for different endpoints and user types. Ensure correct integration with FastAPI or Starlette, and handle rate limit exceeded responses gracefully.
+Provide clear installation instructions for all supported environments. List and explain all configuration options and environment variables. Include example YAML config files and describe extension points for customization.
 
-## 3. Harden HTTP Endpoints for Security and Robustness [pending]
-### Dependencies: None
-### Description: Apply security best practices to all HTTP endpoints, including CORS configuration, request timeouts, and comprehensive error handling.
+## 3. Develop API Reference Documentation [pending]
+### Dependencies: 10.1
+### Description: Generate and curate a comprehensive API reference, detailing all public classes, methods, and configuration interfaces.
 ### Details:
-Set up CORS policies to restrict allowed origins, configure server and application-level timeouts, and implement structured error responses. Review endpoints for common vulnerabilities and ensure secure defaults.
+Use Sphinx autodoc or MkDocs plugins to extract docstrings and type annotations. Supplement with manual explanations where needed. Ensure all config options and extension points are covered.
 
-## 4. Document and Automate Production Deployment [pending]
-### Dependencies: None
-### Description: Prepare and document all deployment artifacts, including Dockerfile and Kubernetes manifests, following best practices for production environments.
+## 4. Create Migration and Usage Example Guides [pending]
+### Dependencies: 10.2, 10.3
+### Description: Write a migration guide from claude-code-router and provide real-world usage examples, including request scenarios and YAML configs.
 ### Details:
-Write clear documentation for building, configuring, and deploying the application. Ensure Dockerfile and k8s manifests are optimized for security, scalability, and maintainability. Include environment variable and secret management guidance.
+Detail step-by-step migration instructions, highlighting differences and compatibility notes. Provide annotated usage examples for common and advanced scenarios, including sample requests and configuration files.
 
-## 5. Ensure Production-Grade Logging, Metrics, and Extensibility [pending]
-### Dependencies: None
-### Description: Upgrade logging and metrics to production standards and prepare the codebase for future extensibility via plugin hooks.
+## 5. Document Troubleshooting and Common Errors [pending]
+### Dependencies: 10.2, 10.3, 10.4
+### Description: Compile troubleshooting documentation for common errors, including diagnostic steps and solutions.
 ### Details:
-Implement structured logging with appropriate log levels and sensitive data redaction. Integrate metrics collection (e.g., Prometheus) for key performance and health indicators. Design and document plugin hook interfaces for future extensibility.
+Identify frequent user issues and error messages. Provide clear troubleshooting steps, diagnostic commands, and recommended fixes. Link to relevant sections of the documentation for deeper context.

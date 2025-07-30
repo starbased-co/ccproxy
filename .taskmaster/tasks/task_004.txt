@@ -1,6 +1,6 @@
 # Task ID: 4
 # Title: Implement ModelRouter Component
-# Status: pending
+# Status: done
 # Dependencies: 2
 # Priority: high
 # Description: Map classification labels to model configurations as defined in the YAML config, supporting dynamic provider/model selection and public APIs for LiteLLM hooks.
@@ -22,25 +22,25 @@ The ModelRouter must
 4. Hot-reload test: modify YAML at runtime and assert atomic update with no request errors.
 
 # Subtasks:
-## 1. Load and Parse Model Mapping from YAML Config [pending]
+## 1. Load and Parse Model Mapping from YAML Config [done]
 ### Dependencies: None
 ### Description: Implement logic to load and parse the model mapping definitions from the YAML configuration file, ensuring compatibility with the Configuration Manager and support for dynamic provider/model selection.
 ### Details:
 Utilise the Configuration Manager to extract model routing information, validate the schema (including optional model_info metadata), and prepare internal data structures for fast lookup and export via get_model_list().
 
-## 2. Implement get_model_for_label Method [pending]
+## 2. Implement get_model_for_label Method [done]
 ### Dependencies: 4.1
 ### Description: Develop the get_model_for_label(label) method to return the appropriate model configuration for a given classification label, as defined in the loaded mapping.
 ### Details:
 Ensure the method returns the full model entry (including litellm_params and model_info) and triggers fallback logic if the preferred model is unavailable. Include graceful handling of unknown labels.
 
-## 3. Expose Public API Methods for LiteLLM Hooks [pending]
+## 3. Expose Public API Methods for LiteLLM Hooks [done]
 ### Dependencies: 4.1, 4.2
 ### Description: Add public methods and properties (get_model_list, model_list, model_group_alias, get_available_models) and ensure the ModelRouter instance is importable as llm_router for use inside LiteLLM hooks.
 ### Details:
 Return list of dicts with keys: model_name, litellm_params, model_info. Document usage with code snippet provided in the new context. Maintain thread-safe read-only access.
 
-## 4. Support Hot-Reload of Model Mapping on Config Changes [pending]
+## 4. Support Hot-Reload of Model Mapping on Config Changes [done]
 ### Dependencies: 4.1, 4.2, 4.3
 ### Description: Implement logic to detect changes in the YAML config and reload the model mapping dynamically without requiring a service restart.
 ### Details:

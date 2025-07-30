@@ -1,42 +1,42 @@
 # Task ID: 9
-# Title: Write Documentation and Usage Examples
+# Title: Develop Comprehensive Test Suite
 # Status: pending
-# Dependencies: 5, 8
-# Priority: medium
-# Description: Produce user guide, API reference, migration guide, and troubleshooting docs with real-world examples.
+# Dependencies: 3, 4, 5, 7, 8
+# Priority: high
+# Description: Achieve >90% code coverage with unit, integration, and performance tests for all core modules and routing logic.
 # Details:
-Use MkDocs or Sphinx for documentation site. Include installation, configuration, and migration from claude-code-router. Document all config options, environment variables, and extension points. Provide example YAML configs and request scenarios. Add troubleshooting for common errors.
+Use pytest (>=8.0) and pytest-asyncio for async tests. Mock LiteLLM and external APIs. Cover all classification, routing, config, and fallback logic. Add integration tests simulating full request lifecycle. Use coverage.py to enforce coverage threshold. Include performance tests for routing overhead (<10ms per request).
 
 # Test Strategy:
-Manual review for completeness and clarity. Validate all code snippets and examples run as documented.
+Run pytest with coverage. Fail CI if coverage <90%. Benchmark routing latency under load.
 
 # Subtasks:
-## 1. Set Up Documentation Site Infrastructure [pending]
+## 1. Design Unit Test Coverage for Core Modules [pending]
 ### Dependencies: None
-### Description: Establish the documentation site using either MkDocs or Sphinx, configuring the structure for user guides, API reference, migration, and troubleshooting sections.
+### Description: Identify all core modules, including classification, routing, config, and fallback logic, and design unit tests to achieve comprehensive branch and logic coverage.
 ### Details:
-Select and configure MkDocs (Markdown-based, simpler setup) or Sphinx (reStructuredText, superior cross-referencing and API integration) as the documentation generator. Set up navigation, theming, and initial folder structure for all required documentation types.
+Enumerate all functions and classes in core modules. Define representative test cases for each logic branch, including edge cases. Use pytest (>=8.0) and pytest-asyncio for async code. Mock LiteLLM and external APIs as needed.
 
-## 2. Write Installation and Configuration Guides [pending]
+## 2. Implement Integration Tests for Full Request Lifecycle [pending]
 ### Dependencies: 9.1
-### Description: Document installation steps, configuration options, environment variables, and extension points, including example YAML configurations.
+### Description: Develop integration tests that simulate the complete request lifecycle, covering interactions between modules and realistic scenarios.
 ### Details:
-Provide clear installation instructions for all supported environments. List and explain all configuration options and environment variables. Include example YAML config files and describe extension points for customization.
+Set up test cases that send requests through the full stack, including classification, routing, config, and fallback. Mock external APIs and LiteLLM. Use pytest-asyncio for async flows.
 
-## 3. Develop API Reference Documentation [pending]
+## 3. Mock LiteLLM and External API Dependencies [pending]
 ### Dependencies: 9.1
-### Description: Generate and curate a comprehensive API reference, detailing all public classes, methods, and configuration interfaces.
+### Description: Develop robust mocks for LiteLLM and all external APIs to ensure tests are deterministic and isolated from external failures.
 ### Details:
-Use Sphinx autodoc or MkDocs plugins to extract docstrings and type annotations. Supplement with manual explanations where needed. Ensure all config options and extension points are covered.
+Implement fixtures and mock classes for LiteLLM and any external services. Ensure mocks simulate expected responses and error conditions.
 
-## 4. Create Migration and Usage Example Guides [pending]
+## 4. Enforce and Monitor Code Coverage Thresholds [pending]
+### Dependencies: 9.1, 9.2, 9.3
+### Description: Integrate coverage.py with pytest to enforce a minimum 90% code coverage threshold and fail CI if unmet.
+### Details:
+Configure coverage.py to measure coverage during test runs. Set up CI to fail if coverage drops below 90%. Generate coverage reports for review.
+
+## 5. Develop Performance Tests for Routing Overhead [pending]
 ### Dependencies: 9.2, 9.3
-### Description: Write a migration guide from claude-code-router and provide real-world usage examples, including request scenarios and YAML configs.
+### Description: Create performance tests to benchmark routing logic, ensuring average overhead remains below 10ms per request under load.
 ### Details:
-Detail step-by-step migration instructions, highlighting differences and compatibility notes. Provide annotated usage examples for common and advanced scenarios, including sample requests and configuration files.
-
-## 5. Document Troubleshooting and Common Errors [pending]
-### Dependencies: 9.2, 9.3, 9.4
-### Description: Compile troubleshooting documentation for common errors, including diagnostic steps and solutions.
-### Details:
-Identify frequent user issues and error messages. Provide clear troubleshooting steps, diagnostic commands, and recommended fixes. Link to relevant sections of the documentation for deeper context.
+Use pytest and async benchmarking tools to simulate concurrent requests. Measure and record routing latency. Optimize code if overhead exceeds target.

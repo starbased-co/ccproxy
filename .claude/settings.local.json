@@ -11,7 +11,8 @@
       "mcp__gitmcp__fetch_generic_url_content",
       "Bash(litellm:*)",
       "Bash(PYTHONPATH=src python -c \"from ccproxy.handler import CCProxyHandler; print(''CCProxy import successful'')\")",
-      "Bash(PYTHONPATH=src litellm --config demo/demo_config.yaml --port 8000)"
+      "Bash(PYTHONPATH=src litellm --config demo/demo_config.yaml --port 8000)",
+      "Bash(timeout:*)"
     ],
     "deny": []
   },
