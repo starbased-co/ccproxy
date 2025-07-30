@@ -1,0 +1,42 @@
+# Task ID: 1
+# Title: Setup Project Repository and Environment
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Initialize the ccproxy project repository with Python tooling, environment management, and CI/CD setup.
+# Details:
+Use Python 3.11+ for best async support. Initialize with Poetry or pip-tools for dependency management. Set up pre-commit hooks (black, isort, flake8). Configure GitHub Actions for CI (lint, test, coverage). Add .env.example for environment variables (API keys, config paths). Ensure all dependencies are pinned to latest compatible versions. Use pyproject.toml for unified configuration.
+
+# Test Strategy:
+Verify environment setup by running lint, format, and a sample test in CI. Ensure .env.example is present and all scripts run without error.
+
+# Subtasks:
+## 1. Initialize Git Repository and Project Structure [done]
+### Dependencies: None
+### Description: Create a new Git repository for the ccproxy project and establish a standardized Python project structure, including source, tests, and configuration directories.
+### Details:
+Set up the root directory with folders for source code (e.g., ccproxy/), tests/, and configs/. Add essential files such as README.md, .gitignore, and pyproject.toml. Ensure the structure supports future scalability and maintainability.
+
+## 2. Configure Python Environment and Dependency Management [done]
+### Dependencies: 1.1
+### Description: Set up Python 3.11+ environment and initialize dependency management using Poetry or pip-tools.
+### Details:
+Create a virtual environment targeting Python 3.11 or newer. Initialize dependency management with Poetry (preferred) or pip-tools. Add core development dependencies (black, isort, flake8, pytest). Ensure all dependencies are pinned to the latest compatible versions in pyproject.toml.
+
+## 3. Set Up Pre-commit Hooks for Code Quality [done]
+### Dependencies: 1.2
+### Description: Integrate pre-commit hooks to enforce code formatting and linting standards using black, isort, and flake8.
+### Details:
+Install pre-commit and configure .pre-commit-config.yaml to run black, isort, and flake8 on staged files. Ensure hooks are installed in the repository so contributors automatically run checks before commits.
+
+## 4. Configure GitHub Actions for CI/CD [done]
+### Dependencies: 1.3
+### Description: Set up GitHub Actions workflows to automate linting, testing, and coverage reporting on push and pull requests.
+### Details:
+Create workflow YAML files under .github/workflows/ to run lint, test, and coverage jobs using the configured Python environment. Ensure the workflow uses the same dependency versions as local development and reports status checks.
+
+## 5. Add Environment Variable Management and Example File [done]
+### Dependencies: 1.2
+### Description: Provide a .env.example file listing required environment variables and integrate environment variable loading into the project.
+### Details:
+Create a .env.example file specifying placeholders for API keys and config paths. Ensure the project loads environment variables using python-dotenv or similar. Document usage in README.md.

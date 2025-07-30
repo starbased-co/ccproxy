@@ -143,7 +143,7 @@
         "dependencies": [
           2
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -206,70 +206,59 @@
       {
         "id": 4,
         "title": "Implement ModelRouter Component",
-        "description": "Map classification labels to model configurations as defined in the YAML config, supporting dynamic provider/model selection.",
-        "details": "Load model mapping from config. Provide get_model_for_label(label) method. Support fallback logic if preferred model is unavailable. Validate model existence at startup. Prepare for hot-reload if config changes.",
-        "testStrategy": "Unit test label-to-model mapping, fallback behavior, and error handling for missing models.",
-        "priority": "high",
+        "description": "Map classification labels to model configurations as defined in the YAML config, supporting dynamic provider/model selection and public APIs for LiteLLM hooks.",
+        "status": "pending",
         "dependencies": [
           2
         ],
-        "status": "pending",
+        "priority": "high",
+        "details": "The ModelRouter must\n  • Load the model-routing map from the Configuration Manager at start-up\n  • Provide classification-aware routing through get_model_for_label(label)\n  • Expose a public API (get_model_list, model_list, model_group_alias, get_available_models) so that LiteLLM hooks can import the singleton instance as litellm.proxy.proxy_server.llm_router\n  • Preserve and surface model_info metadata so hooks such as CCProxyHandler can make additional routing decisions\n  • Fall back to secondary models when the preferred model is unavailable\n  • Validate that every referenced model exists in Configuration Manager’s model list\n  • Support atomic hot-reload when the YAML config changes\n  • Include thorough docstrings and short README section demonstrating ‘Accessing Model Configuration in LiteLLM Hooks’ (as provided in new context)",
+        "testStrategy": "1. Unit test: label-to-model mapping, fallback behaviour, error handling for missing models.\n2. Unit test: public methods (get_model_list, model_list property, model_group_alias, get_available_models) – verify structure matches spec and that metadata is preserved.\n3. Integration test: simulate LiteLLM CustomLogger importing llm_router and accessing model list.\n4. Hot-reload test: modify YAML at runtime and assert atomic update with no request errors.",
         "subtasks": [
           {
             "id": 1,
             "title": "Load and Parse Model Mapping from YAML Config",
             "description": "Implement logic to load and parse the model mapping definitions from the YAML configuration file, ensuring compatibility with the Configuration Manager and support for dynamic provider/model selection.",
+            "status": "in-progress",
             "dependencies": [],
-            "details": "Utilize the configuration loader to extract model routing information, validate schema, and prepare internal data structures for fast lookup.",
-            "status": "pending",
-            "testStrategy": "Unit test with various YAML config samples, including malformed and missing mappings. Verify correct parsing and error handling."
+            "details": "Utilise the Configuration Manager to extract model routing information, validate the schema (including optional model_info metadata), and prepare internal data structures for fast lookup and export via get_model_list().",
+            "testStrategy": "Unit test with various YAML config samples, including malformed and missing mappings. Verify correct parsing, schema validation, and error handling."
           },
           {
             "id": 2,
             "title": "Implement get_model_for_label Method",
             "description": "Develop the get_model_for_label(label) method to return the appropriate model configuration for a given classification label, as defined in the loaded mapping.",
+            "status": "done",
             "dependencies": [
-              "4.1"
+              1
             ],
-            "details": "Ensure the method supports dynamic provider/model selection and returns the correct model or triggers fallback logic if the preferred model is unavailable.",
-            "status": "pending",
-            "testStrategy": "Unit test label-to-model mapping for all supported labels, including edge cases and unknown labels."
+            "details": "Ensure the method returns the full model entry (including litellm_params and model_info) and triggers fallback logic if the preferred model is unavailable. Include graceful handling of unknown labels.",
+            "testStrategy": "Unit test label-to-model mapping for all supported labels, including edge cases and unknown labels. Validate fallback selection."
           },
           {
             "id": 3,
-            "title": "Implement Fallback Logic for Unavailable Models",
-            "description": "Design and implement fallback mechanisms to select alternative models if the preferred model for a label is unavailable, based on configuration or predefined rules.",
-            "dependencies": [
-              "4.2"
-            ],
-            "details": "Support multiple fallback strategies (e.g., priority order, default model) and ensure robust error handling when no valid model is found.",
+            "title": "Expose Public API Methods for LiteLLM Hooks",
+            "description": "Add public methods and properties (get_model_list, model_list, model_group_alias, get_available_models) and ensure the ModelRouter instance is importable as llm_router for use inside LiteLLM hooks.",
             "status": "pending",
-            "testStrategy": "Unit test fallback behavior by simulating unavailable models and verifying correct alternative selection or error reporting."
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Return list of dicts with keys: model_name, litellm_params, model_info. Document usage with code snippet provided in the new context. Maintain thread-safe read-only access.",
+            "testStrategy": "Unit test each public method’s output and thread safety. Integration test within a dummy LiteLLM hook importing llm_router."
           },
           {
             "id": 4,
-            "title": "Validate Model Existence at Startup",
-            "description": "On component initialization, verify that all configured models exist and are accessible, raising clear errors for missing or misconfigured models.",
-            "dependencies": [
-              "4.1"
-            ],
-            "details": "Check model availability using provider APIs or local checks as appropriate. Aggregate and report all validation errors at startup.",
-            "status": "pending",
-            "testStrategy": "Unit test with configs referencing missing, invalid, or inaccessible models. Confirm that errors are detected and reported before serving requests."
-          },
-          {
-            "id": 5,
             "title": "Support Hot-Reload of Model Mapping on Config Changes",
             "description": "Implement logic to detect changes in the YAML config and reload the model mapping dynamically without requiring a service restart.",
-            "dependencies": [
-              "4.1",
-              "4.2",
-              "4.3",
-              "4.4"
-            ],
-            "details": "Integrate with the Configuration Manager's hot-reload mechanism. Ensure thread safety and atomic updates to the routing logic.",
             "status": "pending",
-            "testStrategy": "Integration test by modifying the config at runtime and verifying that new mappings and fallbacks are applied immediately and safely."
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Integrate with the Configuration Manager’s hot-reload mechanism. Ensure atomic swap of internal routing tables and that public API properties always return a consistent view. Cover race-conditions with async requests.",
+            "testStrategy": "Integration test by modifying the config at runtime and verifying that new mappings, metadata and fallbacks are applied immediately and safely."
           }
         ]
       },
@@ -689,7 +678,7 @@
     ],
     "metadata": {
       "created": "2025-07-29T23:37:48.816Z",
-      "updated": "2025-07-30T03:52:11.901Z",
+      "updated": "2025-07-30T04:52:59.839Z",
       "description": "Tasks for master context"
     }
   }

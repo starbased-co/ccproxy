@@ -1,0 +1,42 @@
+# Task ID: 9
+# Title: Write Documentation and Usage Examples
+# Status: pending
+# Dependencies: 5, 8
+# Priority: medium
+# Description: Produce user guide, API reference, migration guide, and troubleshooting docs with real-world examples.
+# Details:
+Use MkDocs or Sphinx for documentation site. Include installation, configuration, and migration from claude-code-router. Document all config options, environment variables, and extension points. Provide example YAML configs and request scenarios. Add troubleshooting for common errors.
+
+# Test Strategy:
+Manual review for completeness and clarity. Validate all code snippets and examples run as documented.
+
+# Subtasks:
+## 1. Set Up Documentation Site Infrastructure [pending]
+### Dependencies: None
+### Description: Establish the documentation site using either MkDocs or Sphinx, configuring the structure for user guides, API reference, migration, and troubleshooting sections.
+### Details:
+Select and configure MkDocs (Markdown-based, simpler setup) or Sphinx (reStructuredText, superior cross-referencing and API integration) as the documentation generator. Set up navigation, theming, and initial folder structure for all required documentation types.
+
+## 2. Write Installation and Configuration Guides [pending]
+### Dependencies: 9.1
+### Description: Document installation steps, configuration options, environment variables, and extension points, including example YAML configurations.
+### Details:
+Provide clear installation instructions for all supported environments. List and explain all configuration options and environment variables. Include example YAML config files and describe extension points for customization.
+
+## 3. Develop API Reference Documentation [pending]
+### Dependencies: 9.1
+### Description: Generate and curate a comprehensive API reference, detailing all public classes, methods, and configuration interfaces.
+### Details:
+Use Sphinx autodoc or MkDocs plugins to extract docstrings and type annotations. Supplement with manual explanations where needed. Ensure all config options and extension points are covered.
+
+## 4. Create Migration and Usage Example Guides [pending]
+### Dependencies: 9.2, 9.3
+### Description: Write a migration guide from claude-code-router and provide real-world usage examples, including request scenarios and YAML configs.
+### Details:
+Detail step-by-step migration instructions, highlighting differences and compatibility notes. Provide annotated usage examples for common and advanced scenarios, including sample requests and configuration files.
+
+## 5. Document Troubleshooting and Common Errors [pending]
+### Dependencies: 9.2, 9.3, 9.4
+### Description: Compile troubleshooting documentation for common errors, including diagnostic steps and solutions.
+### Details:
+Identify frequent user issues and error messages. Provide clear troubleshooting steps, diagnostic commands, and recommended fixes. Link to relevant sections of the documentation for deeper context.

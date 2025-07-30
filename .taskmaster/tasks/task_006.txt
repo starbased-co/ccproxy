@@ -1,0 +1,42 @@
+# Task ID: 6
+# Title: Integrate MetricsCollector for Routing and Performance
+# Status: pending
+# Dependencies: 5
+# Priority: medium
+# Description: Track routing decisions, performance metrics, and error rates for monitoring and optimization.
+# Details:
+Implement MetricsCollector using Prometheus client (prometheus_client >=0.18) or OpenTelemetry. Expose metrics endpoint (/metrics) for scraping. Track per-label routing counts, latency, error rates, and fallback events. Integrate with CCProxyHandler to record metrics on each request.
+
+# Test Strategy:
+Unit and integration test metrics emission. Use Prometheus query to verify metrics are updated correctly under simulated load.
+
+# Subtasks:
+## 1. Design Metrics Schema and Labeling Strategy [pending]
+### Dependencies: None
+### Description: Define the metrics to be collected (routing counts, latency, error rates, fallback events) and establish a labeling strategy for per-label tracking.
+### Details:
+Specify metric names, types (counter, histogram, gauge), and labels (e.g., route label, status, error type). Ensure schema supports both Prometheus and OpenTelemetry conventions for compatibility.
+
+## 2. Implement MetricsCollector with Prometheus Client or OpenTelemetry SDK [pending]
+### Dependencies: 6.1
+### Description: Develop the MetricsCollector class using prometheus_client (>=0.18) or OpenTelemetry SDK to record defined metrics.
+### Details:
+Instrument code to create and update metrics objects. Ensure thread/process safety and efficient metric updates. Support both Prometheus and OpenTelemetry backends as needed.
+
+## 3. Expose /metrics Endpoint for Scraping [pending]
+### Dependencies: 6.2
+### Description: Add an HTTP endpoint (/metrics) to expose collected metrics in Prometheus format for scraping by monitoring systems.
+### Details:
+Integrate with the web framework to serve the /metrics endpoint. Ensure endpoint outputs metrics in the correct format and is accessible for Prometheus or OpenTelemetry Collector scraping.
+
+## 4. Integrate MetricsCollector with CCProxyHandler [pending]
+### Dependencies: 6.2
+### Description: Modify CCProxyHandler to record metrics for each request, capturing routing decisions, latency, errors, and fallback events.
+### Details:
+Inject MetricsCollector into CCProxyHandler. Update handler logic to record metrics at appropriate points in the request lifecycle, ensuring all relevant events are tracked.
+
+## 5. Test Metrics Emission and Monitoring Integration [pending]
+### Dependencies: 6.3, 6.4
+### Description: Validate that metrics are emitted correctly under simulated load and can be queried via Prometheus or OpenTelemetry.
+### Details:
+Develop unit and integration tests to simulate various routing, error, and fallback scenarios. Use Prometheus queries to verify metrics accuracy and completeness.
