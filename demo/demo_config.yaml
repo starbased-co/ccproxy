@@ -1,0 +1,38 @@
+model_list:
+  # Default model for general requests
+  - model_name: default
+    litellm_params:
+      model: anthropic/claude-sonnet-4-20250514
+      api_key: ${ANTHROPIC_API_KEY}
+
+  # Background model for simple tasks (like formatting)
+  - model_name: background
+    litellm_params:
+      model: anthropic/claude-3-5-haiku-20241022
+      api_key: ${ANTHROPIC_API_KEY}
+
+  # Thinking model for complex reasoning
+  - model_name: think
+    litellm_params:
+      model: anthropic/claude-opus-4-20250514
+      api_key: ${ANTHROPIC_API_KEY}
+
+  # Large context model for documents >60k tokens
+  - model_name: large_context
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: ${GOOGLE_API_KEY}
+
+  # Web search model with internet access
+  - model_name: web_search
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: ${GOOGLE_API_KEY}
+
+litellm_settings:
+  callbacks: ccproxy.handler.CCProxyHandler
+
+# CCProxy settings
+ccproxy_settings:
+  context_threshold: 60000 # Tokens threshold for large_context routing
+  debug: true # Enable debug logging to see routing decisions

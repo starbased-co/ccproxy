@@ -207,7 +207,7 @@
         "id": 4,
         "title": "Implement ModelRouter Component",
         "description": "Map classification labels to model configurations as defined in the YAML config, supporting dynamic provider/model selection and public APIs for LiteLLM hooks.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           2
         ],
@@ -219,7 +219,7 @@
             "id": 1,
             "title": "Load and Parse Model Mapping from YAML Config",
             "description": "Implement logic to load and parse the model mapping definitions from the YAML configuration file, ensuring compatibility with the Configuration Manager and support for dynamic provider/model selection.",
-            "status": "in-progress",
+            "status": "done",
             "dependencies": [],
             "details": "Utilise the Configuration Manager to extract model routing information, validate the schema (including optional model_info metadata), and prepare internal data structures for fast lookup and export via get_model_list().",
             "testStrategy": "Unit test with various YAML config samples, including malformed and missing mappings. Verify correct parsing, schema validation, and error handling."
@@ -239,7 +239,7 @@
             "id": 3,
             "title": "Expose Public API Methods for LiteLLM Hooks",
             "description": "Add public methods and properties (get_model_list, model_list, model_group_alias, get_available_models) and ensure the ModelRouter instance is importable as llm_router for use inside LiteLLM hooks.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1,
               2
@@ -251,7 +251,7 @@
             "id": 4,
             "title": "Support Hot-Reload of Model Mapping on Config Changes",
             "description": "Implement logic to detect changes in the YAML config and reload the model mapping dynamically without requiring a service restart.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [
               1,
               2,
@@ -273,7 +273,7 @@
           3,
           4
         ],
-        "status": "pending",
+        "status": "in-progress",
         "subtasks": [
           {
             "id": 1,
@@ -281,7 +281,7 @@
             "description": "Create the CCProxyHandler class inheriting from litellm.integrations.custom_logger.CustomLogger, ensuring all required methods for LiteLLM custom loggers are stubbed and ready for implementation.",
             "dependencies": [],
             "details": "Set up the class skeleton with async_pre_call_hook and other relevant async logging methods. Ensure compatibility with LiteLLM v1.13+ proxy mode and prepare for structured logging integration.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "Verify class can be instantiated and registered as a callback in LiteLLM proxy without errors."
           },
           {
@@ -678,7 +678,7 @@
     ],
     "metadata": {
       "created": "2025-07-29T23:37:48.816Z",
-      "updated": "2025-07-30T04:52:59.839Z",
+      "updated": "2025-07-30T05:20:13.876Z",
       "description": "Tasks for master context"
     }
   }

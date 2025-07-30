@@ -1,7 +1,0 @@
-context_threshold: 60000
-debug: true
-logging:
-  level: DEBUG
-metrics:
-  enabled: false
-  port: 8080

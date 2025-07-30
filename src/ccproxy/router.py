@@ -217,6 +217,15 @@ class ModelRouter:
         # No models available at all
         return None
 
+    def reload(self) -> None:
+        """Reload model mapping from configuration.
+
+        This method is called when the configuration file changes.
+        It performs an atomic reload of all internal routing tables
+        to ensure thread-safe hot-reload functionality.
+        """
+        self._load_model_mapping()
+
 
 # Global singleton instance for LiteLLM hook access
 _router_instance: ModelRouter | None = None
@@ -237,3 +246,24 @@ def get_router() -> ModelRouter:
                 _router_instance = ModelRouter()
 
     return _router_instance
+
+
+def reload_router() -> None:
+    """Reload the global router's model mapping.
+
+    This function is called when the configuration file changes,
+    triggering a hot-reload of model mappings.
+    """
+    router = get_router()
+    router.reload()
+
+
+def clear_router() -> None:
+    """Clear the global router instance.
+
+    This function is used in testing to ensure clean state
+    between test runs.
+    """
+    global _router_instance
+    with _router_lock:
+        _router_instance = None

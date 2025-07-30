@@ -144,6 +144,11 @@ def clear_config_instance() -> None:
     with _config_lock:
         _config_instance = None
 
+    # Also clear the router instance to ensure clean state
+    from ccproxy.router import clear_router
+
+    clear_router()
+
 
 class ConfigProvider:
     """Dependency injection provider for configuration.

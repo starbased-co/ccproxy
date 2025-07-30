@@ -111,6 +111,27 @@ See `examples/hot_reload_demo.py` and `examples/config_usage_demo.py` for comple
 - Tools contain `web_search` → `web_search`
 - Default case → `default`
 
+## Using CCProxy in LiteLLM Hooks
+
+CCProxy exposes a public API that allows LiteLLM hooks to access model configuration:
+
+```python
+from ccproxy.llm_router import llm_router
+
+# Get model for a classification label
+model = llm_router.get_model_for_label("background")
+
+# Get all available models
+models = llm_router.model_list
+
+# Check model availability
+if llm_router.is_model_available("web_search"):
+    # Use web search model
+    pass
+```
+
+See [docs/litellm-hook-usage.md](docs/litellm-hook-usage.md) for detailed usage.
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.

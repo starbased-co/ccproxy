@@ -83,6 +83,12 @@ class ConfigFileHandler(FileSystemEventHandler):  # type: ignore[misc]
             reload_config()
             print(f"Configuration reloaded from {self.config_path}")
 
+            # Reload the router's model mapping
+            from ccproxy.router import reload_router
+
+            reload_router()
+            print("Model router mapping reloaded")
+
             # Call the callback if provided
             if self.callback:
                 if asyncio.iscoroutinefunction(self.callback):
