@@ -5,31 +5,126 @@ A LiteLLM-based transformation hook system that routes Claude Code API requests 
 ## Installation
 
 ```bash
-uv tool install ccproxy
+pip install ccproxy
 ```
 
-## Quick Start
+## Quick Setup
 
-To get started, a [LiteLLM `config.yaml`](https://docs.litellm.ai/docs/proxy/configs) is required. An [example](./config.yaml.example) is provided:
+Run the automated setup:
 
+```bash
+python -m ccproxy install
+# or with uv:
+uv run -m ccproxy install
 ```
 
+This will create all necessary configuration files in `~/.ccproxy/`.
+
+To overwrite existing files without prompting:
+```bash
+python -m ccproxy install --force
 ```
 
-```python
-from ccproxy import CCProxyHandler
+## Manual Setup
 
-# Initialize the handler
-handler = CCProxyHandler()
+If you prefer to set up manually:
 
-# Use with LiteLLM proxy
-# The handler will automatically route requests based on configured rules
+1. **Create the CCProxy configuration directory**:
+   ```bash
+   mkdir -p ~/.ccproxy
+   cd ~/.ccproxy
+   ```
+
+2. **Create the callback file** (`~/.ccproxy/custom_callbacks.py`):
+   ```python
+   from ccproxy.handler import CCProxyHandler
+
+   # Create the instance that LiteLLM will use
+   proxy_handler_instance = CCProxyHandler()
+   ```
+
+3. **Create your LiteLLM config** (`~/.ccproxy/config.yaml`):
+   ```yaml
+   model_list:
+     # Default model for regular use
+     - model_name: default
+       litellm_params:
+         model: anthropic/claude-sonnet-4-20250514
+         api_key: ${ANTHROPIC_API_KEY}
+
+     # Background model for claude-3-5-haiku requests
+     - model_name: background
+       litellm_params:
+         model: anthropic/claude-3-5-haiku-20241022
+         api_key: ${ANTHROPIC_API_KEY}
+
+     # Add other models as needed...
+
+   litellm_settings:
+     callbacks: custom_callbacks.proxy_handler_instance
+
+   # CCProxy settings
+   ccproxy_settings:
+     context_threshold: 60000  # Tokens threshold for large_context routing
+     debug: true              # Enable debug logging
+   ```
+
+   See [config.yaml.example](./config.yaml.example) for a complete example with all routing models.
+
+4. **Start the LiteLLM proxy**:
+   ```bash
+   cd ~/.ccproxy
+   litellm --config config.yaml
+   ```
+
+   The proxy will start on `http://localhost:4000` by default.
+
+## Environment Variables
+
+Set your API keys before starting the proxy:
+
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-key"
+export GOOGLE_API_KEY="your-google-key"  # For Gemini models
+# Add other API keys as needed
+
+cd ~/.ccproxy
+litellm --config config.yaml
 ```
 
 ## Routing Rules
 
-- Long context (>60k tokens, configurable) → `large_context`
-- Model is `claude-3-5-haiku` → `background`
-- Request has thinking field → `think`
-- Tools contain `web_search` → `web_search`
-- Default case → `default`
+CCProxy automatically routes requests based on these rules (in priority order):
+
+1. **Long context** (>60k tokens, configurable) → `large_context` model
+2. **Background requests** (model is `claude-3-5-haiku`) → `background` model
+3. **Thinking requests** (request has `think` field) → `think` model
+4. **Web search** (tools contain `web_search`) → `web_search` model
+5. **Default** → `default` model
+
+## Configuration
+
+The `context_threshold` in `ccproxy_settings` controls when requests are routed to the large context model:
+
+```yaml
+ccproxy_settings:
+  context_threshold: 60000  # Route to large_context if tokens > 60k
+  debug: true              # Enable debug logging to see routing decisions
+```
+
+## Troubleshooting
+
+### "Could not import proxy_handler_instance from ccproxy"
+
+Make sure you:
+1. Created the `custom_callbacks.py` file in your config directory
+2. Are running `litellm` from the same directory as your config files
+3. Have installed ccproxy: `pip install ccproxy`
+
+### API Key Errors
+
+Ensure your API keys are set as environment variables before starting LiteLLM.
+
+### Debug Logging
+
+Set `debug: true` in `ccproxy_settings` to see detailed routing decisions in the logs.

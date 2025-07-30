@@ -13,14 +13,14 @@ def run_command(cmd: list[str], capture: bool = True) -> tuple[int, str, str]:
     print(f"\n$ {' '.join(cmd)}")
 
     if capture:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
         if result.stdout:
             print(f"STDOUT: {result.stdout}")
         if result.stderr:
             print(f"STDERR: {result.stderr}", file=sys.stderr)
         return result.returncode, result.stdout, result.stderr
     else:
-        returncode = subprocess.call(cmd)
+        returncode = subprocess.call(cmd)  # noqa: S603
         return returncode, "", ""
 
 
@@ -43,7 +43,7 @@ def main():
         state_file = state_dir / "claude_proxy.json"
         if state_file.exists():
             print(f"   Found existing state file: {state_file}")
-            with open(state_file) as f:
+            with state_file.open() as f:
                 print(f"   Current state: {f.read()}")
     else:
         print("   State directory will be created on first run")
@@ -56,7 +56,7 @@ def main():
     env = os.environ.copy()
     env["CC_PROXY_CONFIG"] = str(Path("demo/demo_config.yaml").absolute())
 
-    proc1 = subprocess.Popen(
+    proc1 = subprocess.Popen(  # noqa: S603
         [sys.executable, "-m", "ccproxy.claude_wrapper", "--version"],
         env=env,
         stdout=subprocess.PIPE,
@@ -70,12 +70,12 @@ def main():
     # Check state after first call
     if state_file.exists():
         print("\n   State after first call:")
-        with open(state_file) as f:
+        with state_file.open() as f:
             print(f"   {f.read()}")
 
     # Second call - should reuse proxy
     print("\n   b) Second wrapper call (should reuse proxy):")
-    proc2 = subprocess.Popen(
+    proc2 = subprocess.Popen(  # noqa: S603
         [sys.executable, "-m", "ccproxy.claude_wrapper", "--help"],
         env=env,
         stdout=subprocess.PIPE,
@@ -104,7 +104,7 @@ def main():
     print("\n4. Checking final state...")
     if state_file.exists():
         print("   State file still exists (proxy might still be running)")
-        with open(state_file) as f:
+        with state_file.open() as f:
             print(f"   Final state: {f.read()}")
     else:
         print("   State file removed (proxy shut down)")
@@ -113,7 +113,7 @@ def main():
     log_file = state_dir / "proxy.log"
     if log_file.exists():
         print(f"\n5. Recent log entries from {log_file}:")
-        with open(log_file) as f:
+        with log_file.open() as f:
             lines = f.readlines()
             for line in lines[-20:]:  # Last 20 lines
                 print(f"   {line.rstrip()}")

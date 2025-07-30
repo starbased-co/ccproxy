@@ -14,8 +14,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-import fasteners
-import psutil
+import fasteners  # type: ignore[import-not-found]
+import psutil  # type: ignore[import-untyped]
 
 # Setup logging with rotation
 LOG_DIR = Path.home() / ".ccproxy"
@@ -47,14 +47,14 @@ def find_free_port() -> int:
         s.bind(("", 0))
         s.listen(1)
         port = s.getsockname()[1]
-    return port
+    return int(port)
 
 
 def is_process_alive(pid: int) -> bool:
     """Check if a process is alive using psutil."""
     try:
         process = psutil.Process(pid)
-        return process.is_running() and process.status() != psutil.STATUS_ZOMBIE
+        return bool(process.is_running() and process.status() != psutil.STATUS_ZOMBIE)
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         return False
 
@@ -122,10 +122,7 @@ def start_proxy(port: int) -> subprocess.Popen[bytes]:
         clean_env["LITELLM_CONFIG_PATH"] = os.environ["CC_PROXY_CONFIG"]
 
     # Start proxy subprocess
-    log_fd = open(LOG_FILE, "a")
     cmd = [
-        sys.executable,
-        "-m",
         "litellm",
         "--port",
         str(port),
@@ -137,13 +134,14 @@ def start_proxy(port: int) -> subprocess.Popen[bytes]:
 
     logger.info(f"Starting proxy: {' '.join(cmd)}")
 
-    process = subprocess.Popen(
-        cmd,
-        stdout=log_fd,
-        stderr=subprocess.STDOUT,
-        env=clean_env,
-        preexec_fn=os.setsid if os.name != "nt" else None,
-    )
+    with LOG_FILE.open("a") as log_fd:
+        process = subprocess.Popen(  # noqa: S603
+            cmd,
+            stdout=log_fd,
+            stderr=subprocess.STDOUT,
+            env=clean_env,
+            preexec_fn=os.setsid if os.name != "nt" else None,
+        )
 
     return process
 
@@ -154,8 +152,9 @@ def load_state() -> dict[str, Any] | None:
         return None
 
     try:
-        with open(STATE_FILE) as f:
-            return json.load(f)
+        with STATE_FILE.open() as f:
+            state: dict[str, Any] = json.load(f)
+            return state
     except (json.JSONDecodeError, OSError) as e:
         logger.error(f"Failed to load state: {e}")
         return None
@@ -164,7 +163,7 @@ def load_state() -> dict[str, Any] | None:
 def save_state(state: dict[str, Any]) -> None:
     """Save proxy state to file."""
     try:
-        with open(STATE_FILE, "w") as f:
+        with STATE_FILE.open("w") as f:
             json.dump(state, f, indent=2)
     except OSError as e:
         logger.error(f"Failed to save state: {e}")
@@ -259,7 +258,7 @@ def main() -> int:
         # Get Claude command - try multiple common names
         claude_cmd = None
         for cmd in ["anthropic", "claude-cli", "claude-anthropic"]:
-            if subprocess.run(["which", cmd], capture_output=True).returncode == 0:
+            if subprocess.run(["which", cmd], capture_output=True, check=False).returncode == 0:  # noqa: S603, S607
                 claude_cmd = cmd
                 break
 
@@ -270,7 +269,7 @@ def main() -> int:
 
         # Run Claude with all original arguments
         logger.info(f"Running {claude_cmd} with args: {sys.argv[1:]}")
-        result = subprocess.call([claude_cmd] + sys.argv[1:], env=claude_env)
+        result = subprocess.call([claude_cmd] + sys.argv[1:], env=claude_env)  # noqa: S603
 
         return result
 

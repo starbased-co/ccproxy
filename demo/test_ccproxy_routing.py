@@ -25,7 +25,7 @@ def test_routing(name: str, request_data: dict) -> None:
     print("\nSending to LiteLLM proxy...")
 
     try:
-        response = requests.post(PROXY_URL, json=request_data, headers={"Content-Type": "application/json"})
+        response = requests.post(PROXY_URL, json=request_data, headers={"Content-Type": "application/json"}, timeout=30)
 
         if response.status_code == 200:
             result = response.json()

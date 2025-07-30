@@ -97,7 +97,9 @@ async def main():
                 {"role": "system", "content": "You are a helpful assistant."},
                 {
                     "role": "user",
-                    "content": "<thinking>I need to solve this step by step...</thinking>\nProve that √2 is irrational.",
+                    "content": (
+                        "<thinking>I need to solve this step by step...</thinking>\n" "Prove that √2 is irrational."
+                    ),
                 },
             ],
         },

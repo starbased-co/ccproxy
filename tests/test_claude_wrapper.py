@@ -183,7 +183,7 @@ class TestProxyManagement:
         mock_process.pid = 12345
         mock_popen.return_value = mock_process
 
-        process = start_proxy(8888)
+        _ = start_proxy(8888)
 
         # Check config was included
         call_args = mock_popen.call_args

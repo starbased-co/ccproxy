@@ -37,15 +37,15 @@ CCProxy provides a transparent wrapper for the Claude CLI that automatically rou
 
 ### Setup
 
-After installing ccproxy, the `claude` command becomes available:
+After installing ccproxy, the `cclaude` command becomes available:
 
 ```bash
-# Use claude as normal - CCProxy handles the routing transparently
-claude "What is the capital of France?"
+# Use cclaude instead of claude - CCProxy handles the routing transparently
+cclaude "What is the capital of France?"
 
 # All Claude CLI options work as expected
-claude --model claude-3-opus-20240229 "Explain quantum computing"
-claude --stream "Write a haiku about programming"
+cclaude --model claude-3-opus-20240229 "Explain quantum computing"
+cclaude --stream "Write a haiku about programming"
 ```
 
 ### How It Works
@@ -237,7 +237,7 @@ litellm_settings:
 ### Getting Help
 
 - Check logs: `~/.ccproxy/proxy.log`
-- Run with debug: `CC_PROXY_DEBUG=1 claude --help`
+- Run with debug: `CC_PROXY_DEBUG=1 cclaude --help`
 - Report issues: [GitHub Issues](https://github.com/yourusername/ccproxy/issues)
 
 ## Key Files

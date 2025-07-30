@@ -1,36 +1,38 @@
-# LiteLLM proxy config.yaml
 model_list:
-  - model_name: default # model used for `default` requests
-    litellm_params: # all params accepted by litellm.completion() - https://docs.litellm.ai/docs/completion/input
-      model: claude-3-5-sonnet-20241022 ### MODEL NAME sent to `litellm.completion()` ###
-      api_base: https://api.anthropic.com
-  - model_name: background # model used for `background` requests
+  # Default model for regular use
+  - model_name: default
     litellm_params:
-      model: claude-3-5-haiku-20241022
-      api_base: https://api.anthropic.com
-  - model_name: think # model used for `think` requests
+      model: anthropic/claude-sonnet-4-20250514
+      api_key: ${ANTHROPIC_API_KEY}
+
+  # Background model, see: https://docs.anthropic.com/en/docs/claude-code/costs#background-token-usage
+  - model_name: background
     litellm_params:
-      model: claude-3-5-sonnet-20241022
-      api_base: https://api.anthropic.com
-  - model_name: large_context # model used for `large_context` labeled requests
+      model: anthropic/claude-3-5-haiku-20241022
+      api_key: ${ANTHROPIC_API_KEY}
+
+  # Thinking model for complex reasoning (request.body.think = true)
+  - model_name: think
     litellm_params:
-      model: claude-3-5-sonnet-20241022
-      api_base: https://api.anthropic.com
-  - model_name: web_search # model used for `web_search` labeled requests
+      model: anthropic/claude-opus-4-20250514
+      api_key: ${ANTHROPIC_API_KEY}
+
+  # Large context model for >60k tokens (threshold configurable below)
+  - model_name: large_context
     litellm_params:
-      model: claude-3-5-sonnet-20241022
-      api_base: https://api.anthropic.com
+      model: gemini/gemini-2.5-pro
+      api_key: ${GOOGLE_API_KEY}
+
+  # Web search model for execution when the WebSearch tool is present
+  - model_name: web_search
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: ${GOOGLE_API_KEY}
 
 litellm_settings:
-  callbacks: custom_callbacks.ccproxy_handler
+  callbacks: custom_callbacks.proxy_handler_instance
 
-general_settings:
-  monitoring:
-    log_transformations: true
-    metrics_enabled: true
-    slow_transformation_threshold: 0.05 # 50ms in seconds
-
+# CCProxy settings
 ccproxy_settings:
-  context_threshold: 60000
-
-# vim: ft=yaml
+  context_threshold: 60000 # Tokens threshold for large_context routing
+  debug: true # Enable debug logging to see routing decisions
