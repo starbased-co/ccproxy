@@ -184,8 +184,8 @@
               "3.2",
               "3.3"
             ],
-            "details": "Abstract rule evaluation and routing label assignment to support plug-in architectures or ML-based decision modules. Document extension points.",
-            "status": "pending",
+            "details": "Abstract rule evaluation and routing label assignment to support plug-in architectures or ML-based decision modules. Document extension points.\n<info added on 2025-07-30T03:42:36.498Z>\nScope realignment for v0.9:\n\n• Document existing extension points: explain the ClassificationRule ABC (required methods, expected return values) and the add_rule/clear_rules API in RequestClassifier.  \n• Provide rich docstring examples in both RequestClassifier and ClassificationRule that show how to implement and register a custom rule.  \n• Add an illustrative CustomHeaderRule in the test suite; register it with add_rule and assert correct routing label on a fixture request.  \n• Expand unit tests to verify that custom rules can be added, cleared, and do not interfere with built-in rules.  \n• Remove references to future ML or plug-in architectures to avoid premature complexity.\n</info added on 2025-07-30T03:42:36.498Z>",
+            "status": "done",
             "testStrategy": "Add a mock rule or stub ML classifier to verify extensibility; ensure existing logic remains unaffected."
           },
           {
@@ -689,7 +689,7 @@
     ],
     "metadata": {
       "created": "2025-07-29T23:37:48.816Z",
-      "updated": "2025-07-30T03:31:12.404Z",
+      "updated": "2025-07-30T03:45:24.939Z",
       "description": "Tasks for master context"
     }
   }

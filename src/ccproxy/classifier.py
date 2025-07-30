@@ -22,7 +22,25 @@ class RoutingLabel(str, Enum):
 
 
 class ClassificationRule(ABC):
-    """Abstract base class for classification rules."""
+    """Abstract base class for classification rules.
+
+    To create a custom classification rule:
+
+    1. Inherit from ClassificationRule
+    2. Implement the evaluate method
+    3. Return a RoutingLabel if the rule matches, None otherwise
+
+    Example:
+        >>> class CustomHeaderRule(ClassificationRule):
+        ...     def evaluate(self, request, config):
+        ...         headers = request.get("headers", {})
+        ...         if headers.get("X-Priority") == "low":
+        ...             return RoutingLabel.BACKGROUND
+        ...         return None
+        ...
+        >>> classifier = RequestClassifier()
+        >>> classifier.add_rule(CustomHeaderRule())
+    """
 
     @abstractmethod
     def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
@@ -52,7 +70,36 @@ class Classifier(Protocol):
 
 
 class RequestClassifier:
-    """Main request classifier implementing rule-based classification."""
+    """Main request classifier implementing rule-based classification.
+
+    The classifier uses a rule-based system where rules are evaluated in
+    the order they are added. The first matching rule determines the
+    routing label.
+
+    Extension Points:
+    - Create custom rules by inheriting from ClassificationRule
+    - Add rules dynamically using add_rule()
+    - Replace default rules using clear_rules() then add_rule()
+    - Reset to default rules using reset_rules()
+
+    Example:
+        >>> # Create a custom rule
+        >>> class CustomAPIKeyRule(ClassificationRule):
+        ...     def evaluate(self, request, config):
+        ...         api_key = request.get("api_key", "")
+        ...         if api_key.startswith("test_"):
+        ...             return RoutingLabel.BACKGROUND
+        ...         return None
+        ...
+        >>> # Use with classifier
+        >>> classifier = RequestClassifier()
+        >>> classifier.add_rule(CustomAPIKeyRule())
+        >>>
+        >>> # Or replace all rules
+        >>> classifier.clear_rules()
+        >>> classifier.add_rule(CustomAPIKeyRule())
+        >>> classifier.add_rule(TokenCountRule())
+    """
 
     def __init__(self, config_provider: ConfigProvider | None = None) -> None:
         """Initialize the request classifier.
