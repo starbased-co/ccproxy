@@ -5,6 +5,10 @@ A LiteLLM-based transformation hook system that routes Claude Code API requests 
 ## Installation
 
 ```bash
+uv tool install ccproxy
+# or
+pipx install ccproxy
+# or
 pip install ccproxy
 ```
 
@@ -13,16 +17,16 @@ pip install ccproxy
 Run the automated setup:
 
 ```bash
+ccproxy install
+# or with Python module:
 python -m ccproxy install
-# or with uv:
-uv run -m ccproxy install
 ```
 
 This will create all necessary configuration files in `~/.ccproxy/`.
 
 To overwrite existing files without prompting:
 ```bash
-python -m ccproxy install --force
+ccproxy install --force
 ```
 
 ## Manual Setup
@@ -93,6 +97,23 @@ litellm --config config.yaml
 ```
 
 ## Routing Rules
+
+## Usage
+
+After installation and setup, use Claude with automatic routing:
+
+```bash
+ccproxy claude --version
+ccproxy claude -p "Explain quantum computing"
+
+# Or set an alias for convenience:
+alias claude='ccproxy claude'
+claude -p "Hello world"
+```
+
+The proxy will start automatically when you use the `ccproxy claude` command and route your requests based on the configured rules.
+
+## How It Works
 
 CCProxy automatically routes requests based on these rules (in priority order):
 

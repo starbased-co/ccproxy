@@ -59,10 +59,23 @@ def install(force: bool = False) -> None:
     Args:
         force: If True, overwrite existing files without prompting
     """
+    # Check for old cclaude wrapper and inform about removal
+    old_wrapper = Path.home() / ".local" / "bin" / "cclaude"
+    if old_wrapper.exists() or old_wrapper.is_symlink():
+        print("⚠️  Found old cclaude wrapper script")
+        print("   The new version uses 'ccproxy claude' instead of 'cclaude'")
+        try:
+            response = input("   Remove old wrapper? [Y/n]: ")
+            if response.lower() != "n":
+                old_wrapper.unlink()
+                print("   ✅ Removed old cclaude wrapper")
+        except (EOFError, KeyboardInterrupt):
+            print("   Skipping removal (non-interactive mode)")
+
     # Determine config directory
     config_dir = Path.home() / ".ccproxy"
 
-    print("🚀 CCProxy Installation")
+    print("\n🚀 CCProxy Installation")
     print(f"📁 Creating configuration directory: {config_dir}")
 
     # Create directory
@@ -111,17 +124,18 @@ def install(force: bool = False) -> None:
     print("\n🎉 Installation complete!")
     print("\n📋 Next steps:")
     print("1. Set your API keys:")
-    print("   export OPENAI_API_KEY='your-key'")
     print("   export ANTHROPIC_API_KEY='your-key'")
-    print("   export GOOGLE_API_KEY='your-key'")
-    print("   # ... etc")
-
+    print("   export OPENAI_API_KEY='your-key'  # Optional")
+    print("   export GOOGLE_API_KEY='your-key'   # Optional")
     print("")
-    print("2. Start the LiteLLM proxy:")
-    print(f"   cd {config_dir}")
-    print("   litellm --config config.yaml")
+    print("2. Use Claude with CCProxy routing:")
+    print("   ccproxy claude --version")
+    print("   ccproxy claude -p 'Hello world'")
     print("")
-    print("3. The proxy will be available at http://localhost:4000")
+    print("   Or set an alias for convenience:")
+    print("   alias claude='ccproxy claude'")
+    print("")
+    print("3. The proxy will start automatically when you use 'ccproxy claude'")
     print("")
     print("📚 For more information, see: https://github.com/starbased-co/ccproxy")
 

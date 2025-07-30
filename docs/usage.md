@@ -22,8 +22,11 @@ CCProxy is a LiteLLM transformation hook that intelligently routes API requests 
 ## Installation
 
 ```bash
-# Install with uv (recommended)
-uv add ccproxy
+# Install with uv tool (recommended)
+uv tool install ccproxy
+
+# Or with pipx
+pipx install ccproxy
 
 # Or install from source
 git clone https://github.com/yourusername/ccproxy.git
@@ -37,15 +40,19 @@ CCProxy provides a transparent wrapper for the Claude CLI that automatically rou
 
 ### Setup
 
-After installing ccproxy, the `cclaude` command becomes available:
+After installing ccproxy, use the `ccproxy claude` command:
 
 ```bash
-# Use cclaude instead of claude - CCProxy handles the routing transparently
-cclaude "What is the capital of France?"
+# Use ccproxy claude instead of claude - CCProxy handles the routing transparently
+ccproxy claude "What is the capital of France?"
 
 # All Claude CLI options work as expected
-cclaude --model claude-3-opus-20240229 "Explain quantum computing"
-cclaude --stream "Write a haiku about programming"
+ccproxy claude --model claude-3-opus-20240229 "Explain quantum computing"
+ccproxy claude --stream "Write a haiku about programming"
+
+# For convenience, you can create an alias:
+alias claude='ccproxy claude'
+claude "What is the capital of France?"
 ```
 
 ### How It Works
@@ -237,7 +244,7 @@ litellm_settings:
 ### Getting Help
 
 - Check logs: `~/.ccproxy/proxy.log`
-- Run with debug: `CC_PROXY_DEBUG=1 cclaude --help`
+- Run with debug: `CC_PROXY_DEBUG=1 ccproxy claude --help`
 - Report issues: [GitHub Issues](https://github.com/yourusername/ccproxy/issues)
 
 ## Key Files

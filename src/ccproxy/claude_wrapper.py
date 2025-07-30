@@ -255,16 +255,11 @@ def main() -> int:
 
     # Execute the real Claude CLI
     try:
-        # Get Claude command - try multiple common names
-        claude_cmd = None
-        for cmd in ["anthropic", "claude-cli", "claude-anthropic"]:
-            if subprocess.run(["which", cmd], capture_output=True, check=False).returncode == 0:  # noqa: S603, S607
-                claude_cmd = cmd
-                break
-
-        if not claude_cmd:
-            logger.error("Claude CLI not found. Please install the Anthropic CLI.")
-            print("Error: Claude CLI not found. Please install with: pip install anthropic", file=sys.stderr)
+        # Check if claude command exists
+        claude_cmd = "claude"
+        if subprocess.run(["which", claude_cmd], capture_output=True, check=False).returncode != 0:  # noqa: S603, S607
+            logger.error("Claude CLI not found.")
+            print("Error: Claude CLI not found. Please install Claude Code.", file=sys.stderr)
             return 1
 
         # Run Claude with all original arguments

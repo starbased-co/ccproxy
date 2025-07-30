@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-cclaude = "ccproxy.claude_wrapper:main"
+ccproxy = "ccproxy.cli:main"
 
 [project.optional-dependencies]
 dev = [
