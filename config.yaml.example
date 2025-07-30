@@ -1,0 +1,75 @@
+# CCProxy Configuration Example
+# This file demonstrates the full configuration structure
+
+# Context threshold for large context routing (in tokens)
+context_threshold: 60000
+
+# Routing configuration - maps labels to model configurations
+routing:
+  # Default routing for standard requests
+  default:
+    provider: openai
+    model_name: gpt-4
+    temperature: 0.7
+    max_tokens: 4096
+
+  # Background processing for claude-3-5-haiku model
+  background:
+    provider: anthropic
+    model_name: claude-3-haiku-20240307
+    temperature: 0.3
+
+  # Thinking mode requests
+  think:
+    provider: anthropic
+    model_name: claude-3-opus-20240229
+    temperature: 0.8
+    max_tokens: 8192
+
+  # Large context requests (>60k tokens)
+  large_context:
+    provider: openai
+    model_name: gpt-4-turbo-preview
+    max_tokens: 128000
+
+  # Web search tool requests
+  web_search:
+    provider: perplexity
+    model_name: sonar-large-32k
+    temperature: 0.5
+
+  # Fallback model if primary fails
+  fallback_model:
+    provider: openai
+    model_name: gpt-3.5-turbo
+    temperature: 0.5
+
+  # Enable fallback routing
+  fallback_enabled: true
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics
+
+# Logging configuration
+logging:
+  level: INFO
+  format: json
+  file_path: /var/log/ccproxy/ccproxy.log
+  max_file_size: 10485760  # 10MB
+  backup_count: 5
+
+# Security configuration
+security:
+  enable_rate_limiting: true
+  rate_limit_per_minute: 60
+  enable_https_only: true
+  verify_ssl: true
+  allowed_origins:
+    - "*"
+
+# Development settings
+debug: false
+reload_config_on_change: false
