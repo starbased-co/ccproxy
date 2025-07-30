@@ -30,7 +30,7 @@ model_list:
       api_key: ${GOOGLE_API_KEY}
 
 litellm_settings:
-  callbacks: ccproxy.handler.CCProxyHandler
+  callbacks: custom_callbacks.proxy_handler_instance
 
 # CCProxy settings
 ccproxy_settings:

@@ -48,13 +48,13 @@ def ccproxy_get_model(data: dict[str, Any]) -> str:
         # The specific label is configured, use it
         model_config = router.get_model_for_label(label.value)
         if model_config is not None:
-            model = model_config["litellm_params"]["model"]
+            model: str = str(model_config["litellm_params"]["model"])
         else:
             # Should not happen, but fallback to original
-            model = data.get("model", "claude-3-5-sonnet-20241022")
+            model = str(data.get("model", "claude-3-5-sonnet-20241022"))
     else:
         # The specific label is not configured, use original model
-        model = data.get("model", "claude-3-5-sonnet-20241022")
+        model = str(data.get("model", "claude-3-5-sonnet-20241022"))
 
     # Log routing decision if debug enabled
     if config.debug:

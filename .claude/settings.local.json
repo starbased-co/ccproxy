@@ -8,7 +8,10 @@
       "mcp__gitmcp",
       "mcp__gitmcp__fetch_litellm_documentation",
       "mcp__gitmcp__search_litellm_documentation",
-      "mcp__gitmcp__fetch_generic_url_content"
+      "mcp__gitmcp__fetch_generic_url_content",
+      "Bash(litellm:*)",
+      "Bash(PYTHONPATH=src python -c \"from ccproxy.handler import CCProxyHandler; print(''CCProxy import successful'')\")",
+      "Bash(PYTHONPATH=src litellm --config demo/demo_config.yaml --port 8000)"
     ],
     "deny": []
   },
