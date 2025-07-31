@@ -4,7 +4,8 @@ import sys
 from typing import NoReturn
 
 from ccproxy.claude_wrapper import main as claude_main
-from ccproxy.install import install
+
+# from ccproxy.install import install
 
 
 def print_usage() -> None:
@@ -33,7 +34,8 @@ def main() -> NoReturn:
         # Handle install command
         force = "--force" in sys.argv
         try:
-            install(force=force)
+            # install(force=force)
+            pass
         except KeyboardInterrupt:
             print("\n\n❌ Installation cancelled by user")
             sys.exit(1)
