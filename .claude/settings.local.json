@@ -14,7 +14,8 @@
       "Bash(cclaude:*)",
       "Bash(ccproxy:*)",
       "Bash(cp:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(prisma generate:*)"
     ],
     "deny": []
   },

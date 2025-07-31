@@ -2,7 +2,7 @@
 
 # ANTHROPIC_BASE_URL="https://api.anthropic.com"
 ANTHROPIC_BASE_URL="http://127.0.0.1:4000"
-ANTHROPIC_API_KEY="$(jq '.claudeAiOauth.accessToken' ~/.claude/.credentials.json)"
+ANTHROPIC_API_KEY="$CLAUDE_CODE_API_KEY"
 
 curl \
   -H 'anthropic-dangerous-direct-browser-access: true' \
@@ -12,7 +12,7 @@ curl \
   --compressed \
   -X POST "$ANTHROPIC_BASE_URL/v1/messages?beta=true" \
   -d '{
-      "model": "claude-sonnet-4-20250514",
+      "model": "default",
       "messages": [
         {"role": "user", "content": "Hello, Claude!"}
       ],

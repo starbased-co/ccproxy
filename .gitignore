@@ -63,7 +63,5 @@ site/
 poetry.lock
 
 # Project specific
-config.yaml
-!config.example.yaml
 *.db
 *.sqlite
