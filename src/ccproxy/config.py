@@ -13,7 +13,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore[i
 class CCProxySettings(BaseModel):
     """CCProxy-specific settings from LiteLLM config."""
 
-    context_threshold: int = Field(default=60000, ge=1000, description="Token threshold for large_context")
+    token_count_threshold: int = Field(default=60000, ge=1000, description="Token threshold for token_count")
     debug: bool = Field(default=False, description="Enable debug logging")
     metrics_enabled: bool = Field(default=True, description="Enable metrics collection")
     reload_config_on_change: bool = Field(default=False, description="Enable hot-reload of config")
@@ -41,7 +41,7 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
     )
 
     # Core settings from ccproxy_settings section
-    context_threshold: int = Field(default=60000, ge=1000)
+    token_count_threshold: int = Field(default=60000, ge=1000)
     debug: bool = False
     metrics_enabled: bool = True
     reload_config_on_change: bool = False
@@ -55,27 +55,28 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
     @classmethod
     def from_litellm_config(cls, yaml_path: Path, **kwargs: Any) -> "CCProxyConfig":
         """Load configuration from LiteLLM proxy YAML file."""
-        config_data: dict[str, Any] = {}
+        # First create an instance with just env vars and defaults
+        instance = cls(litellm_config_path=yaml_path, **kwargs)
 
-        # Load YAML if it exists
+        # Then load YAML if it exists
         if yaml_path.exists():
             with yaml_path.open() as f:
                 litellm_data = yaml.safe_load(f) or {}
 
-                # Extract ccproxy_settings if present
+                # Store the full LiteLLM config for reference
+                instance._litellm_config = LiteLLMConfig(**litellm_data)
+
+                # Only update fields that aren't set by env vars
                 if "ccproxy_settings" in litellm_data:
                     ccproxy_settings = litellm_data["ccproxy_settings"]
-                    config_data.update(ccproxy_settings)
 
-                # Store the full LiteLLM config for reference
-                config_data["_litellm_config"] = LiteLLMConfig(**litellm_data)
+                    # For each setting in YAML, only apply if env var wasn't set
+                    for key, value in ccproxy_settings.items():
+                        env_key = f"CCPROXY_{key.upper()}"
+                        if env_key not in os.environ and hasattr(instance, key):
+                            setattr(instance, key, value)
 
-        # Apply any kwargs overrides
-        config_data.update(kwargs)
-        config_data["litellm_config_path"] = yaml_path
-
-        # Create config instance (env vars will be auto-loaded by pydantic-settings)
-        return cls(**config_data)
+        return instance
 
     def get_litellm_config(self) -> LiteLLMConfig:
         """Get the full LiteLLM configuration."""

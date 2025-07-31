@@ -18,7 +18,7 @@ class TestTokenCountRule:
     @pytest.fixture
     def config(self) -> CCProxyConfig:
         """Create a test configuration."""
-        return CCProxyConfig(context_threshold=1000)
+        return CCProxyConfig(token_count_threshold=1000)
 
     def test_no_tokens(self, rule: TokenCountRule, config: CCProxyConfig) -> None:
         """Test request with no token information."""
@@ -33,17 +33,17 @@ class TestTokenCountRule:
     def test_token_count_above_threshold(self, rule: TokenCountRule, config: CCProxyConfig) -> None:
         """Test request with token count above threshold."""
         request = {"token_count": 2000}
-        assert rule.evaluate(request, config) == RoutingLabel.LARGE_CONTEXT
+        assert rule.evaluate(request, config) == RoutingLabel.TOKEN_COUNT
 
     def test_num_tokens_field(self, rule: TokenCountRule, config: CCProxyConfig) -> None:
         """Test request with num_tokens field."""
         request = {"num_tokens": 1500}
-        assert rule.evaluate(request, config) == RoutingLabel.LARGE_CONTEXT
+        assert rule.evaluate(request, config) == RoutingLabel.TOKEN_COUNT
 
     def test_input_tokens_field(self, rule: TokenCountRule, config: CCProxyConfig) -> None:
         """Test request with input_tokens field."""
         request = {"input_tokens": 1200}
-        assert rule.evaluate(request, config) == RoutingLabel.LARGE_CONTEXT
+        assert rule.evaluate(request, config) == RoutingLabel.TOKEN_COUNT
 
     def test_messages_estimation(self, rule: TokenCountRule, config: CCProxyConfig) -> None:
         """Test token estimation from messages."""
@@ -55,7 +55,7 @@ class TestTokenCountRule:
         # Create messages with >4000 characters (estimated >1000 tokens)
         longer_message = "x" * 5000
         request = {"messages": [{"content": longer_message}]}
-        assert rule.evaluate(request, config) == RoutingLabel.LARGE_CONTEXT
+        assert rule.evaluate(request, config) == RoutingLabel.TOKEN_COUNT
 
     def test_multiple_token_fields(self, rule: TokenCountRule, config: CCProxyConfig) -> None:
         """Test request with multiple token fields (uses max)."""
@@ -64,21 +64,21 @@ class TestTokenCountRule:
             "num_tokens": 1500,  # This is above threshold
             "input_tokens": 800,
         }
-        assert rule.evaluate(request, config) == RoutingLabel.LARGE_CONTEXT
+        assert rule.evaluate(request, config) == RoutingLabel.TOKEN_COUNT
 
     def test_configurable_threshold(self, rule: TokenCountRule) -> None:
         """Test that context threshold is configurable."""
         # Test with low threshold
-        low_config = CCProxyConfig(context_threshold=5000)
+        low_config = CCProxyConfig(token_count_threshold=5000)
         request = {"token_count": 6000}
-        assert rule.evaluate(request, low_config) == RoutingLabel.LARGE_CONTEXT
+        assert rule.evaluate(request, low_config) == RoutingLabel.TOKEN_COUNT
 
         # Same request with high threshold
-        high_config = CCProxyConfig(context_threshold=10000)
+        high_config = CCProxyConfig(token_count_threshold=10000)
         assert rule.evaluate(request, high_config) is None
 
         # Test threshold boundary
-        boundary_config = CCProxyConfig(context_threshold=6000)
+        boundary_config = CCProxyConfig(token_count_threshold=6000)
         assert rule.evaluate(request, boundary_config) is None  # Equal to threshold, not above
 
 

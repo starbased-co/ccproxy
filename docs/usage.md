@@ -142,19 +142,19 @@ Define how requests are routed based on their characteristics:
 router_config:
   models:
     default: gpt-3.5-turbo
-    large_context: claude-3-opus
+    token_count: claude-3-opus
     background: claude-3-haiku
     think: o1-preview
     web_search: perplexity-online
 
-  context_threshold: 60000  # Tokens for large_context routing
+  token_count_threshold: 60000  # Tokens for token_count routing
 ```
 
 ### Classification Rules
 
 CCProxy classifies requests using these rules (in priority order):
 
-1. **Large Context**: Token count > threshold → `large_context` model
+1. **Large Context**: Token count > threshold → `token_count` model
 2. **Background**: Model is claude-3-5-haiku → `background` model
 3. **Thinking**: Request has thinking field → `think` model
 4. **Web Search**: Tools include web_search → `web_search` model

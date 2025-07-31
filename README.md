@@ -69,7 +69,7 @@ If you prefer to set up manually:
 
    # CCProxy settings
    ccproxy_settings:
-     context_threshold: 60000  # Tokens threshold for large_context routing
+     token_count_threshold: 60000  # Tokens threshold for token_count routing
      debug: true              # Enable debug logging
    ```
 
@@ -117,7 +117,7 @@ The proxy will start automatically when you use the `ccproxy claude` command and
 
 CCProxy automatically routes requests based on these rules (in priority order):
 
-1. **Long context** (>60k tokens, configurable) → `large_context` model
+1. **Long context** (>60k tokens, configurable) → `token_count` model
 2. **Background requests** (model is `claude-3-5-haiku`) → `background` model
 3. **Thinking requests** (request has `think` field) → `think` model
 4. **Web search** (tools contain `web_search`) → `web_search` model
@@ -125,11 +125,11 @@ CCProxy automatically routes requests based on these rules (in priority order):
 
 ## Configuration
 
-The `context_threshold` in `ccproxy_settings` controls when requests are routed to the large context model:
+The `token_count_threshold` in `ccproxy_settings` controls when requests are routed to the large context model:
 
 ```yaml
 ccproxy_settings:
-  context_threshold: 60000  # Route to large_context if tokens > 60k
+  token_count_threshold: 60000  # Route to token_count if tokens > 60k
   debug: true              # Enable debug logging to see routing decisions
 ```
 

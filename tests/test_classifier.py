@@ -17,7 +17,7 @@ class TestRoutingLabel:
         assert RoutingLabel.DEFAULT == "default"
         assert RoutingLabel.BACKGROUND == "background"
         assert RoutingLabel.THINK == "think"
-        assert RoutingLabel.LARGE_CONTEXT == "large_context"
+        assert RoutingLabel.TOKEN_COUNT == "token_count"  # noqa: S105
         assert RoutingLabel.WEB_SEARCH == "web_search"
 
     def test_routing_label_is_string(self) -> None:
@@ -32,7 +32,7 @@ class TestRequestClassifier:
     @pytest.fixture
     def config(self) -> CCProxyConfig:
         """Create a test configuration."""
-        return CCProxyConfig(context_threshold=50000)
+        return CCProxyConfig(token_count_threshold=50000)
 
     @pytest.fixture
     def config_provider(self, config: CCProxyConfig) -> ConfigProvider:

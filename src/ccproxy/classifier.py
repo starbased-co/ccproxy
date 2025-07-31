@@ -13,7 +13,7 @@ class RoutingLabel(str, Enum):
     DEFAULT = "default"
     BACKGROUND = "background"
     THINK = "think"
-    LARGE_CONTEXT = "large_context"
+    TOKEN_COUNT = "token_count"  # noqa: S105
     WEB_SEARCH = "web_search"
 
     def __str__(self) -> str:
@@ -115,7 +115,7 @@ class RequestClassifier:
         """Set up classification rules in priority order.
 
         Priority order (from PRD):
-        1. Long context (tokens > threshold) → large_context
+        1. Token count (tokens > threshold) → token_count
         2. Model is claude-3-5-haiku → background
         3. Request has thinking field → think
         4. Tools contain web_search → web_search
@@ -127,7 +127,7 @@ class RequestClassifier:
         self.clear_rules()
 
         # Add rules in priority order
-        self.add_rule(TokenCountRule())  # Priority 1: Large context
+        self.add_rule(TokenCountRule())  # Priority 1: Token count
         self.add_rule(ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND))  # Priority 2: Background models
         self.add_rule(ThinkingRule())  # Priority 3: Thinking requests
         self.add_rule(WebSearchRule())  # Priority 4: Web search tools

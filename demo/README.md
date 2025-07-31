@@ -89,7 +89,7 @@ python test_ccproxy_routing.py
 # >60k tokens go to efficient model
 {"model": "claude-3-5-sonnet-20241022",
  "messages": [{"role": "user", "content": "Analyze this book: " + "text"*20000}]}
-# Routes to → gemini-2.0-flash-thinking-exp-1219 (large_context)
+# Routes to → gemini-2.0-flash-thinking-exp-1219 (token_count)
 ```
 
 ### Web Search
@@ -113,13 +113,13 @@ Edit `demo_config.yaml` to:
 ## Priority Order
 
 When multiple rules match, CCProxy uses this priority:
-1. **large_context** (highest)
+1. **token_count** (highest)
 2. **background**
 3. **think**
 4. **web_search**
 5. **default** (lowest)
 
-Example: A request with both `<thinking>` tags AND >60k tokens routes to the large_context model.
+Example: A request with both `<thinking>` tags AND >60k tokens routes to the token_count model.
 
 ## Integration with LiteLLM
 
@@ -148,5 +148,5 @@ ccproxy_settings:
 
 Check proxy logs for messages like:
 ```
-[ccproxy] Routed to gemini-2.0-flash-thinking-exp-1219 (label: large_context)
+[ccproxy] Routed to gemini-2.0-flash-thinking-exp-1219 (label: token_count)
 ```

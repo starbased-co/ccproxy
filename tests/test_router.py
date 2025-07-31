@@ -364,7 +364,7 @@ class TestModelRouter:
         mock_litellm_config = LiteLLMConfig(
             model_list=[
                 {"model_name": "background", "litellm_params": {"model": "claude-3-5-haiku-20241022"}},
-                {"model_name": "large_context", "litellm_params": {"model": "gpt-4"}},
+                {"model_name": "token_count", "litellm_params": {"model": "gpt-4"}},
             ]
         )
 

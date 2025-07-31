@@ -37,7 +37,7 @@ class TestCCProxyGetModel:
                     },
                 },
                 {
-                    "model_name": "large_context",
+                    "model_name": "token_count",
                     "litellm_params": {
                         "model": "gemini-2.5-pro",
                     },
@@ -50,7 +50,7 @@ class TestCCProxyGetModel:
                 },
             ],
             "ccproxy_settings": {
-                "context_threshold": 60000,
+                "token_count_threshold": 60000,
                 "debug": False,
             },
         }
@@ -96,11 +96,12 @@ class TestCCProxyGetModel:
             clear_config_instance()
 
     def test_route_to_think(self, litellm_config_file):
-        """Test routing thinking request to think model."""
+        """Test routing thinking request to think model - only works with top-level thinking field."""
         config = CCProxyConfig.from_litellm_config(litellm_config_file)
         set_config_instance(config)
 
         try:
+            # This should NOT route to think model (thinking tags in messages are ignored)
             request_data = {
                 "model": "claude-3-5-sonnet-20241022",
                 "messages": [
@@ -110,11 +111,21 @@ class TestCCProxyGetModel:
             }
 
             model = ccproxy_get_model(request_data)
-            assert model == "claude-3-5-opus-20250514"
+            assert model == "claude-3-5-sonnet-20241022"  # Should use default
+
+            # This SHOULD route to think model (top-level thinking field)
+            request_data_with_think = {
+                "model": "claude-3-5-sonnet-20241022",
+                "messages": [{"role": "user", "content": "Complex problem"}],
+                "thinking": True,  # Top-level thinking field
+            }
+
+            model = ccproxy_get_model(request_data_with_think)
+            assert model == "claude-3-5-opus-20250514"  # Should route to think
         finally:
             clear_config_instance()
 
-    def test_route_to_large_context(self, litellm_config_file):
+    def test_route_to_token_count(self, litellm_config_file):
         """Test routing large context to appropriate model."""
         config = CCProxyConfig.from_litellm_config(litellm_config_file)
         set_config_instance(config)
@@ -163,18 +174,16 @@ class TestCCProxyGetModel:
         set_config_instance(config)
 
         try:
-            # Large context + thinking should route to large_context (higher priority)
+            # Large context + thinking field should route to token_count (higher priority)
             large_message = "a" * 15000
             request_data = {
                 "model": "claude-3-5-sonnet-20241022",
-                "messages": [
-                    {"role": "system", "content": "<thinking>Analyzing</thinking>"},
-                ]
-                + [{"role": "user", "content": large_message} for _ in range(20)],
+                "messages": [{"role": "user", "content": large_message} for _ in range(20)],
+                "thinking": True,  # Top-level thinking field
             }
 
             model = ccproxy_get_model(request_data)
-            assert model == "gemini-2.5-pro"  # large_context wins
+            assert model == "gemini-2.5-pro"  # token_count wins over thinking
         finally:
             clear_config_instance()
 
@@ -191,7 +200,7 @@ class TestCCProxyGetModel:
                 },
             ],
             "ccproxy_settings": {
-                "context_threshold": 60000,
+                "token_count_threshold": 60000,
             },
         }
 
@@ -206,10 +215,8 @@ class TestCCProxyGetModel:
             # Request that would route to "think" but model not configured
             request_data = {
                 "model": "gpt-4",
-                "messages": [
-                    {"role": "system", "content": "<thinking>Analyzing</thinking>"},
-                    {"role": "user", "content": "Problem"},
-                ],
+                "messages": [{"role": "user", "content": "Problem"}],
+                "thinking": True,  # Top-level thinking field
             }
 
             model = ccproxy_get_model(request_data)
@@ -231,7 +238,7 @@ class TestCCProxyGetModel:
                 },
             ],
             "ccproxy_settings": {
-                "context_threshold": 60000,
+                "token_count_threshold": 60000,
                 "debug": True,
             },
         }
@@ -290,7 +297,7 @@ class TestCCProxyHandler:
                 },
             ],
             "ccproxy_settings": {
-                "context_threshold": 60000,
+                "token_count_threshold": 60000,
             },
         }
 
@@ -359,14 +366,14 @@ class TestCCProxyHandler:
                     },
                 },
                 {
-                    "model_name": "large_context",
+                    "model_name": "token_count",
                     "litellm_params": {
                         "model": "gemini-2.5-pro",
                     },
                 },
             ],
             "ccproxy_settings": {
-                "context_threshold": 10000,  # Lower threshold
+                "token_count_threshold": 10000,  # Lower threshold
             },
         }
 
@@ -381,7 +388,7 @@ class TestCCProxyHandler:
             handler = CCProxyHandler()
 
             # Verify config threshold
-            assert handler.config.context_threshold == 10000
+            assert handler.config.token_count_threshold == 10000
 
             # Create request with >10k tokens (10k threshold * 4 chars/token = 40k+ chars)
             large_message = "a" * 45000  # ~11.25k tokens
@@ -397,9 +404,9 @@ class TestCCProxyHandler:
                 user_api_key_dict,
             )
 
-            # Should route to large_context
+            # Should route to token_count
             assert modified_data["model"] == "gemini-2.5-pro"
-            assert modified_data["metadata"]["ccproxy_label"] == "large_context"
+            assert modified_data["metadata"]["ccproxy_label"] == "token_count"
 
         finally:
             config_path.unlink()

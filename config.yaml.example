@@ -18,7 +18,7 @@ model_list:
       api_key: ${ANTHROPIC_API_KEY}
 
   # Large context model for >60k tokens (threshold configurable below)
-  - model_name: large_context
+  - model_name: token_count
     litellm_params:
       model: gemini/gemini-2.5-pro
       api_key: ${GOOGLE_API_KEY}
@@ -34,5 +34,5 @@ litellm_settings:
 
 # CCProxy settings
 ccproxy_settings:
-  context_threshold: 60000 # Tokens threshold for large_context routing
+  token_count_threshold: 60000 # Tokens threshold for token_count routing
   debug: true # Enable debug logging to see routing decisions

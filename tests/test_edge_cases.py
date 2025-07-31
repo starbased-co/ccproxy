@@ -126,11 +126,11 @@ class TestEdgeCases:
     def test_very_large_token_count(self) -> None:
         """Test with extremely large token counts."""
         rule = TokenCountRule()
-        config = CCProxyConfig(context_threshold=1_000_000)
+        config = CCProxyConfig(token_count_threshold=1_000_000)
 
         request = {"token_count": 999_999_999}  # Just under 1 billion
         result = rule.evaluate(request, config)
-        assert result == RoutingLabel.LARGE_CONTEXT
+        assert result == RoutingLabel.TOKEN_COUNT
 
     def test_negative_token_count(self) -> None:
         """Test with negative token counts."""
@@ -183,7 +183,7 @@ class TestEdgeCases:
     def test_unicode_in_messages(self) -> None:
         """Test token counting with unicode characters."""
         rule = TokenCountRule()
-        config = CCProxyConfig(context_threshold=1000)  # Use valid threshold
+        config = CCProxyConfig(token_count_threshold=1000)  # Use valid threshold
 
         request = {
             "messages": [
@@ -199,7 +199,7 @@ class TestEdgeCases:
     def test_concurrent_token_fields(self) -> None:
         """Test when multiple token count fields have different values."""
         rule = TokenCountRule()
-        config = CCProxyConfig(context_threshold=1000)  # Use valid threshold
+        config = CCProxyConfig(token_count_threshold=1000)  # Use valid threshold
 
         request = {
             "token_count": 500,
@@ -210,7 +210,7 @@ class TestEdgeCases:
 
         # Should use max of all fields (1500 > 1000)
         result = rule.evaluate(request, config)
-        assert result == RoutingLabel.LARGE_CONTEXT
+        assert result == RoutingLabel.TOKEN_COUNT
 
     def test_model_name_partial_matches(self) -> None:
         """Test ModelNameRule substring matching behavior."""

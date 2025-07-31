@@ -125,7 +125,7 @@ class TestClassifierExtensibility:
         # This would normally trigger TokenCountRule
         request = {
             "model": "claude-3-5-sonnet",
-            "token_count": 100000,  # Would trigger large_context normally
+            "token_count": 100000,  # Would trigger token_count normally
         }
 
         label = classifier.classify(request)
@@ -157,7 +157,7 @@ class TestClassifierExtensibility:
 
         # Now default rules work again
         label = classifier.classify(request)
-        assert label == RoutingLabel.LARGE_CONTEXT
+        assert label == RoutingLabel.TOKEN_COUNT
 
     def test_mixed_default_and_custom_rules(self) -> None:
         """Test using both default and custom rules together."""
@@ -169,7 +169,7 @@ class TestClassifierExtensibility:
         # Test default rule (large context)
         request = {"token_count": 100000}
         label = classifier.classify(request)
-        assert label == RoutingLabel.LARGE_CONTEXT
+        assert label == RoutingLabel.TOKEN_COUNT
 
         # Test custom rule
         request = {

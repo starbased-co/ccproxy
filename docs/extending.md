@@ -113,7 +113,7 @@ Rules are evaluated in the order they are added. The first rule that returns a n
 ```python
 classifier = RequestClassifier()
 # Default rules are added in this order:
-# 1. TokenCountRule (large_context)
+# 1. TokenCountRule (token_count)
 # 2. ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
 # 3. ThinkingRule (think)
 # 4. WebSearchRule (web_search)

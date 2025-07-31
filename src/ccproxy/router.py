@@ -85,7 +85,7 @@ class ModelRouter:
                 self._available_models.add(model_name)
 
                 # Map routing labels to models
-                if model_name in ["default", "background", "think", "large_context", "web_search"]:
+                if model_name in ["default", "background", "think", "token_count", "web_search"]:
                     self._model_map[model_name] = model_entry.copy()
 
                 # Build model group aliases (models with same underlying model)
@@ -160,7 +160,7 @@ class ModelRouter:
             Dict mapping underlying model names to lists of aliases.
             For example:
             {
-                "claude-3-5-sonnet-20241022": ["default", "think", "large_context"],
+                "claude-3-5-sonnet-20241022": ["default", "think", "token_count"],
                 "claude-3-5-haiku-20241022": ["background"]
             }
         """
@@ -203,7 +203,7 @@ class ModelRouter:
             A fallback model configuration or None
         """
         # Define fallback priority order
-        fallback_order = ["default", "background", "think", "large_context", "web_search"]
+        fallback_order = ["default", "background", "think", "token_count", "web_search"]
 
         # Try fallback models in order
         for fallback_label in fallback_order:

@@ -12,7 +12,7 @@ class TestRequestClassifierIntegration:
     @pytest.fixture
     def config(self) -> CCProxyConfig:
         """Create a test configuration."""
-        return CCProxyConfig(context_threshold=10000)
+        return CCProxyConfig(token_count_threshold=10000)
 
     @pytest.fixture
     def config_provider(self, config: CCProxyConfig) -> ConfigProvider:
@@ -24,7 +24,7 @@ class TestRequestClassifierIntegration:
         """Create a classifier with all rules configured."""
         return RequestClassifier(config_provider)
 
-    def test_priority_1_large_context_overrides_all(self, classifier: RequestClassifier) -> None:
+    def test_priority_1_token_count_overrides_all(self, classifier: RequestClassifier) -> None:
         """Test that large context has highest priority."""
         # Request that matches multiple rules
         request = {
@@ -33,8 +33,8 @@ class TestRequestClassifierIntegration:
             "thinking": True,  # Would match thinking
             "tools": ["web_search"],  # Would match web_search
         }
-        # Should return LARGE_CONTEXT due to priority
-        assert classifier.classify(request) == RoutingLabel.LARGE_CONTEXT
+        # Should return TOKEN_COUNT due to priority
+        assert classifier.classify(request) == RoutingLabel.TOKEN_COUNT
 
     def test_priority_2_background_overrides_lower(self, classifier: RequestClassifier) -> None:
         """Test that background model has second priority."""
@@ -103,8 +103,8 @@ class TestRequestClassifierIntegration:
                 {"role": "user", "content": long_content},
             ],
         }
-        # Should return LARGE_CONTEXT
-        assert classifier.classify(request) == RoutingLabel.LARGE_CONTEXT
+        # Should return TOKEN_COUNT
+        assert classifier.classify(request) == RoutingLabel.TOKEN_COUNT
 
     def test_realistic_thinking_request(self, classifier: RequestClassifier) -> None:
         """Test with a realistic thinking request."""
@@ -196,4 +196,4 @@ class TestRequestClassifierIntegration:
         request = {"messages": messages}
 
         # Total ~11250 tokens, should trigger large context
-        assert classifier.classify(request) == RoutingLabel.LARGE_CONTEXT
+        assert classifier.classify(request) == RoutingLabel.TOKEN_COUNT

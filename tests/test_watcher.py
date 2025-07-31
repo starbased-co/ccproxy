@@ -25,7 +25,7 @@ class TestConfigFileHandler:
     def temp_config(self) -> Path:
         """Create a temporary config file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump({"context_threshold": 50000}, f)
+            yaml.dump({"token_count_threshold": 50000}, f)
             return Path(f.name)
 
     def test_handler_init(self, temp_config: Path) -> None:
@@ -164,7 +164,7 @@ class TestConfigWatcher:
     def temp_config(self) -> Path:
         """Create a temporary config file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump({"context_threshold": 50000}, f)
+            yaml.dump({"token_count_threshold": 50000}, f)
             return Path(f.name)
 
     def test_watcher_init(self, temp_config: Path) -> None:
@@ -183,7 +183,7 @@ class TestConfigWatcher:
     def test_watcher_init_from_env(self) -> None:
         """Test watcher initialization from environment variable."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump({"context_threshold": 40000}, f)
+            yaml.dump({"token_count_threshold": 40000}, f)
             temp_path = Path(f.name)
 
         with mock.patch.dict("os.environ", {"LITELLM_CONFIG_PATH": str(temp_path)}):
@@ -243,7 +243,7 @@ class TestConfigWatcher:
         with ConfigWatcher(temp_config, callback, debounce_seconds=0.1):
             # Modify the file
             with temp_config.open("w") as f:
-                yaml.dump({"context_threshold": 60000}, f)
+                yaml.dump({"token_count_threshold": 60000}, f)
                 f.flush()  # Ensure write is flushed
 
             # Wait for reload (a bit longer for file system events)
@@ -263,7 +263,7 @@ class TestGlobalWatcher:
     def temp_config(self) -> Path:
         """Create a temporary config file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump({"context_threshold": 50000}, f)
+            yaml.dump({"token_count_threshold": 50000}, f)
             return Path(f.name)
 
     def test_start_stop_global_watcher(self, temp_config: Path) -> None:
@@ -313,7 +313,7 @@ class TestIntegration:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(
                 {
-                    "context_threshold": 50000,
+                    "token_count_threshold": 50000,
                     "debug": False,
                     "metrics": {"enabled": True, "port": 9090},
                 },
@@ -326,7 +326,7 @@ class TestIntegration:
             with mock.patch.dict("os.environ", {"LITELLM_CONFIG_PATH": str(config_path)}):
                 # Initial config load
                 config = get_config()
-                assert config.context_threshold == 50000
+                assert config.token_count_threshold == 50000
                 assert config.debug is False
 
                 # Track reloads
@@ -342,7 +342,7 @@ class TestIntegration:
                     with config_path.open("w") as f:
                         yaml.dump(
                             {
-                                "context_threshold": 60000,
+                                "token_count_threshold": 60000,
                                 "debug": True,
                                 "metrics": {"enabled": False, "port": 8080},
                             },
@@ -355,7 +355,7 @@ class TestIntegration:
 
                     # Check updated config
                     updated_config = get_config()
-                    assert updated_config.context_threshold == 60000
+                    assert updated_config.token_count_threshold == 60000
                     assert updated_config.debug is True
                     assert updated_config.metrics.enabled is False
                     assert updated_config.metrics.port == 8080
@@ -371,7 +371,7 @@ class TestIntegration:
     def test_invalid_config_reload_handling(self) -> None:
         """Test that invalid config doesn't crash the watcher."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump({"context_threshold": 50000}, f)
+            yaml.dump({"token_count_threshold": 50000}, f)
             config_path = Path(f.name)
 
         try:
@@ -396,7 +396,7 @@ class TestIntegration:
 
                 # Write valid config again
                 with config_path.open("w") as f:
-                    yaml.dump({"context_threshold": 70000}, f)
+                    yaml.dump({"token_count_threshold": 70000}, f)
 
                 # Wait for reload
                 time.sleep(0.3)

@@ -10,14 +10,14 @@ class TokenCountRule(ClassificationRule):
     """Rule for classifying requests based on token count."""
 
     def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
-        """Evaluate if request has large context based on token count.
+        """Evaluate if request has high token count based on threshold.
 
         Args:
             request: The request to evaluate
             config: The current configuration
 
         Returns:
-            LARGE_CONTEXT if token count exceeds threshold, None otherwise
+            TOKEN_COUNT if token count exceeds threshold, None otherwise
         """
         # Check various token count fields
         token_count = 0
@@ -46,8 +46,8 @@ class TokenCountRule(ClassificationRule):
         )
 
         # Check against threshold
-        if token_count > config.context_threshold:
-            return RoutingLabel.LARGE_CONTEXT
+        if token_count > config.token_count_threshold:
+            return RoutingLabel.TOKEN_COUNT
 
         return None
 
