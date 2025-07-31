@@ -35,8 +35,8 @@ def ccproxy_get_model(data: dict[str, Any]) -> str:
         Model name to route to
     """
     config = get_config()
-    classifier = RequestClassifier()
     router = get_router()
+    classifier = RequestClassifier()
 
     # Classify the request
     label = classifier.classify(data)

@@ -2,30 +2,18 @@
 
 import threading
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore[import-not-found]
-
-import litellm
 
 # Import proxy_server to access runtime configuration
 try:
-    from litellm.proxy import proxy_server
+    from litellm.proxy import proxy_server  # type: ignore[import-not-found]
 except ImportError:
     # Handle case where proxy_server is not available (e.g., during testing)
-    proxy_server = None  # type: ignore[assignment]
-
-
-class CCProxySettings(BaseModel):
-    """CCProxy-specific settings from LiteLLM config."""
-
-    token_count_threshold: int = Field(default=60000, ge=1000, description="Token threshold for token_count")
-    debug: bool = Field(default=False, description="Enable debug logging")
-    metrics_enabled: bool = Field(default=True, description="Enable metrics collection")
-
-
+    proxy_server = None
 
 
 class CCProxyConfig(BaseSettings):  # type: ignore[misc]
@@ -47,17 +35,17 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
     @classmethod
     def from_proxy_runtime(cls, **kwargs: Any) -> "CCProxyConfig":
         """Load configuration from LiteLLM proxy server runtime.
-        
+
         This method reads configuration directly from the proxy_server global
         variables, which are already loaded from the config.yaml by LiteLLM.
         """
         # Create instance with defaults
         instance = cls(**kwargs)
-        
+
         # If proxy_server is available, read settings from it
-        if proxy_server and hasattr(proxy_server, 'general_settings'):
+        if proxy_server and hasattr(proxy_server, "general_settings"):
             general_settings = proxy_server.general_settings or {}
-            
+
             # Check for ccproxy_settings in general_settings
             if "ccproxy_settings" in general_settings:
                 ccproxy_settings = general_settings["ccproxy_settings"]
@@ -66,13 +54,13 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
                     for key, value in ccproxy_settings.items():
                         if hasattr(instance, key):
                             setattr(instance, key, value)
-        
+
         return instance
 
     @classmethod
     def from_litellm_config(cls, yaml_path: Path, **kwargs: Any) -> "CCProxyConfig":
         """Load configuration from LiteLLM proxy YAML file.
-        
+
         DEPRECATED: Use from_proxy_runtime() when running as a hook.
         This method is kept for backward compatibility and testing.
         """
@@ -89,7 +77,7 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
                 general_settings = litellm_data.get("general_settings", {})
                 if "ccproxy_settings" in general_settings:
                     ccproxy_settings = general_settings["ccproxy_settings"]
-                    
+
                     # Apply all settings from YAML
                     for key, value in ccproxy_settings.items():
                         if hasattr(instance, key):
@@ -100,9 +88,9 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
     def get_model_for_label(self, label: str) -> str | None:
         """Get the model name for a given routing label from LiteLLM runtime config."""
         # Try to get from proxy_server runtime first
-        if proxy_server and hasattr(proxy_server, 'llm_router') and proxy_server.llm_router:
+        if proxy_server and hasattr(proxy_server, "llm_router") and proxy_server.llm_router:
             model_list = proxy_server.llm_router.model_list or []
-            
+
             # Look for model with matching model_name
             for model in model_list:
                 if model.get("model_name") == label:
@@ -110,13 +98,13 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
                     litellm_params = model.get("litellm_params", {})
                     model_name = litellm_params.get("model")
                     return model_name if isinstance(model_name, str) else None
-        
+
         # Fall back to reading from YAML if proxy_server not available
         if self.litellm_config_path.exists():
             with self.litellm_config_path.open() as f:
                 litellm_data = yaml.safe_load(f) or {}
                 model_list = litellm_data.get("model_list", [])
-                
+
                 for model in model_list:
                     if model.get("model_name") == label:
                         litellm_params = model.get("litellm_params", {})
@@ -140,7 +128,7 @@ def get_config() -> CCProxyConfig:
             # Double-check locking pattern
             if _config_instance is None:
                 # Use runtime config when available (in hook context)
-                if proxy_server and hasattr(proxy_server, 'general_settings'):
+                if proxy_server and hasattr(proxy_server, "general_settings"):
                     _config_instance = CCProxyConfig.from_proxy_runtime()
                 else:
                     # Fall back to YAML for testing or standalone usage
