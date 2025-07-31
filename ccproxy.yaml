@@ -1,9 +1,17 @@
 ccproxy:
   debug: true
   rules:
-    - token_count: ccproxy.rules.TokenCountRule
-      threshold: 60000
-    - background: ccproxy.rules.ModelNameRule
-    - think: ccproxy.rules.ThinkingRule
-    - web_search: ccproxy.rules.MatchToolRule
-      tool_name: WebSearch
+    - label: token_count
+      rule: ccproxy.rules.TokenCountRule
+      params:
+        - threshold: 60000
+    - label: background
+      rule: ccproxy.rules.MatchModelRule
+      params:
+        - model_name: claude-3-5-haiku-20241022
+    - label: think
+      rule: ccproxy.rules.ThinkingRule
+    - label: web_search
+      rule: ccproxy.rules.MatchToolRule
+      params:
+        - tool_name: WebSearch

@@ -25,6 +25,7 @@ python -m ccproxy install
 This will create all necessary configuration files in `~/.ccproxy/`.
 
 To overwrite existing files without prompting:
+
 ```bash
 ccproxy install --force
 ```
@@ -34,12 +35,14 @@ ccproxy install --force
 If you prefer to set up manually:
 
 1. **Create the CCProxy configuration directory**:
+
    ```bash
    mkdir -p ~/.ccproxy
    cd ~/.ccproxy
    ```
 
 2. **Create the callback file** (`~/.ccproxy/custom_callbacks.py`):
+
    ```python
    from ccproxy.handler import CCProxyHandler
 
@@ -48,6 +51,7 @@ If you prefer to set up manually:
    ```
 
 3. **Create your LiteLLM config** (`~/.ccproxy/config.yaml`):
+
    ```yaml
    model_list:
      # Default model for regular use
@@ -66,16 +70,12 @@ If you prefer to set up manually:
 
    litellm_settings:
      callbacks: custom_callbacks.proxy_handler_instance
-
-   # CCProxy settings
-   ccproxy_settings:
-     token_count_threshold: 60000  # Tokens threshold for token_count routing
-     debug: true              # Enable debug logging
    ```
 
    See [config.yaml.example](./config.yaml.example) for a complete example with all routing models.
 
 4. **Start the LiteLLM proxy**:
+
    ```bash
    cd ~/.ccproxy
    litellm --config config.yaml
@@ -129,8 +129,8 @@ The `token_count_threshold` in `ccproxy_settings` controls when requests are rou
 
 ```yaml
 ccproxy_settings:
-  token_count_threshold: 60000  # Route to token_count if tokens > 60k
-  debug: true              # Enable debug logging to see routing decisions
+  token_count_threshold: 60000 # Route to token_count if tokens > 60k
+  debug: true # Enable debug logging to see routing decisions
 ```
 
 ## Troubleshooting
@@ -138,6 +138,7 @@ ccproxy_settings:
 ### "Could not import proxy_handler_instance from ccproxy"
 
 Make sure you:
+
 1. Created the `custom_callbacks.py` file in your config directory
 2. Are running `litellm` from the same directory as your config files
 3. Have installed ccproxy: `pip install ccproxy`

@@ -124,6 +124,8 @@ class MatchToolRule(ClassificationRule):
         Returns:
             WEB_SEARCH if request has web_search tool, None otherwise
         """
+
+        # NOT UPDATED to new spec: need to change web_search to the new tool_name class property used to match
         tools = request.get("tools", [])
         if isinstance(tools, list):
             for tool in tools:
