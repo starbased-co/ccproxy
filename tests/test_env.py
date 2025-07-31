@@ -20,11 +20,8 @@ def test_env_example_contains_required_vars() -> None:
     content = env_example.read_text()
 
     required_vars = [
-        "LITELLM_CONFIG_PATH",
-        "CCPROXY_TOKEN_COUNT_THRESHOLD",
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
-        "METRICS_PORT",
         "LOG_LEVEL",
     ]
 
@@ -36,9 +33,8 @@ def test_env_loading_with_dotenv() -> None:
     """Test that environment variables can be loaded with python-dotenv."""
     # Create a temporary .env file
     test_env_content = """
-CCPROXY_TOKEN_COUNT_THRESHOLD=50000
 LOG_LEVEL=DEBUG
-METRICS_PORT=8080
+ANTHROPIC_API_KEY=test_key
 """
 
     with (
@@ -46,7 +42,7 @@ METRICS_PORT=8080
         mock.patch("pathlib.Path.read_text", return_value=test_env_content),
     ):
         # Clear existing env vars
-        for key in ["CCPROXY_TOKEN_COUNT_THRESHOLD", "LOG_LEVEL", "METRICS_PORT"]:
+        for key in ["LOG_LEVEL", "ANTHROPIC_API_KEY"]:
             os.environ.pop(key, None)
 
         # Load from mocked file
@@ -54,25 +50,20 @@ METRICS_PORT=8080
 
         # Note: Since we're mocking, we need to manually set these
         # In real usage, load_dotenv would handle this
-        os.environ["CCPROXY_TOKEN_COUNT_THRESHOLD"] = "50000"  # noqa: S105
         os.environ["LOG_LEVEL"] = "DEBUG"
-        os.environ["METRICS_PORT"] = "8080"
+        os.environ["ANTHROPIC_API_KEY"] = "test_key"
 
         # Verify values
-        assert os.getenv("CCPROXY_TOKEN_COUNT_THRESHOLD") == "50000"
         assert os.getenv("LOG_LEVEL") == "DEBUG"
-        assert os.getenv("METRICS_PORT") == "8080"
+        assert os.getenv("ANTHROPIC_API_KEY") == "test_key"
 
 
 def test_default_values_when_env_not_set() -> None:
     """Test that sensible defaults are used when environment variables are not set."""
     # Clear environment variables
-    os.environ.pop("CCPROXY_TOKEN_COUNT_THRESHOLD", None)
     os.environ.pop("LOG_LEVEL", None)
 
     # Test defaults
-    token_count_threshold = int(os.getenv("CCPROXY_TOKEN_COUNT_THRESHOLD", "60000"))
     log_level = os.getenv("LOG_LEVEL", "INFO")
 
-    assert token_count_threshold == 60000
     assert log_level == "INFO"

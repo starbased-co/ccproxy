@@ -1,6 +1,5 @@
 """Tests for configuration management."""
 
-import os
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -119,22 +118,15 @@ class TestCCProxyConfig:
         assert config.metrics_enabled is True
         assert config.litellm_config_path == Path("./config.yaml")
 
-    def test_env_var_override(self) -> None:
-        """Test environment variable overrides."""
-        with mock.patch.dict(
-            os.environ,
-            {
-                "CCPROXY_TOKEN_COUNT_THRESHOLD": "50000",
-                "CCPROXY_DEBUG": "true",
-                "CCPROXY_METRICS_ENABLED": "false",
-                "LITELLM_CONFIG_PATH": "/custom/path.yaml",
-            },
-        ):
-            config = CCProxyConfig()
-            assert config.token_count_threshold == 50000
-            assert config.debug is True
-            assert config.metrics_enabled is False
-            assert config.litellm_config_path == Path("/custom/path.yaml")
+    def test_config_attributes(self) -> None:
+        """Test config attributes can be set directly."""
+        config = CCProxyConfig()
+        config.token_count_threshold = 50000
+        config.debug = True
+        config.metrics_enabled = False
+        assert config.token_count_threshold == 50000
+        assert config.debug is True
+        assert config.metrics_enabled is False
 
     def test_from_litellm_config(self) -> None:
         """Test loading configuration from LiteLLM YAML."""
@@ -231,30 +223,22 @@ litellm_settings:
         finally:
             yaml_path.unlink()
 
-    def test_env_override_with_litellm_config(self) -> None:
-        """Test that env vars override LiteLLM config values."""
+    def test_yaml_config_values(self) -> None:
+        """Test that YAML config values are loaded correctly."""
         yaml_content = """
 ccproxy_settings:
   token_count_threshold: 70000
-  debug: false
+  debug: true
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             yaml_path = Path(f.name)
 
         try:
-            with mock.patch.dict(
-                os.environ,
-                {
-                    "CCPROXY_TOKEN_COUNT_THRESHOLD": "90000",
-                    "CCPROXY_DEBUG": "true",
-                },
-            ):
-                config = CCProxyConfig.from_litellm_config(yaml_path)
-
-                # Env vars should override YAML
-                assert config.token_count_threshold == 90000
-                assert config.debug is True
+            config = CCProxyConfig.from_litellm_config(yaml_path)
+            # YAML values should be loaded
+            assert config.token_count_threshold == 70000
+            assert config.debug is True
 
         finally:
             yaml_path.unlink()
@@ -302,7 +286,8 @@ ccproxy_settings:
             yaml_path = Path(f.name)
 
         try:
-            with mock.patch.dict(os.environ, {"LITELLM_CONFIG_PATH": str(yaml_path)}):
+            with mock.patch("ccproxy.config.Path") as mock_path:
+                mock_path.return_value = yaml_path
                 config1 = get_config()
                 config2 = get_config()
 
@@ -327,7 +312,8 @@ ccproxy_settings:
             yaml_path = Path(f.name)
 
         try:
-            with mock.patch.dict(os.environ, {"LITELLM_CONFIG_PATH": str(yaml_path)}):
+            with mock.patch("ccproxy.config.Path") as mock_path:
+                mock_path.return_value = yaml_path
                 config1 = get_config()
                 assert config1.token_count_threshold == 45000
 
@@ -375,7 +361,8 @@ ccproxy_settings:
             yaml_path = Path(f.name)
 
         try:
-            with mock.patch.dict(os.environ, {"LITELLM_CONFIG_PATH": str(yaml_path)}):
+            with mock.patch("ccproxy.config.Path") as mock_path:
+                mock_path.return_value = yaml_path
                 provider = ConfigProvider()
 
                 # Should load from file on first access
@@ -402,7 +389,8 @@ ccproxy_settings:
             yaml_path = Path(f.name)
 
         try:
-            with mock.patch.dict(os.environ, {"LITELLM_CONFIG_PATH": str(yaml_path)}):
+            with mock.patch("ccproxy.config.Path") as mock_path:
+                mock_path.return_value = yaml_path
                 provider = ConfigProvider()
 
                 # Get initial config
@@ -474,7 +462,8 @@ ccproxy_settings:
             yaml_path = Path(f.name)
 
         try:
-            with mock.patch.dict(os.environ, {"LITELLM_CONFIG_PATH": str(yaml_path)}):
+            with mock.patch("ccproxy.config.Path") as mock_path:
+                mock_path.return_value = yaml_path
                 # Track which thread created the config
                 config_ids: set[int] = set()
                 lock = threading.Lock()

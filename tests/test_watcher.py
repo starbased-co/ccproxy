@@ -180,18 +180,10 @@ class TestConfigWatcher:
         # Cleanup
         temp_config.unlink()
 
-    def test_watcher_init_from_env(self) -> None:
-        """Test watcher initialization from environment variable."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump({"token_count_threshold": 40000}, f)
-            temp_path = Path(f.name)
-
-        with mock.patch.dict("os.environ", {"LITELLM_CONFIG_PATH": str(temp_path)}):
-            watcher = ConfigWatcher()
-            assert watcher.config_path == temp_path.resolve()
-
-        # Cleanup
-        temp_path.unlink()
+    def test_watcher_init_default_path(self) -> None:
+        """Test watcher initialization with default path."""
+        watcher = ConfigWatcher()
+        assert watcher.config_path == Path("./config.yaml").resolve()
 
     def test_start_stop(self, temp_config: Path) -> None:
         """Test starting and stopping the watcher."""
@@ -322,9 +314,8 @@ class TestIntegration:
             config_path = Path(f.name)
 
         try:
-            # Set config path in environment
-            with mock.patch.dict("os.environ", {"LITELLM_CONFIG_PATH": str(config_path)}):
-                # Initial config load
+            # Initial config load
+            with mock.patch("ccproxy.config.Path", return_value=config_path):
                 config = get_config()
                 assert config.token_count_threshold == 50000
                 assert config.debug is False

@@ -1,7 +1,6 @@
 """Integration tests for hot-reload of ModelRouter configuration."""
 
 import asyncio
-import os
 import tempfile
 import time
 from pathlib import Path
@@ -109,9 +108,6 @@ model_list:
       api_key: test-key
 """
             config_path.write_text(initial_yaml)
-
-            # Mock environment variable
-            os.environ["LITELLM_CONFIG_PATH"] = str(config_path)
 
             # Reset router singleton
             import ccproxy.router

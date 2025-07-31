@@ -62,17 +62,11 @@ claude "What is the capital of France?"
 3. **Transparent Routing**: All requests are routed through CCProxy for intelligent model selection
 4. **Lifecycle Management**: The proxy shuts down automatically when the last Claude instance exits
 
-### Environment Variables
+### Configuration
 
-Control the Claude wrapper behavior with these environment variables:
+The Claude wrapper uses the configuration file at `~/.ccproxy/config.yaml` by default.
 
 ```bash
-# Use a specific proxy port
-export CC_PROXY_PORT=9000
-
-# Use a custom config file
-export CC_PROXY_CONFIG=/path/to/config.yaml
-
 # View logs
 tail -f ~/.ccproxy/proxy.log
 ```
@@ -109,7 +103,6 @@ litellm_settings:
 
 ```bash
 cd demo
-export LITELLM_CONFIG_PATH="demo_config.yaml"
 uv run litellm --config demo_config.yaml --port 8888
 ```
 
@@ -221,8 +214,8 @@ class CustomCCProxyHandler(CCProxyHandler):
 
 3. **Config not loaded**
    ```bash
-   # Verify config path
-   export CC_PROXY_CONFIG=/absolute/path/to/config.yaml
+   # Check if config file exists
+   ls -la ~/.ccproxy/config.yaml
 
    # Check logs
    tail -f ~/.ccproxy/proxy.log
@@ -244,7 +237,6 @@ litellm_settings:
 ### Getting Help
 
 - Check logs: `~/.ccproxy/proxy.log`
-- Run with debug: `CC_PROXY_DEBUG=1 ccproxy claude --help`
 - Report issues: [GitHub Issues](https://github.com/yourusername/ccproxy/issues)
 
 ## Key Files

@@ -88,7 +88,6 @@ class TestEnvironmentSetup:
         """Test proxy environment variable generation."""
         env = get_proxy_env(8888)
 
-        assert env["LITELLM_PROXY_PORT"] == "8888"
         assert env["HTTP_PROXY"] == "http://localhost:8888"
         assert env["HTTPS_PROXY"] == "http://localhost:8888"
         assert env["OPENAI_BASE_URL"] == "http://localhost:8888/v1"

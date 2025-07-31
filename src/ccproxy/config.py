@@ -1,6 +1,5 @@
 """Configuration management for ccproxy."""
 
-import os
 import threading
 from pathlib import Path
 from typing import Any
@@ -32,11 +31,7 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
     """Main configuration for ccproxy that reads from LiteLLM proxy config."""
 
     model_config = SettingsConfigDict(
-        env_prefix="CCPROXY_",
-        env_nested_delimiter="__",
         case_sensitive=False,
-        env_file=".env",
-        env_file_encoding="utf-8",
         extra="ignore",
     )
 
@@ -47,7 +42,7 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
     reload_config_on_change: bool = False
 
     # Path to LiteLLM config
-    litellm_config_path: Path = Field(default_factory=lambda: Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml")))
+    litellm_config_path: Path = Field(default_factory=lambda: Path("./config.yaml"))
 
     # Cached LiteLLM config
     _litellm_config: LiteLLMConfig | None = None
@@ -70,10 +65,9 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
                 if "ccproxy_settings" in litellm_data:
                     ccproxy_settings = litellm_data["ccproxy_settings"]
 
-                    # For each setting in YAML, only apply if env var wasn't set
+                    # Apply all settings from YAML
                     for key, value in ccproxy_settings.items():
-                        env_key = f"CCPROXY_{key.upper()}"
-                        if env_key not in os.environ and hasattr(instance, key):
+                        if hasattr(instance, key):
                             setattr(instance, key, value)
 
         return instance
@@ -115,7 +109,7 @@ def get_config() -> CCProxyConfig:
         with _config_lock:
             # Double-check locking pattern
             if _config_instance is None:
-                config_path = Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml"))
+                config_path = Path("./config.yaml")
                 _config_instance = CCProxyConfig.from_litellm_config(config_path)
 
     return _config_instance
@@ -126,7 +120,7 @@ def reload_config() -> CCProxyConfig:
     global _config_instance
 
     with _config_lock:
-        config_path = Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml"))
+        config_path = Path("./config.yaml")
         _config_instance = CCProxyConfig.from_litellm_config(config_path)
 
     return _config_instance
@@ -180,7 +174,7 @@ class ConfigProvider:
     def reload(self) -> CCProxyConfig:
         """Reload configuration from disk."""
         with self._lock:
-            config_path = Path(os.getenv("LITELLM_CONFIG_PATH", "./config.yaml"))
+            config_path = Path("./config.yaml")
             self._config = CCProxyConfig.from_litellm_config(config_path)
         return self._config
 

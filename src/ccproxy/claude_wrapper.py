@@ -84,7 +84,6 @@ def get_proxy_env(port: int) -> dict[str, str]:
     openai_base = f"{proxy_url}/v1"
 
     env = {
-        "LITELLM_PROXY_PORT": str(port),
         "HTTP_PROXY": proxy_url,
         "HTTPS_PROXY": proxy_url,
         "OPENAI_BASE_URL": openai_base,
@@ -101,25 +100,18 @@ def start_proxy(port: int) -> subprocess.Popen[bytes]:
     """Start the LiteLLM proxy with CCProxy handler."""
     # Prepare clean environment
     clean_env = os.environ.copy()
-    clean_env["LITELLM_PROXY_PORT"] = str(port)
 
-    # Set config path if available
-    if CONFIG_FILE.exists():
-        clean_env["LITELLM_CONFIG_PATH"] = str(CONFIG_FILE)
-    else:
-        # Look for config in standard locations
-        for config_path in [
-            Path("config.yaml"),
-            Path("litellm_config.yaml"),
-            Path(".ccproxy/config.yaml"),
-        ]:
-            if config_path.exists():
-                clean_env["LITELLM_CONFIG_PATH"] = str(config_path.absolute())
-                break
-
-    # Respect user overrides
-    if "CC_PROXY_CONFIG" in os.environ:
-        clean_env["LITELLM_CONFIG_PATH"] = os.environ["CC_PROXY_CONFIG"]
+    # Look for config in standard locations
+    config_path = None
+    for path in [
+        CONFIG_FILE,
+        Path("config.yaml"),
+        Path("litellm_config.yaml"),
+        Path(".ccproxy/config.yaml"),
+    ]:
+        if path.exists():
+            config_path = path.absolute()
+            break
 
     # Start proxy subprocess
     cmd = [
@@ -129,8 +121,8 @@ def start_proxy(port: int) -> subprocess.Popen[bytes]:
         "--drop_params",  # Allow pass-through of Claude-specific params
     ]
 
-    if "LITELLM_CONFIG_PATH" in clean_env:
-        cmd.extend(["--config", clean_env["LITELLM_CONFIG_PATH"]])
+    if config_path:
+        cmd.extend(["--config", str(config_path)])
 
     logger.info(f"Starting proxy: {' '.join(cmd)}")
 

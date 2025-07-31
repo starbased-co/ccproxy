@@ -7,14 +7,10 @@ echo "=================================="
 # Export the CCProxy module path so LiteLLM can find it
 export PYTHONPATH="${PYTHONPATH}:$(cd .. && pwd)/src"
 
-# Set the config path
-export LITELLM_CONFIG_PATH="./demo_config.yaml"
+# Config is expected to be at ./demo_config.yaml
 
-# Enable debug mode to see CCProxy routing decisions
-export CCPROXY_DEBUG=true
-
-echo "Using config: $LITELLM_CONFIG_PATH"
-echo "CCProxy debug mode: enabled"
+echo "Using config: ./demo_config.yaml"
+echo "Note: To enable debug mode, set debug: true in the ccproxy_settings section of the config"
 echo ""
 echo "Note: Make sure you have set the following environment variables:"
 echo "  - ANTHROPIC_API_KEY"
