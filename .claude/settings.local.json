@@ -5,6 +5,7 @@
       "mcp__desktop-commander-mcp",
       "Bash(timeout 10 uv run:*)",
       "mcp__gitmcp-litellm",
+      "mcp__gitmcp-tyro",
       "Bash(litellm:*)",
       "Bash(PYTHONPATH=src python -c \"from ccproxy.handler import CCProxyHandler; print(''CCProxy import successful'')\")",
       "Bash(PYTHONPATH=src litellm --config demo/demo_config.yaml --port 8000)",
@@ -16,5 +17,11 @@
     ],
     "deny": []
   },
-  "enableAllProjectMcpServers": true
+  "enableAllProjectMcpServers": true,
+  "mcpServers": {
+    "whitelistedServers": [
+      "mcp__gitmcp-litellm",
+      "mcp__gitmcp-tyro"
+    ]
+  }
 }

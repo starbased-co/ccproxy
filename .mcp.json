@@ -6,6 +6,13 @@
         "mcp-remote",
         "https://gitmcp.io/BerriAI/litellm"
       ]
+    },
+    "gitmcp-tyro": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://gitmcp.io/brentyi/tyro"
+      ]
     }
   }
 }
