@@ -55,20 +55,6 @@ class ClassificationRule(ABC):
         """
 
 
-class Classifier(Protocol):
-    """Protocol for request classifiers."""
-
-    def classify(self, request: dict[str, Any]) -> RoutingLabel:
-        """Classify a request and return the appropriate routing label.
-
-        Args:
-            request: The request to classify
-
-        Returns:
-            The routing label for the request
-        """
-
-
 class RequestClassifier:
     """Main request classifier implementing rule-based classification.
 
@@ -121,7 +107,7 @@ class RequestClassifier:
         4. Tools contain web_search → web_search
         5. Default case → default (handled in classify method)
         """
-        from ccproxy.rules import ModelNameRule, ThinkingRule, TokenCountRule, WebSearchRule
+        from ccproxy.rules import ModelNameRule, ThinkingRule, TokenCountRule, MatchToolRule
 
         # Clear any existing rules
         self.clear_rules()
@@ -130,7 +116,7 @@ class RequestClassifier:
         self.add_rule(TokenCountRule())  # Priority 1: Token count
         self.add_rule(ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND))  # Priority 2: Background models
         self.add_rule(ThinkingRule())  # Priority 3: Thinking requests
-        self.add_rule(WebSearchRule())  # Priority 4: Web search tools
+        self.add_rule(MatchToolRule())  # Priority 4: Web search tools
 
     def classify(self, request: dict[str, Any]) -> RoutingLabel:
         """Classify a request based on configured rules.

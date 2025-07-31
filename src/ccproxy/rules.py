@@ -52,7 +52,7 @@ class TokenCountRule(ClassificationRule):
         return None
 
 
-class ModelNameRule(ClassificationRule):
+class MatchModelRule(ClassificationRule):
     """Rule for classifying requests based on model name."""
 
     def __init__(self, model_name: str, label: RoutingLabel) -> None:
@@ -102,8 +102,17 @@ class ThinkingRule(ClassificationRule):
         return None
 
 
-class WebSearchRule(ClassificationRule):
+class MatchToolRule(ClassificationRule):
     """Rule for classifying requests with web search tools."""
+
+    def __init__(self, tool_name: str) -> None:
+        """Initialize the rule with a model name to match.
+
+        Args:
+            model_name: The model name substring to match
+            label: The routing label to return if matched
+        """
+        self.tool_name: str = tool_name
 
     def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
         """Evaluate if request uses web search tools.

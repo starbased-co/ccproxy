@@ -1,0 +1,9 @@
+ccproxy:
+  debug: true
+  rules:
+    - token_count: ccproxy.rules.TokenCountRule
+      threshold: 60000
+    - background: ccproxy.rules.ModelNameRule
+    - think: ccproxy.rules.ThinkingRule
+    - web_search: ccproxy.rules.MatchToolRule
+      tool_name: WebSearch

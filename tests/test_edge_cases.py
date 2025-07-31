@@ -2,7 +2,7 @@
 
 from ccproxy.classifier import RequestClassifier, RoutingLabel
 from ccproxy.config import CCProxyConfig
-from ccproxy.rules import ModelNameRule, ThinkingRule, TokenCountRule, WebSearchRule
+from ccproxy.rules import MatchModelRule, ThinkingRule, TokenCountRule, MatchToolRule
 
 
 class TestEdgeCases:
@@ -59,7 +59,7 @@ class TestEdgeCases:
 
     def test_empty_model_string(self) -> None:
         """Test ModelNameRule with empty string model."""
-        rule = ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
+        rule = MatchModelRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
         config = CCProxyConfig()
 
         request = {"model": ""}
@@ -87,7 +87,7 @@ class TestEdgeCases:
 
     def test_web_search_nested_tool_structure(self) -> None:
         """Test WebSearchRule with deeply nested tool structure."""
-        rule = WebSearchRule()
+        rule = MatchToolRule()
         config = CCProxyConfig()
 
         request = {
@@ -108,7 +108,7 @@ class TestEdgeCases:
 
     def test_tools_with_invalid_types(self) -> None:
         """Test WebSearchRule with invalid tool types."""
-        rule = WebSearchRule()
+        rule = MatchToolRule()
         config = CCProxyConfig()
 
         request = {
@@ -214,7 +214,7 @@ class TestEdgeCases:
 
     def test_model_name_partial_matches(self) -> None:
         """Test ModelNameRule substring matching behavior."""
-        rule = ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
+        rule = MatchModelRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
         config = CCProxyConfig()
 
         # These should match (contain "claude-3-5-haiku")
@@ -245,7 +245,7 @@ class TestEdgeCases:
 
     def test_web_search_tool_edge_cases(self) -> None:
         """Test WebSearchRule with various edge cases."""
-        rule = WebSearchRule()
+        rule = MatchToolRule()
         config = CCProxyConfig()
 
         # Tool with web_search in description, not name

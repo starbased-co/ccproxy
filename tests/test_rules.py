@@ -4,7 +4,7 @@ import pytest
 
 from ccproxy.classifier import RoutingLabel
 from ccproxy.config import CCProxyConfig
-from ccproxy.rules import ModelNameRule, ThinkingRule, TokenCountRule, WebSearchRule
+from ccproxy.rules import MatchModelRule, ThinkingRule, TokenCountRule, MatchToolRule
 
 
 class TestTokenCountRule:
@@ -82,42 +82,42 @@ class TestTokenCountRule:
         assert rule.evaluate(request, boundary_config) is None  # Equal to threshold, not above
 
 
-class TestModelNameRule:
+class TestModelMatchRule:
     """Tests for ModelNameRule."""
 
     @pytest.fixture
-    def rule(self) -> ModelNameRule:
+    def rule(self) -> MatchModelRule:
         """Create a model name rule for claude-3-5-haiku."""
-        return ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
+        return MatchModelRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
 
     @pytest.fixture
     def config(self) -> CCProxyConfig:
         """Create a test configuration."""
         return CCProxyConfig()
 
-    def test_claude_haiku_model(self, rule: ModelNameRule, config: CCProxyConfig) -> None:
+    def test_claude_haiku_model(self, rule: MatchModelRule, config: CCProxyConfig) -> None:
         """Test request with claude-3-5-haiku model."""
         request = {"model": "claude-3-5-haiku"}
         assert rule.evaluate(request, config) == RoutingLabel.BACKGROUND
 
-    def test_claude_haiku_with_suffix(self, rule: ModelNameRule, config: CCProxyConfig) -> None:
+    def test_claude_haiku_with_suffix(self, rule: MatchModelRule, config: CCProxyConfig) -> None:
         """Test request with claude-3-5-haiku variant."""
         request = {"model": "claude-3-5-haiku-20241022"}
         assert rule.evaluate(request, config) == RoutingLabel.BACKGROUND
 
-    def test_other_models(self, rule: ModelNameRule, config: CCProxyConfig) -> None:
+    def test_other_models(self, rule: MatchModelRule, config: CCProxyConfig) -> None:
         """Test request with other models."""
         models = ["gpt-4", "claude-3-opus", "claude-3-sonnet", "gpt-3.5-turbo"]
         for model in models:
             request = {"model": model}
             assert rule.evaluate(request, config) is None
 
-    def test_no_model_field(self, rule: ModelNameRule, config: CCProxyConfig) -> None:
+    def test_no_model_field(self, rule: MatchModelRule, config: CCProxyConfig) -> None:
         """Test request without model field."""
         request = {"messages": []}
         assert rule.evaluate(request, config) is None
 
-    def test_non_string_model(self, rule: ModelNameRule, config: CCProxyConfig) -> None:
+    def test_non_string_model(self, rule: MatchModelRule, config: CCProxyConfig) -> None:
         """Test request with non-string model field."""
         request = {"model": 123}
         assert rule.evaluate(request, config) is None
@@ -154,57 +154,57 @@ class TestThinkingRule:
         assert rule.evaluate(request, config) is None
 
 
-class TestWebSearchRule:
+class TestMatchToolRule:
     """Tests for WebSearchRule."""
 
     @pytest.fixture
-    def rule(self) -> WebSearchRule:
+    def rule(self) -> MatchToolRule:
         """Create a web search rule."""
-        return WebSearchRule()
+        return MatchToolRule()
 
     @pytest.fixture
     def config(self) -> CCProxyConfig:
         """Create a test configuration."""
         return CCProxyConfig()
 
-    def test_web_search_tool_dict(self, rule: WebSearchRule, config: CCProxyConfig) -> None:
+    def test_web_search_tool_dict(self, rule: MatchToolRule, config: CCProxyConfig) -> None:
         """Test request with web_search tool as dict."""
         request = {"tools": [{"name": "web_search", "description": "Search the web"}]}
         assert rule.evaluate(request, config) == RoutingLabel.WEB_SEARCH
 
-    def test_web_search_tool_string(self, rule: WebSearchRule, config: CCProxyConfig) -> None:
+    def test_web_search_tool_string(self, rule: MatchToolRule, config: CCProxyConfig) -> None:
         """Test request with web_search tool as string."""
         request = {"tools": ["web_search"]}
         assert rule.evaluate(request, config) == RoutingLabel.WEB_SEARCH
 
-    def test_web_search_case_insensitive(self, rule: WebSearchRule, config: CCProxyConfig) -> None:
+    def test_web_search_case_insensitive(self, rule: MatchToolRule, config: CCProxyConfig) -> None:
         """Test that web_search matching is case insensitive."""
         variations = ["Web_Search", "WEB_SEARCH", "web_SEARCH"]
         for variation in variations:
             request = {"tools": [{"name": variation}]}
             assert rule.evaluate(request, config) == RoutingLabel.WEB_SEARCH
 
-    def test_web_search_partial_match(self, rule: WebSearchRule, config: CCProxyConfig) -> None:
+    def test_web_search_partial_match(self, rule: MatchToolRule, config: CCProxyConfig) -> None:
         """Test partial matches for web_search."""
         request = {"tools": [{"name": "advanced_web_search_tool"}]}
         assert rule.evaluate(request, config) == RoutingLabel.WEB_SEARCH
 
-    def test_no_web_search_tool(self, rule: WebSearchRule, config: CCProxyConfig) -> None:
+    def test_no_web_search_tool(self, rule: MatchToolRule, config: CCProxyConfig) -> None:
         """Test request without web_search tool."""
         request = {"tools": [{"name": "calculator"}, {"name": "code_interpreter"}]}
         assert rule.evaluate(request, config) is None
 
-    def test_no_tools_field(self, rule: WebSearchRule, config: CCProxyConfig) -> None:
+    def test_no_tools_field(self, rule: MatchToolRule, config: CCProxyConfig) -> None:
         """Test request without tools field."""
         request = {"model": "gpt-4"}
         assert rule.evaluate(request, config) is None
 
-    def test_empty_tools_list(self, rule: WebSearchRule, config: CCProxyConfig) -> None:
+    def test_empty_tools_list(self, rule: MatchToolRule, config: CCProxyConfig) -> None:
         """Test request with empty tools list."""
         request = {"tools": []}
         assert rule.evaluate(request, config) is None
 
-    def test_mixed_tool_types(self, rule: WebSearchRule, config: CCProxyConfig) -> None:
+    def test_mixed_tool_types(self, rule: MatchToolRule, config: CCProxyConfig) -> None:
         """Test request with mixed tool types."""
         request = {
             "tools": [
@@ -225,7 +225,7 @@ class TestParameterizedModelNameRule:
         config = CCProxyConfig()
 
         # Test with GPT-4o-mini routing to background
-        rule = ModelNameRule("gpt-4o-mini", RoutingLabel.BACKGROUND)
+        rule = MatchModelRule("gpt-4o-mini", RoutingLabel.BACKGROUND)
         request = {"model": "gpt-4o-mini"}
         assert rule.evaluate(request, config) == RoutingLabel.BACKGROUND
 
@@ -238,9 +238,9 @@ class TestParameterizedModelNameRule:
         config = CCProxyConfig()
 
         # Create rules for different models
-        gpt_rule = ModelNameRule("gpt-4o-mini", RoutingLabel.BACKGROUND)
-        custom_rule = ModelNameRule("my-fast-model", RoutingLabel.DEFAULT)
-        reasoning_rule = ModelNameRule("reasoning-v2", RoutingLabel.THINK)
+        gpt_rule = MatchModelRule("gpt-4o-mini", RoutingLabel.BACKGROUND)
+        custom_rule = MatchModelRule("my-fast-model", RoutingLabel.DEFAULT)
+        reasoning_rule = MatchModelRule("reasoning-v2", RoutingLabel.THINK)
 
         # Test each rule
         assert gpt_rule.evaluate({"model": "gpt-4o-mini"}, config) == RoutingLabel.BACKGROUND
