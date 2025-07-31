@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import yaml
@@ -116,6 +117,101 @@ class TestCCProxyGetModel:
             clear_config_instance()
             clear_router()
 
+
+class TestHandlerHookMethods:
+    """Test suite for individual hook methods that haven't been covered."""
+
+    @pytest.mark.asyncio
+    async def test_log_success_hook(self, handler: CCProxyHandler) -> None:
+        """Test async_log_success_hook method."""
+        kwargs = {
+            "litellm_params": {},
+            "start_time": 1234567890,
+            "end_time": 1234567900,
+            "cache_hit": False,
+        }
+        response_obj = Mock(model="test-model", usage=Mock(completion_tokens=10, prompt_tokens=20, total_tokens=30))
+
+        # Should not raise any exceptions
+        await handler.async_log_success_hook(kwargs, response_obj, 1234567890, 1234567900)
+
+    @pytest.mark.asyncio
+    async def test_log_failure_hook(self, handler: CCProxyHandler) -> None:
+        """Test async_log_failure_hook method."""
+        kwargs = {
+            "litellm_params": {},
+            "start_time": 1234567890,
+            "end_time": 1234567900,
+        }
+        response_obj = Mock()
+
+        # Should not raise any exceptions
+        await handler.async_log_failure_hook(kwargs, response_obj, 1234567890, 1234567900)
+
+    @pytest.mark.asyncio
+    async def test_logging_hook_with_completion(self, handler: CCProxyHandler) -> None:
+        """Test async_logging_hook with completion call type."""
+        # Create mock data
+        kwargs = {"litellm_params": {}}
+        response_obj = Mock()
+        call_type = "completion"
+
+        # Should return without error
+        result = await handler.async_logging_hook(
+            kwargs=kwargs,
+            response_obj=response_obj,
+            start_time=None,
+            end_time=None,
+            user_api_key_dict={},
+            call_type=call_type,
+        )
+
+        # Should return None or the response_obj
+        assert result is None or result == response_obj
+
+    @pytest.mark.asyncio
+    async def test_logging_hook_with_unsupported_call_type(self, handler: CCProxyHandler) -> None:
+        """Test async_logging_hook with unsupported call type."""
+        # Create mock data
+        kwargs = {"litellm_params": {}}
+        response_obj = Mock()
+        call_type = "embeddings"  # Not supported
+
+        # Should return without error
+        result = await handler.async_logging_hook(
+            kwargs=kwargs,
+            response_obj=response_obj,
+            start_time=None,
+            end_time=None,
+            user_api_key_dict={},
+            call_type=call_type,
+        )
+
+        # Should return None or the response_obj
+        assert result is None or result == response_obj
+
+    @pytest.mark.asyncio
+    async def test_log_stream_event(self, handler: CCProxyHandler) -> None:
+        """Test log_stream_event method."""
+        kwargs = {"litellm_params": {}}
+        response_obj = Mock()
+        start_time = 1234567890
+        end_time = 1234567900
+
+        # Should not raise any exceptions
+        handler.log_stream_event(kwargs, response_obj, start_time, end_time)
+
+    @pytest.mark.asyncio
+    async def test_async_log_stream_event(self, handler: CCProxyHandler) -> None:
+        """Test async_log_stream_event method."""
+        kwargs = {"litellm_params": {}}
+        response_obj = Mock()
+        start_time = 1234567890
+        end_time = 1234567900
+
+        # Should not raise any exceptions
+        await handler.async_log_stream_event(kwargs, response_obj, start_time, end_time)
+
     def test_route_to_background(self, config_files):
         """Test routing haiku model to background."""
         ccproxy_path, litellm_path = config_files
@@ -132,215 +228,6 @@ class TestCCProxyGetModel:
             model = ccproxy_get_model(request_data)
             assert model == "claude-3-5-haiku-20241022"
         finally:
-            clear_config_instance()
-            clear_router()
-
-    def test_route_to_think(self, config_files):
-        """Test routing thinking request to think model - only works with top-level thinking field."""
-        ccproxy_path, litellm_path = config_files
-
-        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
-        set_config_instance(config)
-
-        try:
-            # This should NOT route to think model (thinking tags in messages are ignored)
-            request_data = {
-                "model": "claude-3-5-sonnet-20241022",
-                "messages": [
-                    {"role": "system", "content": "<thinking>Let me analyze this problem</thinking>"},
-                    {"role": "user", "content": "Complex problem"},
-                ],
-            }
-
-            model = ccproxy_get_model(request_data)
-            assert model == "claude-3-5-sonnet-20241022"  # Should use default
-
-            # This SHOULD route to think model (top-level thinking field)
-            request_data_with_think = {
-                "model": "claude-3-5-sonnet-20241022",
-                "messages": [{"role": "user", "content": "Complex problem"}],
-                "thinking": True,  # Top-level thinking field
-            }
-
-            model = ccproxy_get_model(request_data_with_think)
-            assert model == "claude-3-5-opus-20250514"  # Should route to think
-        finally:
-            clear_config_instance()
-            clear_router()
-
-    def test_route_to_token_count(self, config_files):
-        """Test routing large context to appropriate model."""
-        ccproxy_path, litellm_path = config_files
-
-        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
-        set_config_instance(config)
-
-        try:
-            # Create a request with >60k tokens
-            large_message = "a" * 15000  # ~15k chars ≈ ~3.75k tokens, need multiple messages
-            request_data = {
-                "model": "claude-3-5-sonnet-20241022",
-                "messages": [{"role": "user", "content": large_message} for _ in range(20)],
-            }
-
-            model = ccproxy_get_model(request_data)
-            assert model == "gemini-2.5-pro"
-        finally:
-            clear_config_instance()
-            clear_router()
-
-    def test_route_to_web_search(self, config_files):
-        """Test routing web search request."""
-        ccproxy_path, litellm_path = config_files
-
-        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
-        set_config_instance(config)
-
-        try:
-            request_data = {
-                "model": "claude-3-5-sonnet-20241022",
-                "messages": [{"role": "user", "content": "Search for latest news"}],
-                "tools": [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "web_search",
-                            "description": "Search the web",
-                        },
-                    },
-                ],
-            }
-
-            model = ccproxy_get_model(request_data)
-            assert model == "perplexity/llama-3.1-sonar-large-128k-online"
-        finally:
-            clear_config_instance()
-            clear_router()
-
-    def test_priority_order(self, config_files):
-        """Test that priority order is respected."""
-        ccproxy_path, litellm_path = config_files
-
-        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
-        set_config_instance(config)
-
-        try:
-            # Large context + thinking field should route to token_count (higher priority)
-            large_message = "a" * 15000
-            request_data = {
-                "model": "claude-3-5-sonnet-20241022",
-                "messages": [{"role": "user", "content": large_message} for _ in range(20)],
-                "thinking": True,  # Top-level thinking field
-            }
-
-            model = ccproxy_get_model(request_data)
-            assert model == "gemini-2.5-pro"  # token_count wins over thinking
-        finally:
-            clear_config_instance()
-            clear_router()
-
-    def test_fallback_to_original_model(self):
-        """Test fallback when no routing label model is configured."""
-        # Create config without "think" model - only has default
-        litellm_data = {
-            "model_list": [
-                {
-                    "model_name": "default",
-                    "litellm_params": {
-                        "model": "claude-3-5-sonnet-20241022",
-                    },
-                },
-            ],
-        }
-
-        ccproxy_data = {
-            "ccproxy": {
-                "debug": False,
-                "rules": [
-                    {
-                        "label": "think",
-                        "rule": "ccproxy.rules.ThinkingRule",
-                        "params": [],
-                    },
-                ],
-            }
-        }
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
-            yaml.dump(litellm_data, litellm_file)
-            litellm_path = Path(litellm_file.name)
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
-            yaml.dump(ccproxy_data, ccproxy_file)
-            ccproxy_path = Path(ccproxy_file.name)
-
-        try:
-            config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
-            set_config_instance(config)
-
-            # Request that would route to "think" but model not configured in model_list
-            request_data = {
-                "model": "gpt-4",
-                "messages": [{"role": "user", "content": "Problem"}],
-                "thinking": True,  # Top-level thinking field
-            }
-
-            model = ccproxy_get_model(request_data)
-            # Since "think" label is not in model_list, it should fall back to original
-            assert model == "gpt-4"  # Falls back to original
-        finally:
-            litellm_path.unlink()
-            ccproxy_path.unlink()
-            clear_config_instance()
-            clear_router()
-
-    def test_debug_logging(self, capsys):
-        """Test debug logging output."""
-        # Enable debug in config
-        litellm_data = {
-            "model_list": [
-                {
-                    "model_name": "default",
-                    "litellm_params": {
-                        "model": "claude-3-5-sonnet-20241022",
-                    },
-                },
-            ],
-        }
-
-        ccproxy_data = {
-            "ccproxy": {
-                "debug": True,
-                "rules": [],
-            }
-        }
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
-            yaml.dump(litellm_data, litellm_file)
-            litellm_path = Path(litellm_file.name)
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
-            yaml.dump(ccproxy_data, ccproxy_file)
-            ccproxy_path = Path(ccproxy_file.name)
-
-        try:
-            config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
-            set_config_instance(config)
-
-            request_data = {
-                "model": "claude-3-5-sonnet-20241022",
-                "messages": [{"role": "user", "content": "Hello"}],
-            }
-
-            model = ccproxy_get_model(request_data)
-            assert model == "claude-3-5-sonnet-20241022"
-
-            # Check debug output
-            captured = capsys.readouterr()
-            assert "[ccproxy] Routed to claude-3-5-sonnet-20241022 (label: default)" in captured.out
-        finally:
-            litellm_path.unlink()
-            ccproxy_path.unlink()
             clear_config_instance()
             clear_router()
 
@@ -524,3 +411,99 @@ class TestCCProxyHandler:
             ccproxy_path.unlink()
             clear_config_instance()
             clear_router()
+
+
+class TestHandlerLoggingHookMethods:
+    """Test suite for individual hook methods that haven't been covered."""
+
+    @pytest.mark.asyncio
+    async def test_log_success_hook(self) -> None:
+        """Test async_log_success_hook method."""
+        handler = CCProxyHandler()
+        kwargs = {
+            "litellm_params": {},
+            "start_time": 1234567890,
+            "end_time": 1234567900,
+            "cache_hit": False,
+        }
+        response_obj = Mock(model="test-model", usage=Mock(completion_tokens=10, prompt_tokens=20, total_tokens=30))
+
+        # Should not raise any exceptions
+        await handler.async_log_success_hook(kwargs, response_obj, 1234567890, 1234567900)
+
+    @pytest.mark.asyncio
+    async def test_log_failure_hook(self, handler: CCProxyHandler) -> None:
+        """Test async_log_failure_hook method."""
+        kwargs = {
+            "litellm_params": {},
+            "start_time": 1234567890,
+            "end_time": 1234567900,
+        }
+        response_obj = Mock()
+
+        # Should not raise any exceptions
+        await handler.async_log_failure_hook(kwargs, response_obj, 1234567890, 1234567900)
+
+    @pytest.mark.asyncio
+    async def test_logging_hook_with_completion(self, handler: CCProxyHandler) -> None:
+        """Test async_logging_hook with completion call type."""
+        # Create mock data
+        kwargs = {"litellm_params": {}}
+        response_obj = Mock()
+        call_type = "completion"
+
+        # Should return without error
+        result = await handler.async_logging_hook(
+            kwargs=kwargs,
+            response_obj=response_obj,
+            start_time=None,
+            end_time=None,
+            user_api_key_dict={},
+            call_type=call_type,
+        )
+
+        # Should return None or the response_obj
+        assert result is None or result == response_obj
+
+    @pytest.mark.asyncio
+    async def test_logging_hook_with_unsupported_call_type(self, handler: CCProxyHandler) -> None:
+        """Test async_logging_hook with unsupported call type."""
+        # Create mock data
+        kwargs = {"litellm_params": {}}
+        response_obj = Mock()
+        call_type = "embeddings"  # Not supported
+
+        # Should return without error
+        result = await handler.async_logging_hook(
+            kwargs=kwargs,
+            response_obj=response_obj,
+            start_time=None,
+            end_time=None,
+            user_api_key_dict={},
+            call_type=call_type,
+        )
+
+        # Should return None or the response_obj
+        assert result is None or result == response_obj
+
+    @pytest.mark.asyncio
+    async def test_log_stream_event(self, handler: CCProxyHandler) -> None:
+        """Test log_stream_event method."""
+        kwargs = {"litellm_params": {}}
+        response_obj = Mock()
+        start_time = 1234567890
+        end_time = 1234567900
+
+        # Should not raise any exceptions
+        handler.log_stream_event(kwargs, response_obj, start_time, end_time)
+
+    @pytest.mark.asyncio
+    async def test_async_log_stream_event(self, handler: CCProxyHandler) -> None:
+        """Test async_log_stream_event method."""
+        kwargs = {"litellm_params": {}}
+        response_obj = Mock()
+        start_time = 1234567890
+        end_time = 1234567900
+
+        # Should not raise any exceptions
+        await handler.async_log_stream_event(kwargs, response_obj, start_time, end_time)

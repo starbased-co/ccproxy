@@ -104,6 +104,7 @@ class CCProxyHandler(CustomLogger):  # type: ignore[misc]
 
         # Get model configuration from router - but only if the specific label exists
         router_available_models = self.router.get_available_models()
+        model_config = None
 
         if label in router_available_models:
             # The specific label is configured, use it
