@@ -59,19 +59,6 @@ def install(force: bool = False) -> None:
     Args:
         force: If True, overwrite existing files without prompting
     """
-    # Check for old cclaude wrapper and inform about removal
-    old_wrapper = Path.home() / ".local" / "bin" / "cclaude"
-    if old_wrapper.exists() or old_wrapper.is_symlink():
-        print("⚠️  Found old cclaude wrapper script")
-        print("   The new version uses 'ccproxy claude' instead of 'cclaude'")
-        try:
-            response = input("   Remove old wrapper? [Y/n]: ")
-            if response.lower() != "n":
-                old_wrapper.unlink()
-                print("   ✅ Removed old cclaude wrapper")
-        except (EOFError, KeyboardInterrupt):
-            print("   Skipping removal (non-interactive mode)")
-
     # Determine config directory
     config_dir = Path.home() / ".ccproxy"
 
