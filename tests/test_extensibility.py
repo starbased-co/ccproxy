@@ -132,7 +132,20 @@ class TestClassifierExtensibility:
 
     def test_reset_to_default_rules(self) -> None:
         """Test resetting to default rules after customization."""
-        classifier = RequestClassifier()
+        from unittest.mock import Mock
+
+        from ccproxy.config import ConfigProvider, RuleConfig
+
+        # Mock config with token_count rule
+        mock_config = Mock()
+        mock_config.rules = [
+            RuleConfig(label="token_count", rule_path="ccproxy.rules.TokenCountRule", params=[{"threshold": 60000}])
+        ]
+
+        mock_provider = Mock(spec=ConfigProvider)
+        mock_provider.get.return_value = mock_config
+
+        classifier = RequestClassifier(config_provider=mock_provider)
 
         # Add custom rule
         classifier.add_rule("background", CustomHeaderRule())
@@ -155,7 +168,20 @@ class TestClassifierExtensibility:
 
     def test_mixed_default_and_custom_rules(self) -> None:
         """Test using both default and custom rules together."""
-        classifier = RequestClassifier()
+        from unittest.mock import Mock
+
+        from ccproxy.config import ConfigProvider, RuleConfig
+
+        # Mock config with token_count rule
+        mock_config = Mock()
+        mock_config.rules = [
+            RuleConfig(label="token_count", rule_path="ccproxy.rules.TokenCountRule", params=[{"threshold": 60000}])
+        ]
+
+        mock_provider = Mock(spec=ConfigProvider)
+        mock_provider.get.return_value = mock_config
+
+        classifier = RequestClassifier(config_provider=mock_provider)
 
         # Add custom rule on top of defaults
         classifier.add_rule("production", CustomEnvironmentRule("production"))

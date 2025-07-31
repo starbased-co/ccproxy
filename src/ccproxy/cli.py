@@ -303,6 +303,76 @@ def install(config_dir: Path, force: bool = False) -> None:
     print("  3. Start the proxy with: ccproxy start")
 
 
+def run_with_proxy(config_dir: Path, command: list[str]) -> None:
+    """Run a command with ccproxy environment variables set.
+
+    Args:
+        config_dir: Configuration directory
+        command: Command and arguments to execute
+    """
+    # Load litellm config to get proxy settings
+    ccproxy_config_path = config_dir / "ccproxy.yaml"
+    if not ccproxy_config_path.exists():
+        print(f"Error: Configuration not found at {ccproxy_config_path}", file=sys.stderr)
+        print("Run 'ccproxy install' first to set up configuration.", file=sys.stderr)
+        sys.exit(1)
+
+    # Check if proxy is running
+    pid_file = config_dir / "ccproxy.pid"
+    if pid_file.exists():
+        try:
+            pid = int(pid_file.read_text().strip())
+            if psutil.pid_exists(pid):
+                print(f"Using running ccproxy instance (PID: {pid})")
+            else:
+                print("Warning: CCProxy is not running (stale PID file)", file=sys.stderr)
+                print("Run 'ccproxy start' to start the proxy server", file=sys.stderr)
+        except (ValueError, ProcessLookupError):
+            print("Warning: CCProxy is not running (invalid PID file)", file=sys.stderr)
+            print("Run 'ccproxy start' to start the proxy server", file=sys.stderr)
+    else:
+        print("Note: CCProxy is not running. Starting without proxy.", file=sys.stderr)
+        print("Run 'ccproxy start' to start the proxy server", file=sys.stderr)
+
+    # Load config
+    with ccproxy_config_path.open() as f:
+        config = yaml.safe_load(f)
+
+    litellm_config = config.get("litellm", {}) if config else {}
+
+    # Get proxy settings with defaults
+    host = os.environ.get("HOST", litellm_config.get("host", "127.0.0.1"))
+    port = os.environ.get("PORT", litellm_config.get("port", "4000"))
+
+    # Set up environment for the subprocess
+    env = os.environ.copy()
+
+    # Set proxy environment variables
+    proxy_url = f"http://{host}:{port}"
+    env["OPENAI_API_BASE"] = f"{proxy_url}/v1"
+    env["OPENAI_BASE_URL"] = f"{proxy_url}/v1"
+    env["ANTHROPIC_BASE_URL"] = f"{proxy_url}/v1"
+    env["LITELLM_PROXY_BASE_URL"] = proxy_url
+    env["LITELLM_PROXY_API_BASE"] = f"{proxy_url}/v1"
+
+    # Also set standard HTTP proxy variables for general compatibility
+    env["HTTP_PROXY"] = proxy_url
+    env["HTTPS_PROXY"] = proxy_url
+    env["http_proxy"] = proxy_url
+    env["https_proxy"] = proxy_url
+
+    # Execute the command with the proxy environment
+    try:
+        # S603: Command comes from user input - this is the intended behavior
+        result = subprocess.run(command, env=env)  # noqa: S603
+        sys.exit(result.returncode)
+    except FileNotFoundError:
+        print(f"Error: Command not found: {command[0]}", file=sys.stderr)
+        sys.exit(1)
+    except KeyboardInterrupt:
+        sys.exit(130)  # Standard exit code for Ctrl+C
+
+
 def main() -> None:
     """Main entry point for the CCProxy CLI."""
     parser = argparse.ArgumentParser(
@@ -337,6 +407,10 @@ def main() -> None:
     install_parser = subparsers.add_parser("install", help="Install CCProxy configuration files")
     install_parser.add_argument("--force", action="store_true", help="Overwrite existing configuration")
 
+    # Run command
+    run_parser = subparsers.add_parser("run", help="Run a command with ccproxy environment")
+    run_parser.add_argument("cmd", nargs=argparse.REMAINDER, help="Command to execute with proxy settings")
+
     args = parser.parse_args()
 
     if not args.command:
@@ -355,6 +429,14 @@ def main() -> None:
         daemon.status()
     elif args.command == "install":
         install(args.config_dir, force=args.force)
+    elif args.command == "run":
+        # Get the actual command arguments (stored in args.cmd by argparse.REMAINDER)
+        cmd_args = getattr(args, "cmd", [])
+        if not cmd_args:
+            print("Error: No command specified to run", file=sys.stderr)
+            print("Usage: ccproxy run <command> [args...]", file=sys.stderr)
+            sys.exit(1)
+        run_with_proxy(args.config_dir, cmd_args)
     else:
         parser.print_help()
         sys.exit(1)

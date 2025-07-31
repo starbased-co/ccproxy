@@ -98,20 +98,50 @@ litellm --config config.yaml
 
 ## Routing Rules
 
-## Usage
+## CLI Commands
 
-After installation and setup, use Claude with automatic routing:
+CCProxy provides several commands for managing the proxy server:
 
 ```bash
-ccproxy claude --version
-ccproxy claude -p "Explain quantum computing"
+# Install configuration files
+ccproxy install [--force]
+
+# Start the proxy server as a daemon
+ccproxy start [--host HOST] [--port PORT] [--debug]
+
+# Stop the proxy server
+ccproxy stop
+
+# Check proxy server status
+ccproxy status
+
+# Run any command with proxy environment variables
+ccproxy run <command> [args...]
+```
+
+## Usage
+
+After installation and setup, you can run any command through the ccproxy:
+
+```bash
+# Run Claude Code through the proxy
+ccproxy run claude --version
+ccproxy run claude -p "Explain quantum computing"
+
+# Run other tools through the proxy
+ccproxy run curl http://localhost:4000/health
+ccproxy run python my_script.py
 
 # Or set an alias for convenience:
-alias claude='ccproxy claude'
+alias claude='ccproxy run claude'
 claude -p "Hello world"
 ```
 
-The proxy will start automatically when you use the `ccproxy claude` command and route your requests based on the configured rules.
+The `ccproxy run` command sets up the following environment variables:
+- `OPENAI_API_BASE` / `OPENAI_BASE_URL` - For OpenAI SDK compatibility
+- `ANTHROPIC_BASE_URL` - For Anthropic SDK compatibility
+- `LITELLM_PROXY_BASE_URL` / `LITELLM_PROXY_API_BASE` - For LiteLLM proxy
+- `HTTP_PROXY` / `HTTPS_PROXY` - Standard proxy variables
 
 ## How It Works
 
