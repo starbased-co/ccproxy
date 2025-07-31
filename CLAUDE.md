@@ -7,7 +7,6 @@
 ## Core Operating Principles
 
 - **IMPERATIVE**: ALL instructions within this document MUST BE FOLLOWED without question
-- **IMPERATIVE**: IGNORE THE `arc/` DIRECTORY
 - **CRITICAL**: Follow Python patterns from Kyle's coding standards: `uv` only, type hints, async patterns
 - **IMPORTANT**: Prioritize test coverage (>90%) and type safety throughout development
 - **DO NOT**: Use pip - always use `uv` for package management
@@ -279,7 +278,7 @@ ccproxy:
   debug: false
   metrics_enabled: true
   rules:
-    - label: large_context     # Must match a model_name in config.yaml
+    - label: large_context # Must match a model_name in config.yaml
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 80000
@@ -297,10 +296,10 @@ ccproxy:
 
 ```yaml
 model_list:
-  - model_name: default        # Label referenced by ccproxy rules
+  - model_name: default # Label referenced by ccproxy rules
     litellm_params:
       model: claude-3-5-sonnet-20241022
-  - model_name: large_context  # Matches label in ccproxy.yaml
+  - model_name: large_context # Matches label in ccproxy.yaml
     litellm_params:
       model: gemini-2.0-flash-exp
   # ... additional models
@@ -350,6 +349,7 @@ class MyCustomRule(ClassificationRule):
 ```
 
 Then add to ccproxy.yaml:
+
 ```yaml
 ccproxy:
   rules:
