@@ -11,7 +11,6 @@ from ccproxy.config import (
     CCProxyConfig,
     CCProxySettings,
     ConfigProvider,
-    LiteLLMConfig,
     clear_config_instance,
     get_config,
 )
@@ -50,58 +49,6 @@ class TestCCProxySettings:
         assert "greater than or equal to 1000" in str(exc_info.value)
 
 
-class TestLiteLLMConfig:
-    """Tests for LiteLLM configuration model."""
-
-    def test_default_litellm_config(self) -> None:
-        """Test default LiteLLM configuration."""
-        config = LiteLLMConfig()
-        assert config.model_list == []
-        assert config.litellm_settings == {}
-        assert config.general_settings == {}
-        assert isinstance(config.ccproxy_settings, CCProxySettings)
-        assert config.ccproxy_settings.token_count_threshold == 60000
-
-    def test_full_litellm_config(self) -> None:
-        """Test full LiteLLM configuration."""
-        config_data = {
-            "model_list": [
-                {
-                    "model_name": "default",
-                    "litellm_params": {
-                        "model": "claude-3-5-sonnet-20241022",
-                        "api_base": "https://api.anthropic.com",
-                    },
-                },
-                {
-                    "model_name": "background",
-                    "litellm_params": {
-                        "model": "claude-3-5-haiku-20241022",
-                        "api_base": "https://api.anthropic.com",
-                    },
-                },
-            ],
-            "litellm_settings": {
-                "callbacks": "custom_callbacks.ccproxy_handler",
-            },
-            "general_settings": {
-                "monitoring": {
-                    "log_transformations": True,
-                    "metrics_enabled": True,
-                },
-            },
-            "ccproxy_settings": {
-                "token_count_threshold": 70000,
-                "debug": True,
-            },
-        }
-
-        config = LiteLLMConfig(**config_data)
-        assert len(config.model_list) == 2
-        assert config.model_list[0]["model_name"] == "default"
-        assert config.litellm_settings["callbacks"] == "custom_callbacks.ccproxy_handler"
-        assert config.ccproxy_settings.token_count_threshold == 70000
-        assert config.ccproxy_settings.debug is True
 
 
 class TestCCProxyConfig:
@@ -159,10 +106,15 @@ general_settings:
     metrics_enabled: true
     slow_transformation_threshold: 0.05
 
-ccproxy_settings:
-  token_count_threshold: 80000
-  debug: true
-  metrics_enabled: false
+general_settings:
+  monitoring:
+    log_transformations: true
+    metrics_enabled: true
+    slow_transformation_threshold: 0.05
+  ccproxy_settings:
+    token_count_threshold: 80000
+    debug: true
+    metrics_enabled: false
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
@@ -176,10 +128,6 @@ ccproxy_settings:
             assert config.debug is True
             assert config.metrics_enabled is False
 
-            # Check that we can get LiteLLM config
-            litellm_config = config.get_litellm_config()
-            assert len(litellm_config.model_list) == 5
-            assert litellm_config.model_list[0]["model_name"] == "default"
 
             # Test model lookup
             assert config.get_model_for_label("default") == "claude-3-5-sonnet-20241022"
@@ -221,9 +169,10 @@ litellm_settings:
     def test_yaml_config_values(self) -> None:
         """Test that YAML config values are loaded correctly."""
         yaml_content = """
-ccproxy_settings:
-  token_count_threshold: 70000
-  debug: true
+general_settings:
+  ccproxy_settings:
+    token_count_threshold: 70000
+    debug: true
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
@@ -273,8 +222,9 @@ class TestConfigSingleton:
         clear_config_instance()
 
         yaml_content = """
-ccproxy_settings:
-  token_count_threshold: 55000
+general_settings:
+  ccproxy_settings:
+    token_count_threshold: 55000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
@@ -308,8 +258,9 @@ class TestConfigProvider:
     def test_provider_lazy_load(self) -> None:
         """Test ConfigProvider lazy loading."""
         yaml_content = """
-ccproxy_settings:
-  token_count_threshold: 85000
+general_settings:
+  ccproxy_settings:
+    token_count_threshold: 85000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
@@ -356,6 +307,106 @@ ccproxy_settings:
         assert provider1.get() is not provider2.get()
 
 
+class TestProxyRuntimeConfig:
+    """Tests for loading configuration from proxy_server runtime."""
+    
+    def test_from_proxy_runtime_with_settings(self) -> None:
+        """Test loading config from proxy_server runtime with ccproxy_settings."""
+        # Mock proxy_server
+        mock_proxy_server = mock.MagicMock()
+        mock_proxy_server.general_settings = {
+            "ccproxy_settings": {
+                "token_count_threshold": 75000,
+                "debug": True,
+                "metrics_enabled": False,
+            }
+        }
+        
+        with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
+            config = CCProxyConfig.from_proxy_runtime()
+            
+            assert config.token_count_threshold == 75000
+            assert config.debug is True
+            assert config.metrics_enabled is False
+    
+    def test_from_proxy_runtime_without_settings(self) -> None:
+        """Test loading config from proxy_server runtime without ccproxy_settings."""
+        # Mock proxy_server
+        mock_proxy_server = mock.MagicMock()
+        mock_proxy_server.general_settings = {
+            "master_key": "sk-1234",
+            "monitoring": {"enabled": True}
+        }
+        
+        with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
+            config = CCProxyConfig.from_proxy_runtime()
+            
+            # Should use defaults
+            assert config.token_count_threshold == 60000
+            assert config.debug is False
+            assert config.metrics_enabled is True
+    
+    def test_from_proxy_runtime_no_proxy_server(self) -> None:
+        """Test loading config when proxy_server is not available."""
+        with mock.patch("ccproxy.config.proxy_server", None):
+            config = CCProxyConfig.from_proxy_runtime()
+            
+            # Should use defaults
+            assert config.token_count_threshold == 60000
+            assert config.debug is False
+            assert config.metrics_enabled is True
+    
+    def test_get_model_for_label_from_runtime(self) -> None:
+        """Test model lookup from proxy_server runtime."""
+        # Mock proxy_server
+        mock_proxy_server = mock.MagicMock()
+        mock_proxy_server.general_settings = {}
+        mock_proxy_server.llm_router = mock.MagicMock()
+        mock_proxy_server.llm_router.model_list = [
+            {
+                "model_name": "default",
+                "litellm_params": {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "api_base": "https://api.anthropic.com",
+                }
+            },
+            {
+                "model_name": "background",
+                "litellm_params": {
+                    "model": "claude-3-5-haiku-20241022",
+                    "api_base": "https://api.anthropic.com",
+                }
+            },
+        ]
+        
+        with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
+            config = CCProxyConfig.from_proxy_runtime()
+            
+            assert config.get_model_for_label("default") == "claude-3-5-sonnet-20241022"
+            assert config.get_model_for_label("background") == "claude-3-5-haiku-20241022"
+            assert config.get_model_for_label("unknown") is None
+    
+    def test_get_config_uses_runtime_when_available(self) -> None:
+        """Test that get_config prefers runtime config when available."""
+        # Clear any existing instance
+        clear_config_instance()
+        
+        # Mock proxy_server
+        mock_proxy_server = mock.MagicMock()
+        mock_proxy_server.general_settings = {
+            "ccproxy_settings": {
+                "token_count_threshold": 90000,
+            }
+        }
+        
+        try:
+            with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
+                config = get_config()
+                assert config.token_count_threshold == 90000
+        finally:
+            clear_config_instance()
+
+
 class TestThreadSafety:
     """Tests for thread-safe configuration access."""
 
@@ -368,8 +419,9 @@ class TestThreadSafety:
         clear_config_instance()
 
         yaml_content = """
-ccproxy_settings:
-  token_count_threshold: 50000
+general_settings:
+  ccproxy_settings:
+    token_count_threshold: 50000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)

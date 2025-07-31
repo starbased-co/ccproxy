@@ -45,35 +45,12 @@
 - **NO CLARIFICATION**: Implement based on PRD specifications
 - **TYPE SAFETY FIRST**: All functions must have complete type annotations
 
-### 5-Parallel Development Tasks
-
-1. **Core Hook**: Implement CCProxyHandler with async_pre_call_hook
-2. **Router Logic**: Create ccproxy_get_model function with classification
-3. **Configuration**: Parse YAML and environment variables
-4. **Testing**: Unit tests for each classification scenario
-5. **Integration**: Test with actual LiteLLM proxy
-
 ## Command Translation
 
 - "run tests" → `uv run pytest tests/ -v --cov=ccproxy --cov-report=term-missing`
 - "type check" → `uv run mypy src/ccproxy --strict`
 - "lint code" → `uv run ruff check src/ tests/ --fix`
 - "format code" → `uv run ruff format src/ tests/`
-
-## Python Patterns
-
-### Hook Implementation Pattern
-
-```python
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.utils import ModelResponseStream
-from typing import Any, AsyncGenerator, Optional, Literal
-import os
-
-class CCProxyHandler(CustomLogger):
-    def __init__(self):
-        self.context_threshold = int(os.getenv("CCPROXY_CONTEXT_THRESHOLD", "60000"))
-```
 
 ## Testing Strategy
 
@@ -140,6 +117,134 @@ tests/
 - **DO NOT**: Use pip instead of uv
 - **DO NOT**: Commit without running tests
 
+## LiteLLM Configuration Access from Hooks
+
+### Understanding Hook Context
+
+When implementing a CustomLogger hook in LiteLLM, you have access to the proxy server's runtime configuration through global imports. The hook runs within the proxy server process, giving you direct access to internal state.
+
+### Key Global Variables
+
+```python
+from litellm.proxy import proxy_server
+
+# Global router instance
+llm_router = proxy_server.llm_router  # Router with model deployments
+prisma_client = proxy_server.prisma_client  # Database client if configured
+general_settings = proxy_server.general_settings  # Proxy-wide settings
+```
+
+### Accessing Model Configuration
+
+```python
+from litellm.integrations.custom_logger import CustomLogger
+from litellm.proxy._types import UserAPIKeyAuth
+from litellm.proxy import proxy_server
+from typing import Any, Dict, Optional, Literal
+
+class CCProxyHandler(CustomLogger):
+    async def async_pre_call_hook(
+        self,
+        user_api_key_dict: UserAPIKeyAuth,
+        cache: Any,
+        data: dict,
+        call_type: Literal["completion", "embeddings", ...],
+    ) -> Optional[Union[Exception, str, dict]]:
+
+        # Access the global router
+        if proxy_server.llm_router:
+            # Get all configured models
+            model_list = proxy_server.llm_router.model_list
+
+            # Iterate through deployments
+            for deployment in model_list:
+                model_name = deployment.get("model_name")
+                litellm_params = deployment.get("litellm_params", {})
+
+                # Access deployment-specific settings
+                api_base = litellm_params.get("api_base")
+                api_key = litellm_params.get("api_key")
+                custom_llm_provider = litellm_params.get("custom_llm_provider")
+
+                # Check model aliases
+                model_info = deployment.get("model_info", {})
+
+        # Access general proxy settings
+        settings = proxy_server.general_settings or {}
+
+        # Modify the request based on configuration
+        return data
+```
+
+### Router Methods Available
+
+```python
+# Inside your hook
+if proxy_server.llm_router:
+    # Get healthy deployments for a model
+    healthy_deployments = await proxy_server.llm_router.async_get_healthy_deployments(
+        model="gpt-4",
+        request_kwargs=data
+    )
+
+    # Access routing strategy
+    routing_strategy = proxy_server.llm_router.routing_strategy_args
+
+    # Get model group info
+    model_group = proxy_server.llm_router.get_model_group(model="gpt-4")
+```
+
+### GitMCP Tool Usage
+
+Use GitMCP to explore LiteLLM implementation details:
+
+```bash
+# Fetch complete documentation
+mcp__gitmcp-litellm__fetch_litellm_documentation
+
+# Search for specific patterns
+mcp__gitmcp-litellm__search_litellm_documentation query="custom logger hook"
+mcp__gitmcp-litellm__search_litellm_code query="proxy_server llm_router"
+
+# Access specific documentation
+mcp__gitmcp-litellm__fetch_generic_url_content url="https://docs.litellm.ai/docs/proxy/call_hooks"
+```
+
+### Important Hook Patterns
+
+1. **Pre-call Hook**: Modify requests before they reach the model
+2. **Post-call Success Hook**: Process responses after successful calls
+3. **Post-call Failure Hook**: Handle errors and retries
+4. **Moderation Hook**: Run parallel checks during API calls
+5. **Streaming Hooks**: Handle streaming responses
+
+### Type Safety
+
+```python
+from litellm.types.utils import ModelResponse, StandardLoggingPayload
+from litellm.proxy._types import UserAPIKeyAuth, LiteLLM_ProxyBudgetType
+from typing import Union, Optional, Literal, Dict, Any
+
+# Properly typed hook signature
+async def async_pre_call_hook(
+    self,
+    user_api_key_dict: UserAPIKeyAuth,
+    cache: DualCache,
+    data: dict,
+    call_type: Literal[
+        "completion",
+        "text_completion",
+        "embeddings",
+        "image_generation",
+        "moderation",
+        "audio_transcription",
+        "pass_through_endpoint",
+        "rerank",
+    ],
+) -> Optional[Union[Exception, str, dict]]:
+    pass
+```
+
 ## Quick Reference
 
 ### Essential Commands
@@ -156,13 +261,6 @@ task-master next          # Get next task
 task-master show <id>     # View task details
 task-master set-status --id=<id> --status=done
 ```
-
-### Key Files
-
-- `src/ccproxy/handler.py` - Main hook implementation
-- `config.yaml` - LiteLLM proxy configuration
-- `tests/test_router.py` - Router logic tests
-- `pyproject.toml` - Project configuration
 
 ---
 

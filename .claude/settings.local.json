@@ -3,12 +3,8 @@
     "allow": [
       "Bash(pre-commit:*)",
       "mcp__desktop-commander-mcp",
-      "Bash(rm:*)",
       "Bash(timeout 10 uv run:*)",
-      "mcp__gitmcp",
-      "mcp__gitmcp__fetch_litellm_documentation",
-      "mcp__gitmcp__search_litellm_documentation",
-      "mcp__gitmcp__fetch_generic_url_content",
+      "mcp__gitmcp-litellm",
       "Bash(litellm:*)",
       "Bash(PYTHONPATH=src python -c \"from ccproxy.handler import CCProxyHandler; print(''CCProxy import successful'')\")",
       "Bash(PYTHONPATH=src litellm --config demo/demo_config.yaml --port 8000)",
@@ -18,8 +14,5 @@
     ],
     "deny": []
   },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "gitmcp"
-  ]
+  "enableAllProjectMcpServers": true
 }

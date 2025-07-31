@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "gitmcp": {
+    "gitmcp-litellm": {
       "command": "npx",
       "args": [
         "mcp-remote",
