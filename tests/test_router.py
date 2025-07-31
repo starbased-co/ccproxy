@@ -1,10 +1,12 @@
 """Tests for the ModelRouter component."""
 
 import threading
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from ccproxy.classifier import RoutingLabel
-from ccproxy.config import CCProxyConfig, ConfigProvider, LiteLLMConfig
+import yaml
+
+from ccproxy.config import CCProxyConfig, ConfigProvider
 from ccproxy.router import ModelRouter, get_router
 
 
@@ -13,9 +15,9 @@ class TestModelRouter:
 
     def test_init_loads_config(self) -> None:
         """Test that initialization loads model mapping from config."""
-        # Create mock LiteLLM config
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        # Create temporary YAML file with model config
+        test_yaml_content = {
+            "model_list": [
                 {
                     "model_name": "default",
                     "litellm_params": {"model": "claude-3-5-sonnet-20241022", "api_base": "https://api.anthropic.com"},
@@ -26,16 +28,21 @@ class TestModelRouter:
                     "model_info": {"priority": "low"},
                 },
             ]
-        )
+        }
 
         # Create mock config
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        # Mock open to return our test YAML
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         # Verify config was loaded
         assert mock_provider.get.called
@@ -51,24 +58,23 @@ class TestModelRouter:
         assert model is not None
         assert model["model_info"]["priority"] == "low"
 
-    def test_get_model_for_label_with_enum(self) -> None:
-        """Test get_model_for_label with RoutingLabel enum."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[{"model_name": "think", "litellm_params": {"model": "claude-3-5-sonnet-20241022"}}]
-        )
+    def test_get_model_for_label_with_string(self) -> None:
+        """Test get_model_for_label with string labels."""
+        test_yaml_content = {
+            "model_list": [{"model_name": "think", "litellm_params": {"model": "claude-3-5-sonnet-20241022"}}]
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
-
-        # Test with enum
-        model = router.get_model_for_label(RoutingLabel.THINK)
-        assert model is not None
-        assert model["model_name"] == "think"
+                router = ModelRouter(config_provider=mock_provider)
 
         # Test with string
         model = router.get_model_for_label("think")
@@ -77,36 +83,44 @@ class TestModelRouter:
 
     def test_get_model_for_unknown_label(self) -> None:
         """Test get_model_for_label returns None for unknown labels."""
-        mock_litellm_config = LiteLLMConfig(model_list=[])
+        test_yaml_content = {"model_list": []}
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         assert router.get_model_for_label("unknown") is None
-        assert router.get_model_for_label(RoutingLabel.DEFAULT) is None
+        assert router.get_model_for_label("default") is None
 
     def test_get_model_list(self) -> None:
         """Test get_model_list returns all models."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"model_name": "default", "litellm_params": {"model": "claude-3-5-sonnet-20241022"}},
                 {"model_name": "custom-model", "litellm_params": {"model": "gpt-4"}},
                 {"model_name": "background", "litellm_params": {"model": "claude-3-5-haiku-20241022"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         models = router.get_model_list()
         assert len(models) == 3
@@ -116,38 +130,44 @@ class TestModelRouter:
 
     def test_model_list_property(self) -> None:
         """Test model_list property access."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[{"model_name": "default", "litellm_params": {"model": "claude"}}]
-        )
+        test_yaml_content = {"model_list": [{"model_name": "default", "litellm_params": {"model": "claude"}}]}
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         # Property should return same as method
         assert router.model_list == router.get_model_list()
 
     def test_model_group_alias(self) -> None:
         """Test model_group_alias groups models by underlying model."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"model_name": "default", "litellm_params": {"model": "claude-3-5-sonnet-20241022"}},
                 {"model_name": "think", "litellm_params": {"model": "claude-3-5-sonnet-20241022"}},
                 {"model_name": "background", "litellm_params": {"model": "claude-3-5-haiku-20241022"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         groups = router.model_group_alias
         assert "claude-3-5-sonnet-20241022" in groups
@@ -156,21 +176,25 @@ class TestModelRouter:
 
     def test_get_available_models(self) -> None:
         """Test get_available_models returns sorted model names."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"model_name": "think", "litellm_params": {"model": "claude"}},
                 {"model_name": "background", "litellm_params": {"model": "claude"}},
                 {"model_name": "default", "litellm_params": {"model": "claude"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         available = router.get_available_models()
         assert available == ["background", "default", "think"]  # Sorted
@@ -178,42 +202,51 @@ class TestModelRouter:
     def test_malformed_config_handling(self) -> None:
         """Test handling of malformed configurations."""
         # Test with missing model_name entries
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"no_model_name": "test"},
                 {"model_name": "valid", "litellm_params": {"model": "claude"}},
                 {"model_name": "", "litellm_params": {"model": "claude"}},  # Empty name
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
+
         models = router.get_model_list()
         assert len(models) == 1
         assert models[0]["model_name"] == "valid"
 
     def test_missing_litellm_params(self) -> None:
         """Test handling of models without litellm_params."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"model_name": "default"},  # No litellm_params
                 {"model_name": "background", "litellm_params": None},  # None params
                 {"model_name": "think", "litellm_params": {"model": "claude"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         # All models should be in list
         assert len(router.get_model_list()) == 3
@@ -225,51 +258,64 @@ class TestModelRouter:
 
     def test_config_update(self) -> None:
         """Test configuration update handling."""
-        initial_litellm_config = LiteLLMConfig(
-            model_list=[{"model_name": "default", "litellm_params": {"model": "claude"}}]
-        )
+        initial_yaml_content = {"model_list": [{"model_name": "default", "litellm_params": {"model": "claude"}}]}
 
-        updated_litellm_config = LiteLLMConfig(
-            model_list=[
+        updated_yaml_content = {
+            "model_list": [
                 {"model_name": "default", "litellm_params": {"model": "gpt-4"}},
                 {"model_name": "background", "litellm_params": {"model": "claude"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = initial_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        # Start with initial config
+        yaml_content = initial_yaml_content
 
-        router = ModelRouter(config_provider=mock_provider)
+        def mock_yaml_load(*args, **kwargs):
+            return yaml_content
 
-        # Initial state
-        assert len(router.get_model_list()) == 1
-        assert router.get_model_for_label("default")["litellm_params"]["model"] == "claude"
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(initial_yaml_content)
+            with patch("yaml.safe_load", side_effect=mock_yaml_load):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        # Simulate config update by updating mock
-        mock_config.get_litellm_config.return_value = updated_litellm_config
-        router._load_model_mapping()  # Manually trigger mapping update
+                router = ModelRouter(config_provider=mock_provider)
 
-        # Check updated state
-        assert len(router.get_model_list()) == 2
-        assert router.get_model_for_label("default")["litellm_params"]["model"] == "gpt-4"
-        assert router.get_model_for_label("background") is not None
+                # Initial state
+                assert len(router.get_model_list()) == 1
+                assert router.get_model_for_label("default")["litellm_params"]["model"] == "claude"
+
+                # Simulate config update
+                yaml_content = updated_yaml_content
+                mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(updated_yaml_content)
+                router._load_model_mapping()  # Manually trigger mapping update
+
+                # Check updated state
+                assert len(router.get_model_list()) == 2
+                assert router.get_model_for_label("default")["litellm_params"]["model"] == "gpt-4"
+                assert router.get_model_for_label("background") is not None
 
     def test_thread_safety(self) -> None:
         """Test thread-safe access to router methods."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[{"model_name": f"model-{i}", "litellm_params": {"model": "claude"}} for i in range(10)]
-        )
+        test_yaml_content = {
+            "model_list": [{"model_name": f"model-{i}", "litellm_params": {"model": "claude"}} for i in range(10)]
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         results = []
         errors = []
@@ -306,8 +352,8 @@ class TestModelRouter:
         # Mock config provider
         mock_provider = MagicMock()
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_litellm_config = LiteLLMConfig(model_list=[])
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = False
         mock_provider.get.return_value = mock_config
         mock_config_provider_class.return_value = mock_provider
 
@@ -339,20 +385,24 @@ class TestModelRouter:
 
     def test_fallback_to_default_model(self) -> None:
         """Test fallback to default model when requested label is unavailable."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"model_name": "default", "litellm_params": {"model": "claude-3-5-sonnet-20241022"}},
                 {"model_name": "background", "litellm_params": {"model": "claude-3-5-haiku-20241022"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         # Request unavailable model, should fallback to default
         model = router.get_model_for_label("think")
@@ -361,42 +411,50 @@ class TestModelRouter:
 
     def test_fallback_priority_order(self) -> None:
         """Test fallback follows priority order when default is unavailable."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"model_name": "background", "litellm_params": {"model": "claude-3-5-haiku-20241022"}},
                 {"model_name": "token_count", "litellm_params": {"model": "gpt-4"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
-        # Request unavailable model, should fallback to background (first in priority)
+        # Request unavailable model, should fallback to first (background)
         model = router.get_model_for_label("think")
         assert model is not None
         assert model["model_name"] == "background"
 
     def test_fallback_to_first_available(self) -> None:
         """Test fallback to first available model when no priority models exist."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"model_name": "custom-model-1", "litellm_params": {"model": "gpt-4"}},
                 {"model_name": "custom-model-2", "litellm_params": {"model": "claude"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         # Request unavailable model with no standard fallbacks
         model = router.get_model_for_label("think")
@@ -405,15 +463,19 @@ class TestModelRouter:
 
     def test_no_fallback_when_empty_config(self) -> None:
         """Test returns None when no models are available."""
-        mock_litellm_config = LiteLLMConfig(model_list=[])
+        test_yaml_content = {"model_list": []}
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         # Should return None when no models available
         assert router.get_model_for_label("think") is None
@@ -421,20 +483,24 @@ class TestModelRouter:
 
     def test_is_model_available(self) -> None:
         """Test is_model_available method."""
-        mock_litellm_config = LiteLLMConfig(
-            model_list=[
+        test_yaml_content = {
+            "model_list": [
                 {"model_name": "default", "litellm_params": {"model": "claude"}},
                 {"model_name": "background", "litellm_params": {"model": "haiku"}},
             ]
-        )
+        }
 
         mock_config = MagicMock(spec=CCProxyConfig)
-        mock_config.get_litellm_config.return_value = mock_litellm_config
+        mock_config.litellm_config_path = MagicMock(spec=Path)
+        mock_config.litellm_config_path.exists.return_value = True
 
-        mock_provider = MagicMock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value.read.return_value = yaml.dump(test_yaml_content)
+            with patch("yaml.safe_load", return_value=test_yaml_content):
+                mock_provider = MagicMock(spec=ConfigProvider)
+                mock_provider.get.return_value = mock_config
 
-        router = ModelRouter(config_provider=mock_provider)
+                router = ModelRouter(config_provider=mock_provider)
 
         # Test available models
         assert router.is_model_available("default") is True

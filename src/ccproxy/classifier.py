@@ -1,90 +1,35 @@
 """Request classification module for context-aware routing."""
 
-from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Any, Protocol
+from typing import Any
 
-from ccproxy.config import CCProxyConfig, ConfigProvider
-
-
-class RoutingLabel(str, Enum):
-    """Routing labels for request classification."""
-
-    DEFAULT = "default"
-    BACKGROUND = "background"
-    THINK = "think"
-    TOKEN_COUNT = "token_count"  # noqa: S105
-    WEB_SEARCH = "web_search"
-
-    def __str__(self) -> str:
-        """Return the string value of the label."""
-        return self.value
-
-
-class ClassificationRule(ABC):
-    """Abstract base class for classification rules.
-
-    To create a custom classification rule:
-
-    1. Inherit from ClassificationRule
-    2. Implement the evaluate method
-    3. Return a RoutingLabel if the rule matches, None otherwise
-
-    Example:
-        >>> class CustomHeaderRule(ClassificationRule):
-        ...     def evaluate(self, request, config):
-        ...         headers = request.get("headers", {})
-        ...         if headers.get("X-Priority") == "low":
-        ...             return RoutingLabel.BACKGROUND
-        ...         return None
-        ...
-        >>> classifier = RequestClassifier()
-        >>> classifier.add_rule(CustomHeaderRule())
-    """
-
-    @abstractmethod
-    def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
-        """Evaluate the rule against the request.
-
-        Args:
-            request: The request to evaluate
-            config: The current configuration
-
-        Returns:
-            The routing label if the rule matches, None otherwise
-        """
+from ccproxy.config import ConfigProvider
+from ccproxy.rules import ClassificationRule
 
 
 class RequestClassifier:
     """Main request classifier implementing rule-based classification.
 
     The classifier uses a rule-based system where rules are evaluated in
-    the order they are added. The first matching rule determines the
+    the order they are configured. The first matching rule determines the
     routing label.
 
-    Extension Points:
-    - Create custom rules by inheriting from ClassificationRule
-    - Add rules dynamically using add_rule()
-    - Replace default rules using clear_rules() then add_rule()
-    - Reset to default rules using reset_rules()
+    The rules are loaded from the CCProxyConfig which reads from ccproxy.yaml.
+    Each rule in the configuration specifies:
+    - label: The routing label to use if the rule matches
+    - rule: The Python import path to the rule class
+    - params: Optional parameters to pass to the rule constructor
 
-    Example:
-        >>> # Create a custom rule
-        >>> class CustomAPIKeyRule(ClassificationRule):
-        ...     def evaluate(self, request, config):
-        ...         api_key = request.get("api_key", "")
-        ...         if api_key.startswith("test_"):
-        ...             return RoutingLabel.BACKGROUND
-        ...         return None
-        ...
-        >>> # Use with classifier
-        >>> classifier = RequestClassifier()
-        >>> classifier.add_rule(CustomAPIKeyRule())
-        >>>
-        >>> # Or replace all rules
-        >>> classifier.clear_rules()
-        >>> classifier.add_rule(CustomAPIKeyRule())
-        >>> classifier.add_rule(TokenCountRule())
+    Example configuration in ccproxy.yaml:
+        ccproxy:
+          rules:
+            - label: token_count
+              rule: ccproxy.rules.TokenCountRule
+              params:
+                - threshold: 60000
+            - label: background
+              rule: ccproxy.rules.MatchModelRule
+              params:
+                - model_name: claude-3-5-haiku-20241022
     """
 
     def __init__(self, config_provider: ConfigProvider | None = None) -> None:
@@ -94,31 +39,34 @@ class RequestClassifier:
             config_provider: Optional config provider. If None, uses global config.
         """
         self._config_provider = config_provider or ConfigProvider()
-        self._rules: list[ClassificationRule] = []
+        self._rules: list[tuple[str, ClassificationRule]] = []
         self._setup_rules()
 
     def _setup_rules(self) -> None:
-        """Set up classification rules in priority order.
+        """Set up classification rules from configuration.
 
-        Priority order (from PRD):
-        1. Token count (tokens > threshold) → token_count
-        2. Model is claude-3-5-haiku → background
-        3. Request has thinking field → think
-        4. Tools contain web_search → web_search
-        5. Default case → default (handled in classify method)
+        Rules are loaded from the ccproxy.yaml configuration file.
+        Each rule configuration specifies the label and rule class to use.
         """
-        from ccproxy.rules import ModelNameRule, ThinkingRule, TokenCountRule, MatchToolRule
-
         # Clear any existing rules
         self.clear_rules()
 
-        # Add rules in priority order
-        self.add_rule(TokenCountRule())  # Priority 1: Token count
-        self.add_rule(ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND))  # Priority 2: Background models
-        self.add_rule(ThinkingRule())  # Priority 3: Thinking requests
-        self.add_rule(MatchToolRule())  # Priority 4: Web search tools
+        # Get configuration
+        config = self._config_provider.get()
 
-    def classify(self, request: dict[str, Any]) -> RoutingLabel:
+        # Load rules from configuration
+        for rule_config in config.rules:
+            try:
+                # Create rule instance
+                rule_instance = rule_config.create_instance()
+                # Add rule with its label
+                self.add_rule(rule_config.label, rule_instance)
+            except (ImportError, TypeError, AttributeError) as e:
+                # Log error but continue loading other rules
+                if config.debug:
+                    print(f"Failed to load rule {rule_config.rule_path}: {e}")
+
+    def classify(self, request: dict[str, Any]) -> str:
         """Classify a request based on configured rules.
 
         Args:
@@ -129,8 +77,8 @@ class RequestClassifier:
             The routing label for the request
 
         Note:
-            Rules are evaluated in priority order. The first matching rule
-            determines the routing label. If no rules match, DEFAULT is returned.
+            Rules are evaluated in the order they are configured. The first matching rule
+            determines the routing label. If no rules match, "default" is returned.
         """
         # Convert pydantic model to dict if needed
         if hasattr(request, "model_dump"):
@@ -138,33 +86,32 @@ class RequestClassifier:
 
         config = self._config_provider.get()
 
-        # Evaluate rules in priority order
-        for rule in self._rules:
-            label = rule.evaluate(request, config)
-            if label is not None:
+        # Evaluate rules in order
+        for label, rule in self._rules:
+            if rule.evaluate(request, config):
                 return label
 
         # Default if no rules match
-        return RoutingLabel.DEFAULT
+        return "default"
 
-    def add_rule(self, rule: ClassificationRule) -> None:
-        """Add a classification rule.
+    def add_rule(self, label: str, rule: ClassificationRule) -> None:
+        """Add a classification rule with its associated label.
 
         Args:
+            label: The routing label to use if this rule matches
             rule: The rule to add
 
         Note:
             Rules are evaluated in the order they are added.
             For proper priority, use _setup_rules() to configure
-            the standard rule set.
+            the standard rule set from ccproxy.yaml.
         """
-        self._rules.append(rule)
+        self._rules.append((label, rule))
 
     def clear_rules(self) -> None:
         """Clear all classification rules."""
         self._rules.clear()
 
     def reset_rules(self) -> None:
-        """Reset rules to the default configuration."""
-        self.clear_rules()
+        """Reset rules to the configuration from ccproxy.yaml."""
         self._setup_rules()

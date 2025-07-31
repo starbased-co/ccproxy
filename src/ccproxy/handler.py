@@ -44,9 +44,9 @@ def ccproxy_get_model(data: dict[str, Any]) -> str:
     # Get model for label from router - but only if the specific label exists
     router_available_models = router.get_available_models()
 
-    if label.value in router_available_models:
+    if label in router_available_models:
         # The specific label is configured, use it
-        model_config = router.get_model_for_label(label.value)
+        model_config = router.get_model_for_label(label)
         if model_config is not None:
             model: str = str(model_config["litellm_params"]["model"])
         else:
@@ -58,7 +58,7 @@ def ccproxy_get_model(data: dict[str, Any]) -> str:
 
     # Log routing decision if debug enabled
     if config.debug:
-        print(f"[ccproxy] Routed to {model} (label: {label.value})")
+        print(f"[ccproxy] Routed to {model} (label: {label})")
 
     return model
 
@@ -105,9 +105,9 @@ class CCProxyHandler(CustomLogger):  # type: ignore[misc]
         # Get model configuration from router - but only if the specific label exists
         router_available_models = self.router.get_available_models()
 
-        if label.value in router_available_models:
+        if label in router_available_models:
             # The specific label is configured, use it
-            model_config = self.router.get_model_for_label(label.value)
+            model_config = self.router.get_model_for_label(label)
             if model_config is not None:
                 data["model"] = model_config["litellm_params"]["model"]
                 routed_model = data["model"]
@@ -122,7 +122,7 @@ class CCProxyHandler(CustomLogger):  # type: ignore[misc]
         if "metadata" not in data:
             data["metadata"] = {}
 
-        data["metadata"]["ccproxy_label"] = label.value
+        data["metadata"]["ccproxy_label"] = label
         data["metadata"]["ccproxy_original_model"] = original_model
         data["metadata"]["ccproxy_routed_model"] = routed_model
 
@@ -134,7 +134,7 @@ class CCProxyHandler(CustomLogger):  # type: ignore[misc]
 
         # Log routing decision with structured logging
         self._log_routing_decision(
-            label=label.value,
+            label=label,
             original_model=original_model,
             routed_model=routed_model,
             request_id=data["metadata"]["request_id"],

@@ -245,6 +245,12 @@ async def async_pre_call_hook(
     pass
 ```
 
+## LiteLLM Proxy Configuration
+
+### Configuration Files
+
+- `config.yaml` is the LiteLLM proxy config. To access LiteLLM config, you can access it during the proxy hook. Search the LiteLLM documentation with Context7 or gitmcp
+
 ## Quick Reference
 
 ### Essential Commands

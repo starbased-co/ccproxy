@@ -8,15 +8,17 @@ import yaml
 
 from ccproxy.config import CCProxyConfig, clear_config_instance, set_config_instance
 from ccproxy.handler import CCProxyHandler, ccproxy_get_model
+from ccproxy.router import clear_router
 
 
 class TestCCProxyGetModel:
     """Tests for ccproxy_get_model routing function."""
 
     @pytest.fixture
-    def litellm_config_file(self):
-        """Create a temporary LiteLLM config file."""
-        config_data = {
+    def config_files(self):
+        """Create temporary ccproxy.yaml and litellm config files."""
+        # Create litellm config
+        litellm_data = {
             "model_list": [
                 {
                     "model_name": "default",
@@ -49,23 +51,57 @@ class TestCCProxyGetModel:
                     },
                 },
             ],
-            "ccproxy_settings": {
-                "token_count_threshold": 60000,
-                "debug": False,
-            },
         }
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump(config_data, f)
-            yield Path(f.name)
+        # Create ccproxy config
+        ccproxy_data = {
+            "ccproxy": {
+                "debug": False,
+                "rules": [
+                    {
+                        "label": "token_count",
+                        "rule": "ccproxy.rules.TokenCountRule",
+                        "params": [{"threshold": 60000}],
+                    },
+                    {
+                        "label": "background",
+                        "rule": "ccproxy.rules.MatchModelRule",
+                        "params": [{"model_name": "claude-3-5-haiku-20241022"}],
+                    },
+                    {
+                        "label": "think",
+                        "rule": "ccproxy.rules.ThinkingRule",
+                        "params": [],
+                    },
+                    {
+                        "label": "web_search",
+                        "rule": "ccproxy.rules.MatchToolRule",
+                        "params": [{"tool_name": "web_search"}],
+                    },
+                ],
+            }
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
+            yaml.dump(litellm_data, litellm_file)
+            litellm_path = Path(litellm_file.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
+            yaml.dump(ccproxy_data, ccproxy_file)
+            ccproxy_path = Path(ccproxy_file.name)
+
+        yield ccproxy_path, litellm_path
 
         # Cleanup
-        Path(f.name).unlink()
+        litellm_path.unlink()
+        ccproxy_path.unlink()
 
-    def test_route_to_default(self, litellm_config_file):
+    def test_route_to_default(self, config_files):
         """Test routing simple request to default model."""
+        ccproxy_path, litellm_path = config_files
+
         # Set up config
-        config = CCProxyConfig.from_litellm_config(litellm_config_file)
+        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
 
         try:
@@ -78,10 +114,13 @@ class TestCCProxyGetModel:
             assert model == "claude-3-5-sonnet-20241022"
         finally:
             clear_config_instance()
+            clear_router()
 
-    def test_route_to_background(self, litellm_config_file):
+    def test_route_to_background(self, config_files):
         """Test routing haiku model to background."""
-        config = CCProxyConfig.from_litellm_config(litellm_config_file)
+        ccproxy_path, litellm_path = config_files
+
+        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
 
         try:
@@ -94,10 +133,13 @@ class TestCCProxyGetModel:
             assert model == "claude-3-5-haiku-20241022"
         finally:
             clear_config_instance()
+            clear_router()
 
-    def test_route_to_think(self, litellm_config_file):
+    def test_route_to_think(self, config_files):
         """Test routing thinking request to think model - only works with top-level thinking field."""
-        config = CCProxyConfig.from_litellm_config(litellm_config_file)
+        ccproxy_path, litellm_path = config_files
+
+        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
 
         try:
@@ -124,10 +166,13 @@ class TestCCProxyGetModel:
             assert model == "claude-3-5-opus-20250514"  # Should route to think
         finally:
             clear_config_instance()
+            clear_router()
 
-    def test_route_to_token_count(self, litellm_config_file):
+    def test_route_to_token_count(self, config_files):
         """Test routing large context to appropriate model."""
-        config = CCProxyConfig.from_litellm_config(litellm_config_file)
+        ccproxy_path, litellm_path = config_files
+
+        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
 
         try:
@@ -142,10 +187,13 @@ class TestCCProxyGetModel:
             assert model == "gemini-2.5-pro"
         finally:
             clear_config_instance()
+            clear_router()
 
-    def test_route_to_web_search(self, litellm_config_file):
+    def test_route_to_web_search(self, config_files):
         """Test routing web search request."""
-        config = CCProxyConfig.from_litellm_config(litellm_config_file)
+        ccproxy_path, litellm_path = config_files
+
+        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
 
         try:
@@ -167,10 +215,13 @@ class TestCCProxyGetModel:
             assert model == "perplexity/llama-3.1-sonar-large-128k-online"
         finally:
             clear_config_instance()
+            clear_router()
 
-    def test_priority_order(self, litellm_config_file):
+    def test_priority_order(self, config_files):
         """Test that priority order is respected."""
-        config = CCProxyConfig.from_litellm_config(litellm_config_file)
+        ccproxy_path, litellm_path = config_files
+
+        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
 
         try:
@@ -186,11 +237,12 @@ class TestCCProxyGetModel:
             assert model == "gemini-2.5-pro"  # token_count wins over thinking
         finally:
             clear_config_instance()
+            clear_router()
 
-    def test_fallback_to_original_model(self, litellm_config_file):
+    def test_fallback_to_original_model(self):
         """Test fallback when no routing label model is configured."""
-        # Create config without some models
-        config_data = {
+        # Create config without "think" model - only has default
+        litellm_data = {
             "model_list": [
                 {
                     "model_name": "default",
@@ -199,20 +251,34 @@ class TestCCProxyGetModel:
                     },
                 },
             ],
-            "ccproxy_settings": {
-                "token_count_threshold": 60000,
-            },
         }
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump(config_data, f)
-            config_path = Path(f.name)
+        ccproxy_data = {
+            "ccproxy": {
+                "debug": False,
+                "rules": [
+                    {
+                        "label": "think",
+                        "rule": "ccproxy.rules.ThinkingRule",
+                        "params": [],
+                    },
+                ],
+            }
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
+            yaml.dump(litellm_data, litellm_file)
+            litellm_path = Path(litellm_file.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
+            yaml.dump(ccproxy_data, ccproxy_file)
+            ccproxy_path = Path(ccproxy_file.name)
 
         try:
-            config = CCProxyConfig.from_litellm_config(config_path)
+            config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
             set_config_instance(config)
 
-            # Request that would route to "think" but model not configured
+            # Request that would route to "think" but model not configured in model_list
             request_data = {
                 "model": "gpt-4",
                 "messages": [{"role": "user", "content": "Problem"}],
@@ -220,15 +286,18 @@ class TestCCProxyGetModel:
             }
 
             model = ccproxy_get_model(request_data)
+            # Since "think" label is not in model_list, it should fall back to original
             assert model == "gpt-4"  # Falls back to original
         finally:
-            config_path.unlink()
+            litellm_path.unlink()
+            ccproxy_path.unlink()
             clear_config_instance()
+            clear_router()
 
-    def test_debug_logging(self, litellm_config_file, capsys):
+    def test_debug_logging(self, capsys):
         """Test debug logging output."""
         # Enable debug in config
-        config_data = {
+        litellm_data = {
             "model_list": [
                 {
                     "model_name": "default",
@@ -237,18 +306,25 @@ class TestCCProxyGetModel:
                     },
                 },
             ],
-            "ccproxy_settings": {
-                "token_count_threshold": 60000,
-                "debug": True,
-            },
         }
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump(config_data, f)
-            config_path = Path(f.name)
+        ccproxy_data = {
+            "ccproxy": {
+                "debug": True,
+                "rules": [],
+            }
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
+            yaml.dump(litellm_data, litellm_file)
+            litellm_path = Path(litellm_file.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
+            yaml.dump(ccproxy_data, ccproxy_file)
+            ccproxy_path = Path(ccproxy_file.name)
 
         try:
-            config = CCProxyConfig.from_litellm_config(config_path)
+            config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
             set_config_instance(config)
 
             request_data = {
@@ -263,25 +339,31 @@ class TestCCProxyGetModel:
             captured = capsys.readouterr()
             assert "[ccproxy] Routed to claude-3-5-sonnet-20241022 (label: default)" in captured.out
         finally:
-            config_path.unlink()
+            litellm_path.unlink()
+            ccproxy_path.unlink()
             clear_config_instance()
+            clear_router()
 
 
 class TestCCProxyHandler:
     """Tests for CCProxyHandler class."""
 
     @pytest.fixture
-    def handler(self, litellm_config_file):
+    def handler(self, config_files):
         """Create handler with test config."""
-        config = CCProxyConfig.from_litellm_config(litellm_config_file)
+        ccproxy_path, litellm_path = config_files
+
+        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
         yield CCProxyHandler()
         clear_config_instance()
+        clear_router()
 
     @pytest.fixture
-    def litellm_config_file(self):
-        """Create a temporary LiteLLM config file."""
-        config_data = {
+    def config_files(self):
+        """Create temporary ccproxy.yaml and litellm config files."""
+        # Create litellm config
+        litellm_data = {
             "model_list": [
                 {
                     "model_name": "default",
@@ -296,17 +378,35 @@ class TestCCProxyHandler:
                     },
                 },
             ],
-            "ccproxy_settings": {
-                "token_count_threshold": 60000,
-            },
         }
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump(config_data, f)
-            yield Path(f.name)
+        # Create ccproxy config
+        ccproxy_data = {
+            "ccproxy": {
+                "debug": False,
+                "rules": [
+                    {
+                        "label": "background",
+                        "rule": "ccproxy.rules.MatchModelRule",
+                        "params": [{"model_name": "claude-3-5-haiku-20241022"}],
+                    },
+                ],
+            }
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
+            yaml.dump(litellm_data, litellm_file)
+            litellm_path = Path(litellm_file.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
+            yaml.dump(ccproxy_data, ccproxy_file)
+            ccproxy_path = Path(ccproxy_file.name)
+
+        yield ccproxy_path, litellm_path
 
         # Cleanup
-        Path(f.name).unlink()
+        litellm_path.unlink()
+        ccproxy_path.unlink()
 
     async def test_async_pre_call_hook(self, handler):
         """Test async_pre_call_hook modifies request correctly."""
@@ -354,10 +454,10 @@ class TestCCProxyHandler:
         assert modified_data["metadata"]["ccproxy_label"] == "default"
         assert modified_data["metadata"]["ccproxy_original_model"] == "claude-3-5-sonnet-20241022"
 
-    async def test_handler_uses_config_threshold(self, litellm_config_file):
+    async def test_handler_uses_config_threshold(self):
         """Test that handler uses context threshold from config."""
         # Create config with custom threshold
-        config_data = {
+        litellm_data = {
             "model_list": [
                 {
                     "model_name": "default",
@@ -372,23 +472,34 @@ class TestCCProxyHandler:
                     },
                 },
             ],
-            "ccproxy_settings": {
-                "token_count_threshold": 10000,  # Lower threshold
-            },
         }
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            yaml.dump(config_data, f)
-            config_path = Path(f.name)
+        ccproxy_data = {
+            "ccproxy": {
+                "debug": False,
+                "rules": [
+                    {
+                        "label": "token_count",
+                        "rule": "ccproxy.rules.TokenCountRule",
+                        "params": [{"threshold": 10000}],  # Lower threshold
+                    },
+                ],
+            }
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
+            yaml.dump(litellm_data, litellm_file)
+            litellm_path = Path(litellm_file.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
+            yaml.dump(ccproxy_data, ccproxy_file)
+            ccproxy_path = Path(ccproxy_file.name)
 
         try:
-            config = CCProxyConfig.from_litellm_config(config_path)
+            config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
             set_config_instance(config)
 
             handler = CCProxyHandler()
-
-            # Verify config threshold
-            assert handler.config.token_count_threshold == 10000
 
             # Create request with >10k tokens (10k threshold * 4 chars/token = 40k+ chars)
             large_message = "a" * 45000  # ~11.25k tokens
@@ -409,5 +520,7 @@ class TestCCProxyHandler:
             assert modified_data["metadata"]["ccproxy_label"] == "token_count"
 
         finally:
-            config_path.unlink()
+            litellm_path.unlink()
+            ccproxy_path.unlink()
             clear_config_instance()
+            clear_router()

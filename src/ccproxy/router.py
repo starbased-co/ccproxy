@@ -3,7 +3,6 @@
 import threading
 from typing import Any
 
-from ccproxy.classifier import RoutingLabel
 from ccproxy.config import ConfigProvider
 
 
@@ -68,9 +67,18 @@ class ModelRouter:
             self._model_group_alias.clear()
             self._available_models.clear()
 
-            # Get model list from LiteLLM config
-            litellm_config = config.get_litellm_config()
-            model_list = litellm_config.model_list
+            # Try to load from proxy_server runtime first
+            try:
+                from litellm.proxy import proxy_server
+
+                if proxy_server and hasattr(proxy_server, "llm_router") and proxy_server.llm_router:
+                    model_list = proxy_server.llm_router.model_list or []
+                else:
+                    # Fallback to loading from YAML
+                    model_list = self._load_models_from_yaml(config)
+            except ImportError:
+                # proxy_server not available, load from YAML
+                model_list = self._load_models_from_yaml(config)
 
             # Build model mapping and list
             for model_entry in model_list:
@@ -85,8 +93,8 @@ class ModelRouter:
                 self._available_models.add(model_name)
 
                 # Map routing labels to models
-                if model_name in ["default", "background", "think", "token_count", "web_search"]:
-                    self._model_map[model_name] = model_entry.copy()
+                # All model names can be used as routing labels
+                self._model_map[model_name] = model_entry.copy()
 
                 # Build model group aliases (models with same underlying model)
                 litellm_params = model_entry.get("litellm_params", {})
@@ -97,7 +105,24 @@ class ModelRouter:
                             self._model_group_alias[underlying_model] = []
                         self._model_group_alias[underlying_model].append(model_name)
 
-    def get_model_for_label(self, label: RoutingLabel | str) -> dict[str, Any] | None:
+    def _load_models_from_yaml(self, config: Any) -> list[dict[str, Any]]:
+        """Load model list from LiteLLM YAML config file.
+
+        Args:
+            config: The CCProxyConfig instance
+
+        Returns:
+            List of model configurations
+        """
+        import yaml
+
+        if config.litellm_config_path.exists():
+            with config.litellm_config_path.open() as f:
+                litellm_data = yaml.safe_load(f) or {}
+                return list(litellm_data.get("model_list", []))
+        return []
+
+    def get_model_for_label(self, label: str) -> dict[str, Any] | None:
         """Get model configuration for a given classification label.
 
         Args:
@@ -112,12 +137,11 @@ class ModelRouter:
 
         Example:
             >>> router = ModelRouter()
-            >>> model = router.get_model_for_label(RoutingLabel.BACKGROUND)
+            >>> model = router.get_model_for_label("background")
             >>> print(model["model_name"])  # "background"
             >>> print(model["litellm_params"]["model"])  # "claude-3-5-haiku-20241022"
         """
-        # Convert enum to string if needed
-        label_str = str(label) if isinstance(label, RoutingLabel) else label
+        label_str = label
 
         with self._lock:
             # Try to get the direct mapping first
@@ -202,15 +226,11 @@ class ModelRouter:
         Returns:
             A fallback model configuration or None
         """
-        # Define fallback priority order
-        fallback_order = ["default", "background", "think", "token_count", "web_search"]
+        # Try 'default' model first as the primary fallback
+        if label != "default" and "default" in self._model_map:
+            return self._model_map["default"]
 
-        # Try fallback models in order
-        for fallback_label in fallback_order:
-            if fallback_label != label and fallback_label in self._model_map:
-                return self._model_map[fallback_label]
-
-        # If no predefined fallback found, use the first available model
+        # If no default found, use the first available model
         if self._model_list:
             return self._model_list[0].copy()
 

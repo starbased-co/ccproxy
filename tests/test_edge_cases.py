@@ -1,8 +1,8 @@
 """Edge case tests for comprehensive coverage."""
 
-from ccproxy.classifier import RequestClassifier, RoutingLabel
+from ccproxy.classifier import RequestClassifier
 from ccproxy.config import CCProxyConfig
-from ccproxy.rules import MatchModelRule, ThinkingRule, TokenCountRule, MatchToolRule
+from ccproxy.rules import MatchModelRule, MatchToolRule, ThinkingRule, TokenCountRule
 
 
 class TestEdgeCases:
@@ -10,7 +10,7 @@ class TestEdgeCases:
 
     def test_messages_with_string_items(self) -> None:
         """Test token counting when messages contain string items."""
-        rule = TokenCountRule()
+        rule = TokenCountRule(threshold=100)
         config = CCProxyConfig()
 
         # Messages with mixed string and dict items
@@ -25,11 +25,11 @@ class TestEdgeCases:
         # String chars: 31 + 16 = 47, Dict chars: 12
         # Total: 59 chars / 4 = ~14 tokens
         result = rule.evaluate(request, config)
-        assert result is None  # Below default threshold
+        assert result is False  # Below threshold of 100
 
     def test_messages_with_none_content(self) -> None:
         """Test handling of None content in messages."""
-        rule = TokenCountRule()
+        rule = TokenCountRule(threshold=100)
         config = CCProxyConfig()
 
         request = {
@@ -40,11 +40,11 @@ class TestEdgeCases:
         }
 
         result = rule.evaluate(request, config)
-        assert result is None
+        assert result is False
 
     def test_messages_with_numeric_content(self) -> None:
         """Test handling of numeric content in messages."""
-        rule = TokenCountRule()
+        rule = TokenCountRule(threshold=100)
         config = CCProxyConfig()
 
         request = {
@@ -55,16 +55,16 @@ class TestEdgeCases:
         }
 
         result = rule.evaluate(request, config)
-        assert result is None
+        assert result is False
 
     def test_empty_model_string(self) -> None:
-        """Test ModelNameRule with empty string model."""
-        rule = MatchModelRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
+        """Test MatchModelRule with empty string model."""
+        rule = MatchModelRule(model_name="claude-3-5-haiku")
         config = CCProxyConfig()
 
         request = {"model": ""}
         result = rule.evaluate(request, config)
-        assert result is None
+        assert result is False
 
     def test_thinking_field_false(self) -> None:
         """Test ThinkingRule when thinking field is explicitly False."""
@@ -74,7 +74,7 @@ class TestEdgeCases:
         # thinking field exists but is False
         request = {"thinking": False}
         result = rule.evaluate(request, config)
-        assert result == RoutingLabel.THINK  # Field exists, value doesn't matter
+        assert result is True  # Field exists, value doesn't matter
 
     def test_thinking_field_zero(self) -> None:
         """Test ThinkingRule when thinking field is 0."""
@@ -83,11 +83,11 @@ class TestEdgeCases:
 
         request = {"thinking": 0}
         result = rule.evaluate(request, config)
-        assert result == RoutingLabel.THINK  # Field exists, value doesn't matter
+        assert result is True  # Field exists, value doesn't matter
 
     def test_web_search_nested_tool_structure(self) -> None:
-        """Test WebSearchRule with deeply nested tool structure."""
-        rule = MatchToolRule()
+        """Test MatchToolRule with deeply nested tool structure."""
+        rule = MatchToolRule(tool_name="web_search")
         config = CCProxyConfig()
 
         request = {
@@ -104,11 +104,11 @@ class TestEdgeCases:
         }
 
         result = rule.evaluate(request, config)
-        assert result == RoutingLabel.WEB_SEARCH
+        assert result is True
 
     def test_tools_with_invalid_types(self) -> None:
-        """Test WebSearchRule with invalid tool types."""
-        rule = MatchToolRule()
+        """Test MatchToolRule with invalid tool types."""
+        rule = MatchToolRule(tool_name="web_search")
         config = CCProxyConfig()
 
         request = {
@@ -121,31 +121,31 @@ class TestEdgeCases:
         }
 
         result = rule.evaluate(request, config)
-        assert result is None
+        assert result is False
 
     def test_very_large_token_count(self) -> None:
         """Test with extremely large token counts."""
-        rule = TokenCountRule()
-        config = CCProxyConfig(token_count_threshold=1_000_000)
+        rule = TokenCountRule(threshold=1_000_000)
+        config = CCProxyConfig()
 
         request = {"token_count": 999_999_999}  # Just under 1 billion
         result = rule.evaluate(request, config)
-        assert result == RoutingLabel.TOKEN_COUNT
+        assert result is True  # Above threshold
 
     def test_negative_token_count(self) -> None:
         """Test with negative token counts."""
-        rule = TokenCountRule()
+        rule = TokenCountRule(threshold=10000)
         config = CCProxyConfig()
 
         request = {"token_count": -1000}
         result = rule.evaluate(request, config)
-        assert result is None  # Negative is less than threshold
+        assert result is False  # Negative is less than threshold
 
     def test_classifier_with_empty_request(self) -> None:
         """Test classifier with completely empty request."""
         classifier = RequestClassifier()
         result = classifier.classify({})
-        assert result == RoutingLabel.DEFAULT
+        assert result == "default"
 
     def test_classifier_with_none_request_fields(self) -> None:
         """Test classifier with None values in request fields."""
@@ -158,32 +158,32 @@ class TestEdgeCases:
             "token_count": None,
         }
         result = classifier.classify(request)
-        assert result == RoutingLabel.DEFAULT
+        assert result == "default"
 
     def test_malformed_messages_structure(self) -> None:
         """Test with various malformed message structures."""
-        rule = TokenCountRule()
+        rule = TokenCountRule(threshold=60000)
         config = CCProxyConfig()
 
         # Messages is not a list
         request = {"messages": "not a list"}
         result = rule.evaluate(request, config)
-        assert result is None
+        assert result is False
 
         # Messages is a dict
         request = {"messages": {"content": "test"}}
         result = rule.evaluate(request, config)
-        assert result is None
+        assert result is False
 
         # Messages is None
         request = {"messages": None}
         result = rule.evaluate(request, config)
-        assert result is None
+        assert result is False
 
     def test_unicode_in_messages(self) -> None:
         """Test token counting with unicode characters."""
-        rule = TokenCountRule()
-        config = CCProxyConfig(token_count_threshold=1000)  # Use valid threshold
+        rule = TokenCountRule(threshold=1000)
+        config = CCProxyConfig()
 
         request = {
             "messages": [
@@ -194,12 +194,12 @@ class TestEdgeCases:
 
         # Should count all characters: 10 + 12 = 22 chars / 4 = ~5 tokens
         result = rule.evaluate(request, config)
-        assert result is None  # Below threshold of 1000
+        assert result is False  # Below threshold of 1000
 
     def test_concurrent_token_fields(self) -> None:
         """Test when multiple token count fields have different values."""
-        rule = TokenCountRule()
-        config = CCProxyConfig(token_count_threshold=1000)  # Use valid threshold
+        rule = TokenCountRule(threshold=1000)
+        config = CCProxyConfig()
 
         request = {
             "token_count": 500,
@@ -210,11 +210,11 @@ class TestEdgeCases:
 
         # Should use max of all fields (1500 > 1000)
         result = rule.evaluate(request, config)
-        assert result == RoutingLabel.TOKEN_COUNT
+        assert result is True  # Above threshold
 
     def test_model_name_partial_matches(self) -> None:
-        """Test ModelNameRule substring matching behavior."""
-        rule = MatchModelRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
+        """Test MatchModelRule substring matching behavior."""
+        rule = MatchModelRule(model_name="claude-3-5-haiku")
         config = CCProxyConfig()
 
         # These should match (contain "claude-3-5-haiku")
@@ -227,7 +227,7 @@ class TestEdgeCases:
         for model in matches:
             request = {"model": model}
             result = rule.evaluate(request, config)
-            assert result == RoutingLabel.BACKGROUND, f"Should match model: {model}"
+            assert result is True, f"Should match model: {model}"
 
         # These should NOT match
         non_matches = [
@@ -241,24 +241,24 @@ class TestEdgeCases:
         for model in non_matches:
             request = {"model": model}
             result = rule.evaluate(request, config)
-            assert result is None, f"Should not match model: {model}"
+            assert result is False, f"Should not match model: {model}"
 
     def test_web_search_tool_edge_cases(self) -> None:
-        """Test WebSearchRule with various edge cases."""
-        rule = MatchToolRule()
+        """Test MatchToolRule with various edge cases."""
+        rule = MatchToolRule(tool_name="web_search")
         config = CCProxyConfig()
 
         # Tool with web_search in description, not name
         request = {"tools": [{"name": "search_tool", "description": "Uses web_search API"}]}
         result = rule.evaluate(request, config)
-        assert result is None  # Only checks name
+        assert result is False  # Only checks name
 
         # Nested name field
         request = {"tools": [{"function": {"name": {"value": "web_search"}}}]}
         result = rule.evaluate(request, config)
-        assert result is None  # name is not a string
+        assert result is False  # name is not a string
 
         # Tool name is a number
         request = {"tools": [{"name": 123}]}
         result = rule.evaluate(request, config)
-        assert result is None
+        assert result is False

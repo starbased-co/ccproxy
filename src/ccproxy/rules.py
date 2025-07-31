@@ -1,15 +1,49 @@
 """Classification rules for request routing."""
 
-from typing import Any
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any
 
-from ccproxy.classifier import ClassificationRule, RoutingLabel
-from ccproxy.config import CCProxyConfig
+if TYPE_CHECKING:
+    from ccproxy.config import CCProxyConfig
+
+
+class ClassificationRule(ABC):
+    """Abstract base class for classification rules.
+
+    To create a custom classification rule:
+
+    1. Inherit from ClassificationRule
+    2. Implement the evaluate method
+    3. Return True if the rule matches, False otherwise
+
+    The rule can accept parameters in __init__ to configure its behavior.
+    """
+
+    @abstractmethod
+    def evaluate(self, request: dict[str, Any], config: "CCProxyConfig") -> bool:
+        """Evaluate the rule against the request.
+
+        Args:
+            request: The request to evaluate
+            config: The current configuration
+
+        Returns:
+            True if the rule matches, False otherwise
+        """
 
 
 class TokenCountRule(ClassificationRule):
     """Rule for classifying requests based on token count."""
 
-    def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
+    def __init__(self, threshold: int) -> None:
+        """Initialize the rule with a threshold.
+
+        Args:
+            threshold: The token count threshold
+        """
+        self.threshold = threshold
+
+    def evaluate(self, request: dict[str, Any], config: "CCProxyConfig") -> bool:
         """Evaluate if request has high token count based on threshold.
 
         Args:
@@ -17,7 +51,7 @@ class TokenCountRule(ClassificationRule):
             config: The current configuration
 
         Returns:
-            TOKEN_COUNT if token count exceeds threshold, None otherwise
+            True if token count exceeds threshold, False otherwise
         """
         # Check various token count fields
         token_count = 0
@@ -46,26 +80,21 @@ class TokenCountRule(ClassificationRule):
         )
 
         # Check against threshold
-        if token_count > config.token_count_threshold:
-            return RoutingLabel.TOKEN_COUNT
-
-        return None
+        return token_count > self.threshold
 
 
 class MatchModelRule(ClassificationRule):
     """Rule for classifying requests based on model name."""
 
-    def __init__(self, model_name: str, label: RoutingLabel) -> None:
+    def __init__(self, model_name: str) -> None:
         """Initialize the rule with a model name to match.
 
         Args:
             model_name: The model name substring to match
-            label: The routing label to return if matched
         """
         self.model_name = model_name
-        self.label = label
 
-    def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
+    def evaluate(self, request: dict[str, Any], config: "CCProxyConfig") -> bool:
         """Evaluate if request matches the configured model name.
 
         Args:
@@ -73,19 +102,16 @@ class MatchModelRule(ClassificationRule):
             config: The current configuration
 
         Returns:
-            The configured label if model matches, None otherwise
+            True if model matches, False otherwise
         """
         model = request.get("model", "")
-        if isinstance(model, str) and self.model_name in model:
-            return self.label
-
-        return None
+        return isinstance(model, str) and self.model_name in model
 
 
 class ThinkingRule(ClassificationRule):
     """Rule for classifying requests with thinking field."""
 
-    def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
+    def evaluate(self, request: dict[str, Any], config: "CCProxyConfig") -> bool:
         """Evaluate if request has thinking field.
 
         Args:
@@ -93,55 +119,49 @@ class ThinkingRule(ClassificationRule):
             config: The current configuration
 
         Returns:
-            THINK if request has thinking field, None otherwise
+            True if request has thinking field, False otherwise
         """
         # Check top-level thinking field
-        if "thinking" in request:
-            return RoutingLabel.THINK
-
-        return None
+        return "thinking" in request
 
 
 class MatchToolRule(ClassificationRule):
-    """Rule for classifying requests with web search tools."""
+    """Rule for classifying requests with specified tools."""
 
     def __init__(self, tool_name: str) -> None:
-        """Initialize the rule with a model name to match.
+        """Initialize the rule with a tool name to match.
 
         Args:
-            model_name: The model name substring to match
-            label: The routing label to return if matched
+            tool_name: The tool name substring to match
         """
-        self.tool_name: str = tool_name
+        self.tool_name = tool_name.lower()
 
-    def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
-        """Evaluate if request uses web search tools.
+    def evaluate(self, request: dict[str, Any], config: "CCProxyConfig") -> bool:
+        """Evaluate if request uses the specified tool.
 
         Args:
             request: The request to evaluate
             config: The current configuration
 
         Returns:
-            WEB_SEARCH if request has web_search tool, None otherwise
+            True if request has the specified tool, False otherwise
         """
-
-        # NOT UPDATED to new spec: need to change web_search to the new tool_name class property used to match
         tools = request.get("tools", [])
         if isinstance(tools, list):
             for tool in tools:
                 if isinstance(tool, dict):
                     # Check direct name field
-                    tool_name = tool.get("name", "")
-                    if isinstance(tool_name, str) and "web_search" in tool_name.lower():
-                        return RoutingLabel.WEB_SEARCH
+                    name = tool.get("name", "")
+                    if isinstance(name, str) and self.tool_name in name.lower():
+                        return True
 
                     # Check function.name field (OpenAI format)
                     function = tool.get("function", {})
                     if isinstance(function, dict):
                         function_name = function.get("name", "")
-                        if isinstance(function_name, str) and "web_search" in function_name.lower():
-                            return RoutingLabel.WEB_SEARCH
-                elif isinstance(tool, str) and "web_search" in tool.lower():
-                    return RoutingLabel.WEB_SEARCH
+                        if isinstance(function_name, str) and self.tool_name in function_name.lower():
+                            return True
+                elif isinstance(tool, str) and self.tool_name in tool.lower():
+                    return True
 
-        return None
+        return False

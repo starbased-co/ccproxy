@@ -1,30 +1,27 @@
 """Tests demonstrating classifier extensibility."""
 
-from ccproxy.classifier import ClassificationRule, RequestClassifier, RoutingLabel
+from ccproxy.classifier import RequestClassifier
 from ccproxy.config import CCProxyConfig
+from ccproxy.rules import ClassificationRule
 
 
 class CustomHeaderRule(ClassificationRule):
     """Example custom rule that routes based on headers."""
 
-    def evaluate(self, request: dict, config: CCProxyConfig) -> RoutingLabel | None:
-        """Route to BACKGROUND if X-Priority header is 'low'."""
+    def evaluate(self, request: dict, config: CCProxyConfig) -> bool:
+        """Return True if X-Priority header is 'low'."""
         headers = request.get("headers", {})
-        if isinstance(headers, dict) and headers.get("X-Priority") == "low":
-            return RoutingLabel.BACKGROUND
-        return None
+        return isinstance(headers, dict) and headers.get("X-Priority") == "low"
 
 
 class CustomUserAgentRule(ClassificationRule):
     """Example rule that routes based on user agent."""
 
-    def evaluate(self, request: dict, config: CCProxyConfig) -> RoutingLabel | None:
-        """Route to BACKGROUND if user agent contains 'bot'."""
+    def evaluate(self, request: dict, config: CCProxyConfig) -> bool:
+        """Return True if user agent contains 'bot'."""
         headers = request.get("headers", {})
         user_agent = headers.get("User-Agent", "").lower()
-        if "bot" in user_agent:
-            return RoutingLabel.BACKGROUND
-        return None
+        return "bot" in user_agent
 
 
 class CustomEnvironmentRule(ClassificationRule):
@@ -34,13 +31,11 @@ class CustomEnvironmentRule(ClassificationRule):
         """Initialize with environment key to check."""
         self.env_key = env_key
 
-    def evaluate(self, request: dict, config: CCProxyConfig) -> RoutingLabel | None:
-        """Route based on environment metadata in request."""
+    def evaluate(self, request: dict, config: CCProxyConfig) -> bool:
+        """Return True if environment matches env_key."""
         metadata = request.get("metadata", {})
         env = metadata.get("environment", "")
-        if env == self.env_key:
-            return RoutingLabel.THINK
-        return None
+        return env == self.env_key
 
 
 class TestClassifierExtensibility:
@@ -51,8 +46,8 @@ class TestClassifierExtensibility:
         classifier = RequestClassifier()
         custom_rule = CustomHeaderRule()
 
-        # Add custom rule
-        classifier.add_rule(custom_rule)
+        # Add custom rule with label
+        classifier.add_rule("background", custom_rule)
 
         # Test that custom rule works
         request = {
@@ -62,7 +57,7 @@ class TestClassifierExtensibility:
         }
 
         label = classifier.classify(request)
-        assert label == RoutingLabel.BACKGROUND
+        assert label == "background"
 
     def test_custom_rule_priority(self) -> None:
         """Test that custom rules respect order of addition."""
@@ -70,8 +65,8 @@ class TestClassifierExtensibility:
 
         # Clear default rules and add custom rules
         classifier.clear_rules()
-        classifier.add_rule(CustomHeaderRule())  # Returns BACKGROUND
-        classifier.add_rule(CustomUserAgentRule())  # Also returns BACKGROUND
+        classifier.add_rule("background", CustomHeaderRule())  # Maps to background
+        classifier.add_rule("think", CustomUserAgentRule())  # Maps to think
 
         # Request matches both rules
         request = {
@@ -83,24 +78,23 @@ class TestClassifierExtensibility:
 
         # Should match first rule (CustomHeaderRule)
         label = classifier.classify(request)
-        assert label == RoutingLabel.BACKGROUND
+        assert label == "background"
 
         # Now reverse the order
         classifier.clear_rules()
-        classifier.add_rule(CustomUserAgentRule())
-        classifier.add_rule(CustomHeaderRule())
+        classifier.add_rule("think", CustomUserAgentRule())
+        classifier.add_rule("background", CustomHeaderRule())
 
-        # Same request should still return BACKGROUND
-        # (both rules return the same label)
+        # Same request should now return think (first matching rule)
         label = classifier.classify(request)
-        assert label == RoutingLabel.BACKGROUND
+        assert label == "think"
 
     def test_custom_rule_with_config(self) -> None:
         """Test custom rule that uses configuration."""
         classifier = RequestClassifier()
         env_rule = CustomEnvironmentRule("staging")
 
-        classifier.add_rule(env_rule)
+        classifier.add_rule("think", env_rule)
 
         request = {
             "model": "claude-3-5-sonnet",
@@ -108,7 +102,7 @@ class TestClassifierExtensibility:
         }
 
         label = classifier.classify(request)
-        assert label == RoutingLabel.THINK
+        assert label == "think"
 
     def test_replace_all_rules(self) -> None:
         """Test completely replacing default rules with custom ones."""
@@ -118,8 +112,8 @@ class TestClassifierExtensibility:
         classifier.clear_rules()
 
         # Add only custom rules
-        classifier.add_rule(CustomHeaderRule())
-        classifier.add_rule(CustomUserAgentRule())
+        classifier.add_rule("background", CustomHeaderRule())
+        classifier.add_rule("web_search", CustomUserAgentRule())
 
         # Test that default rules no longer apply
         # This would normally trigger TokenCountRule
@@ -129,47 +123,47 @@ class TestClassifierExtensibility:
         }
 
         label = classifier.classify(request)
-        assert label == RoutingLabel.DEFAULT  # No rules match
+        assert label == "default"  # No rules match
 
         # But custom rules still work
         request["headers"] = {"X-Priority": "low"}
         label = classifier.classify(request)
-        assert label == RoutingLabel.BACKGROUND
+        assert label == "background"
 
     def test_reset_to_default_rules(self) -> None:
         """Test resetting to default rules after customization."""
         classifier = RequestClassifier()
 
         # Add custom rule
-        classifier.add_rule(CustomHeaderRule())
+        classifier.add_rule("background", CustomHeaderRule())
 
         # Clear and add only custom
         classifier.clear_rules()
-        classifier.add_rule(CustomHeaderRule())
+        classifier.add_rule("background", CustomHeaderRule())
 
         # Verify default rules don't work
         request = {"token_count": 100000}
         label = classifier.classify(request)
-        assert label == RoutingLabel.DEFAULT
+        assert label == "default"
 
         # Reset to defaults
         classifier.reset_rules()
 
         # Now default rules work again
         label = classifier.classify(request)
-        assert label == RoutingLabel.TOKEN_COUNT
+        assert label == "token_count"
 
     def test_mixed_default_and_custom_rules(self) -> None:
         """Test using both default and custom rules together."""
         classifier = RequestClassifier()
 
         # Add custom rule on top of defaults
-        classifier.add_rule(CustomEnvironmentRule("production"))
+        classifier.add_rule("production", CustomEnvironmentRule("production"))
 
-        # Test default rule (large context)
+        # Test default rule (token count)
         request = {"token_count": 100000}
         label = classifier.classify(request)
-        assert label == RoutingLabel.TOKEN_COUNT
+        assert label == "token_count"
 
         # Test custom rule
         request = {
@@ -177,70 +171,66 @@ class TestClassifierExtensibility:
             "metadata": {"environment": "production"},
         }
         label = classifier.classify(request)
-        assert label == RoutingLabel.THINK
+        assert label == "production"
 
     def test_custom_rule_edge_cases(self) -> None:
         """Test edge cases with custom rules."""
         classifier = RequestClassifier()
 
-        # Rule that always returns None
+        # Rule that always returns False
         class NeverMatchRule(ClassificationRule):
-            def evaluate(self, request: dict, config: CCProxyConfig) -> RoutingLabel | None:
-                return None
+            def evaluate(self, request: dict, config: CCProxyConfig) -> bool:
+                return False
 
         # Rule that checks nested data
         class NestedDataRule(ClassificationRule):
-            def evaluate(self, request: dict, config: CCProxyConfig) -> RoutingLabel | None:
+            def evaluate(self, request: dict, config: CCProxyConfig) -> bool:
                 try:
                     nested = request.get("data", {}).get("nested", {}).get("value")
-                    if nested == "special":
-                        return RoutingLabel.WEB_SEARCH
+                    return nested == "special"
                 except (AttributeError, TypeError):
-                    pass
-                return None
+                    return False
 
-        classifier.add_rule(NeverMatchRule())
-        classifier.add_rule(NestedDataRule())
+        classifier.add_rule("never", NeverMatchRule())
+        classifier.add_rule("web_search", NestedDataRule())
 
         # Test never-matching rule
         request = {"model": "any"}
         label = classifier.classify(request)
-        assert label == RoutingLabel.DEFAULT
+        assert label == "default"
 
         # Test nested data rule
         request = {"data": {"nested": {"value": "special"}}}
         label = classifier.classify(request)
-        assert label == RoutingLabel.WEB_SEARCH
+        assert label == "web_search"
 
     def test_stateful_custom_rule(self) -> None:
         """Test custom rule with internal state."""
 
         class CounterRule(ClassificationRule):
-            """Rule that alternates between labels based on call count."""
+            """Rule that alternates between matching based on call count."""
 
             def __init__(self):
                 self.count = 0
 
-            def evaluate(self, request: dict, config: CCProxyConfig) -> RoutingLabel | None:
+            def evaluate(self, request: dict, config: CCProxyConfig) -> bool:
                 self.count += 1
-                if self.count % 2 == 0:
-                    return RoutingLabel.BACKGROUND
-                return None
+                return self.count % 2 == 0
 
         classifier = RequestClassifier()
         counter_rule = CounterRule()
-        classifier.add_rule(counter_rule)
+        classifier.add_rule("background", counter_rule)
 
         request = {"model": "claude"}
 
         # First call - no match (count=1)
         label = classifier.classify(request)
-        assert label == RoutingLabel.DEFAULT
+        assert label == "default"
 
         # Second call - match (count=2)
         label = classifier.classify(request)
-        assert label == RoutingLabel.BACKGROUND
+        assert label == "background"
 
         # Third call - no match (count=3)
         label = classifier.classify(request)
-        assert label == RoutingLabel.DEFAULT
+        assert label == "default"

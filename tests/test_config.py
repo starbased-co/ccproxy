@@ -4,12 +4,10 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-import pytest
-from pydantic import ValidationError
-
 from ccproxy.config import (
     CCProxyConfig,
     ConfigProvider,
+    RuleConfig,
     clear_config_instance,
     get_config,
 )
@@ -21,121 +19,115 @@ class TestCCProxyConfig:
     def test_default_config(self) -> None:
         """Test default configuration values."""
         config = CCProxyConfig()
-        assert config.token_count_threshold == 60000
         assert config.debug is False
         assert config.metrics_enabled is True
         assert config.litellm_config_path == Path("./config.yaml")
+        assert config.ccproxy_config_path == Path("./ccproxy.yaml")
+        assert config.rules == []
 
     def test_config_attributes(self) -> None:
         """Test config attributes can be set directly."""
         config = CCProxyConfig()
-        config.token_count_threshold = 50000
         config.debug = True
         config.metrics_enabled = False
-        assert config.token_count_threshold == 50000
         assert config.debug is True
         assert config.metrics_enabled is False
 
-    def test_token_count_threshold_validation(self) -> None:
-        """Test token count threshold validation."""
-        # Valid threshold
-        config = CCProxyConfig(token_count_threshold=5000)
-        assert config.token_count_threshold == 5000
+    def test_rule_config(self) -> None:
+        """Test rule configuration."""
+        # Create a rule config
+        rule = RuleConfig("test_label", "ccproxy.rules.TokenCountRule", [{"threshold": 5000}])
+        assert rule.label == "test_label"
+        assert rule.rule_path == "ccproxy.rules.TokenCountRule"
+        assert rule.params == [{"threshold": 5000}]
 
-        # Invalid threshold (too low)
-        with pytest.raises(ValidationError) as exc_info:
-            CCProxyConfig(token_count_threshold=500)
-        assert "greater than or equal to 1000" in str(exc_info.value)
+        # Create instance
+        instance = rule.create_instance()
+        from ccproxy.rules import TokenCountRule
 
-    def test_from_litellm_config(self) -> None:
-        """Test loading configuration from LiteLLM YAML."""
-        yaml_content = """
+        assert isinstance(instance, TokenCountRule)
+
+    def test_from_yaml_files(self) -> None:
+        """Test loading configuration from ccproxy.yaml."""
+        ccproxy_yaml_content = """
+ccproxy:
+  debug: true
+  metrics_enabled: false
+  rules:
+    - label: token_count
+      rule: ccproxy.rules.TokenCountRule
+      params:
+        - threshold: 80000
+    - label: background
+      rule: ccproxy.rules.MatchModelRule
+      params:
+        - model_name: claude-3-5-haiku
+"""
+        litellm_yaml_content = """
 model_list:
   - model_name: default
     litellm_params:
       model: claude-3-5-sonnet-20241022
-      api_base: https://api.anthropic.com
   - model_name: background
     litellm_params:
       model: claude-3-5-haiku-20241022
-      api_base: https://api.anthropic.com
   - model_name: think
     litellm_params:
       model: claude-3-5-sonnet-20241022
-      api_base: https://api.anthropic.com
   - model_name: token_count
     litellm_params:
       model: gemini-2.5-pro
-      api_base: https://generativelanguage.googleapis.com
   - model_name: web_search
     litellm_params:
       model: perplexity/llama-3.1-sonar-large-128k-online
-      api_base: https://api.perplexity.ai
-
-litellm_settings:
-  callbacks: custom_callbacks.ccproxy_handler
-
-general_settings:
-  monitoring:
-    log_transformations: true
-    metrics_enabled: true
-    slow_transformation_threshold: 0.05
-
-general_settings:
-  monitoring:
-    log_transformations: true
-    metrics_enabled: true
-    slow_transformation_threshold: 0.05
-  ccproxy_settings:
-    token_count_threshold: 80000
-    debug: true
-    metrics_enabled: false
 """
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write(yaml_content)
-            yaml_path = Path(f.name)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
+            ccproxy_file.write(ccproxy_yaml_content)
+            ccproxy_path = Path(ccproxy_file.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
+            litellm_file.write(litellm_yaml_content)
+            litellm_path = Path(litellm_file.name)
 
         try:
-            config = CCProxyConfig.from_litellm_config(yaml_path)
+            config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
 
             # Check ccproxy settings
-            assert config.token_count_threshold == 80000
             assert config.debug is True
             assert config.metrics_enabled is False
+            assert len(config.rules) == 2
+            assert config.rules[0].label == "token_count"
+            assert config.rules[1].label == "background"
 
-            # Test model lookup
+            # Test model lookup (reads from YAML when proxy_server is None)
             assert config.get_model_for_label("default") == "claude-3-5-sonnet-20241022"
             assert config.get_model_for_label("background") == "claude-3-5-haiku-20241022"
-            assert config.get_model_for_label("think") == "claude-3-5-sonnet-20241022"
             assert config.get_model_for_label("token_count") == "gemini-2.5-pro"
             assert config.get_model_for_label("web_search") == "perplexity/llama-3.1-sonar-large-128k-online"
-            assert config.get_model_for_label("unknown") is None
+            assert config.get_model_for_label("nonexistent") is None
 
         finally:
-            yaml_path.unlink()
+            ccproxy_path.unlink()
+            litellm_path.unlink()
 
-    def test_from_litellm_config_no_ccproxy_settings(self) -> None:
-        """Test loading LiteLLM config without ccproxy_settings section."""
+    def test_from_yaml_no_ccproxy_section(self) -> None:
+        """Test loading ccproxy.yaml without ccproxy section."""
         yaml_content = """
-model_list:
-  - model_name: default
-    litellm_params:
-      model: claude-3-5-sonnet-20241022
-
-litellm_settings:
-  callbacks: custom_callbacks.ccproxy_handler
+# Empty YAML or missing ccproxy section
+other_settings:
+  key: value
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             yaml_path = Path(f.name)
 
         try:
-            config = CCProxyConfig.from_litellm_config(yaml_path)
+            config = CCProxyConfig.from_yaml(yaml_path)
 
             # Should use defaults
-            assert config.token_count_threshold == 60000
             assert config.debug is False
             assert config.metrics_enabled is True
+            assert config.rules == []
 
         finally:
             yaml_path.unlink()
@@ -143,27 +135,34 @@ litellm_settings:
     def test_yaml_config_values(self) -> None:
         """Test that YAML config values are loaded correctly."""
         yaml_content = """
-general_settings:
-  ccproxy_settings:
-    token_count_threshold: 70000
-    debug: true
+ccproxy:
+  debug: true
+  metrics_enabled: false
+  rules:
+    - label: custom_rule
+      rule: ccproxy.rules.TokenCountRule
+      params:
+        - threshold: 70000
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             yaml_path = Path(f.name)
 
         try:
-            config = CCProxyConfig.from_litellm_config(yaml_path)
+            config = CCProxyConfig.from_yaml(yaml_path)
             # YAML values should be loaded
-            assert config.token_count_threshold == 70000
             assert config.debug is True
+            assert config.metrics_enabled is False
+            assert len(config.rules) == 1
+            assert config.rules[0].label == "custom_rule"
+            assert config.rules[0].params == [{"threshold": 70000}]
 
         finally:
             yaml_path.unlink()
 
     def test_get_model_for_label(self) -> None:
         """Test model lookup by routing label."""
-        yaml_content = """
+        litellm_yaml_content = """
 model_list:
   - model_name: default
     litellm_params:
@@ -172,19 +171,29 @@ model_list:
     litellm_params:
       model: gpt-3.5-turbo
 """
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write(yaml_content)
-            yaml_path = Path(f.name)
+        ccproxy_yaml_content = """
+ccproxy:
+  debug: false
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
+            litellm_file.write(litellm_yaml_content)
+            litellm_path = Path(litellm_file.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
+            ccproxy_file.write(ccproxy_yaml_content)
+            ccproxy_path = Path(ccproxy_file.name)
 
         try:
-            config = CCProxyConfig.from_litellm_config(yaml_path)
+            config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
 
+            # Should return models from YAML when proxy_server is None
             assert config.get_model_for_label("default") == "gpt-4"
             assert config.get_model_for_label("background") == "gpt-3.5-turbo"
-            assert config.get_model_for_label("think") is None
+            assert config.get_model_for_label("think") is None  # Not in model_list
 
         finally:
-            yaml_path.unlink()
+            litellm_path.unlink()
+            ccproxy_path.unlink()
 
 
 class TestConfigSingleton:
@@ -196,7 +205,7 @@ class TestConfigSingleton:
         clear_config_instance()
 
         # Create a custom config instance and set it directly
-        custom_config = CCProxyConfig(token_count_threshold=55000)
+        custom_config = CCProxyConfig(debug=True, metrics_enabled=False)
         from ccproxy.config import set_config_instance
 
         set_config_instance(custom_config)
@@ -206,7 +215,8 @@ class TestConfigSingleton:
             config2 = get_config()
 
             assert config1 is config2
-            assert config1.token_count_threshold == 55000
+            assert config1.debug is True
+            assert config1.metrics_enabled is False
 
         finally:
             clear_config_instance()
@@ -218,10 +228,10 @@ class TestConfigProvider:
     def test_provider_initialization(self) -> None:
         """Test ConfigProvider initialization."""
         # With config
-        config = CCProxyConfig(token_count_threshold=40000)
+        config = CCProxyConfig(debug=True)
         provider = ConfigProvider(config)
         assert provider.get() is config
-        assert provider.get().token_count_threshold == 40000
+        assert provider.get().debug is True
 
     def test_provider_lazy_load(self) -> None:
         """Test ConfigProvider lazy loading."""
@@ -229,7 +239,7 @@ class TestConfigProvider:
         clear_config_instance()
 
         # Set a custom config in the global singleton
-        custom_config = CCProxyConfig(token_count_threshold=85000)
+        custom_config = CCProxyConfig(metrics_enabled=False)
         from ccproxy.config import set_config_instance
 
         set_config_instance(custom_config)
@@ -239,7 +249,7 @@ class TestConfigProvider:
 
             # Should load from singleton on first access
             config = provider.get()
-            assert config.token_count_threshold == 85000
+            assert config.metrics_enabled is False
 
             # Subsequent calls return same instance
             assert provider.get() is config
@@ -252,22 +262,22 @@ class TestConfigProvider:
         provider = ConfigProvider()
 
         # Set a specific config
-        custom_config = CCProxyConfig(token_count_threshold=35000, debug=True)
+        custom_config = CCProxyConfig(debug=True, metrics_enabled=False)
         provider.set(custom_config)
 
         # Should get the custom config
         assert provider.get() is custom_config
-        assert provider.get().token_count_threshold == 35000
         assert provider.get().debug is True
+        assert provider.get().metrics_enabled is False
 
     def test_multiple_providers(self) -> None:
         """Test that multiple providers can coexist."""
         # Each provider has its own config
-        provider1 = ConfigProvider(CCProxyConfig(token_count_threshold=30000))
-        provider2 = ConfigProvider(CCProxyConfig(token_count_threshold=40000))
+        provider1 = ConfigProvider(CCProxyConfig(debug=True))
+        provider2 = ConfigProvider(CCProxyConfig(debug=False))
 
-        assert provider1.get().token_count_threshold == 30000
-        assert provider2.get().token_count_threshold == 40000
+        assert provider1.get().debug is True
+        assert provider2.get().debug is False
 
         # They should be independent
         assert provider1.get() is not provider2.get()
@@ -276,48 +286,81 @@ class TestConfigProvider:
 class TestProxyRuntimeConfig:
     """Tests for loading configuration from proxy_server runtime."""
 
-    def test_from_proxy_runtime_with_settings(self) -> None:
-        """Test loading config from proxy_server runtime with ccproxy_settings."""
-        # Mock proxy_server
-        mock_proxy_server = mock.MagicMock()
-        mock_proxy_server.general_settings = {
-            "ccproxy_settings": {
-                "token_count_threshold": 75000,
-                "debug": True,
-                "metrics_enabled": False,
-            }
-        }
+    def test_from_proxy_runtime_with_ccproxy_yaml(self) -> None:
+        """Test loading config from ccproxy.yaml in the same directory as config.yaml."""
+        # Create a temp directory with config.yaml and ccproxy.yaml
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
 
-        with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
-            config = CCProxyConfig.from_proxy_runtime()
+            # Create config.yaml (LiteLLM config)
+            config_yaml = temp_path / "config.yaml"
+            config_yaml.write_text("""
+model_list:
+  - model_name: default
+    litellm_params:
+      model: gpt-4
+""")
 
-            assert config.token_count_threshold == 75000
-            assert config.debug is True
-            assert config.metrics_enabled is False
+            # Create ccproxy.yaml in same directory
+            ccproxy_yaml = temp_path / "ccproxy.yaml"
+            ccproxy_yaml.write_text("""
+ccproxy:
+  debug: true
+  metrics_enabled: false
+  rules:
+    - label: test
+      rule: ccproxy.rules.TokenCountRule
+      params:
+        - threshold: 75000
+""")
 
-    def test_from_proxy_runtime_without_settings(self) -> None:
-        """Test loading config from proxy_server runtime without ccproxy_settings."""
-        # Mock proxy_server
-        mock_proxy_server = mock.MagicMock()
-        mock_proxy_server.general_settings = {"master_key": "sk-1234", "monitoring": {"enabled": True}}
+            # Mock Path("config.yaml") to return our temp config.yaml
+            with mock.patch("ccproxy.config.Path") as mock_path:
+                mock_path.return_value = config_yaml
 
-        with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
-            config = CCProxyConfig.from_proxy_runtime()
+                config = CCProxyConfig.from_proxy_runtime()
 
-            # Should use defaults
-            assert config.token_count_threshold == 60000
-            assert config.debug is False
-            assert config.metrics_enabled is True
+                assert config.debug is True
+                assert config.metrics_enabled is False
+                assert len(config.rules) == 1
+                assert config.rules[0].label == "test"
 
-    def test_from_proxy_runtime_no_proxy_server(self) -> None:
-        """Test loading config when proxy_server is not available."""
-        with mock.patch("ccproxy.config.proxy_server", None):
-            config = CCProxyConfig.from_proxy_runtime()
+    def test_from_proxy_runtime_without_ccproxy_yaml(self) -> None:
+        """Test loading config when ccproxy.yaml doesn't exist."""
+        # Create a temporary directory without ccproxy.yaml
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            config_yaml = temp_path / "config.yaml"
+            config_yaml.write_text("model_list: []")
 
-            # Should use defaults
-            assert config.token_count_threshold == 60000
-            assert config.debug is False
-            assert config.metrics_enabled is True
+            # Mock Path("config.yaml") to return our temp config.yaml
+            with mock.patch("ccproxy.config.Path") as mock_path:
+                mock_path.return_value = config_yaml
+
+                config = CCProxyConfig.from_proxy_runtime()
+
+                # Should use defaults
+                assert config.debug is False
+                assert config.metrics_enabled is True
+                assert config.rules == []
+
+    def test_from_proxy_runtime_default_paths(self) -> None:
+        """Test loading config with default paths."""
+        # Create paths that don't exist
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            config_yaml = temp_path / "config.yaml"  # Don't create it
+
+            # Mock Path to return our non-existent config.yaml
+            with mock.patch("ccproxy.config.Path") as mock_path:
+                mock_path.return_value = config_yaml
+
+                config = CCProxyConfig.from_proxy_runtime()
+
+                # Should use defaults
+                assert config.debug is False
+                assert config.metrics_enabled is True
+                assert config.rules == []
 
     def test_get_model_for_label_from_runtime(self) -> None:
         """Test model lookup from proxy_server runtime."""
@@ -356,18 +399,47 @@ class TestProxyRuntimeConfig:
 
         # Mock proxy_server
         mock_proxy_server = mock.MagicMock()
-        mock_proxy_server.general_settings = {
-            "ccproxy_settings": {
-                "token_count_threshold": 90000,
-            }
-        }
+        mock_proxy_server.general_settings = {}
 
-        try:
-            with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
-                config = get_config()
-                assert config.token_count_threshold == 90000
-        finally:
-            clear_config_instance()
+        # Create temporary ccproxy.yaml
+        ccproxy_yaml_content = """
+ccproxy:
+  debug: true
+  rules:
+    - label: runtime_test
+      rule: ccproxy.rules.TokenCountRule
+      params:
+        - threshold: 90000
+"""
+
+        # Create a temp directory for the config files
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+
+            # Create config.yaml
+            config_yaml = temp_path / "config.yaml"
+            config_yaml.write_text("model_list: []")
+
+            # Create ccproxy.yaml
+            ccproxy_yaml = temp_path / "ccproxy.yaml"
+            ccproxy_yaml.write_text(ccproxy_yaml_content)
+
+            # Change to the temp directory so ./ccproxy.yaml exists
+            import os
+
+            original_cwd = Path.cwd()
+            os.chdir(temp_dir)
+
+            try:
+                with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
+                    config = get_config()
+                    assert config.debug is True
+                    assert len(config.rules) == 1
+                    assert config.rules[0].params == [{"threshold": 90000}]
+            finally:
+                os.chdir(original_cwd)
+
+        clear_config_instance()
 
 
 class TestThreadSafety:
@@ -376,23 +448,30 @@ class TestThreadSafety:
     def test_concurrent_get_config(self) -> None:
         """Test that concurrent access to get_config is thread-safe."""
         import concurrent.futures
+        import os
         import threading
 
         # Clear any existing instance
         clear_config_instance()
 
         yaml_content = """
-general_settings:
-  ccproxy_settings:
-    token_count_threshold: 50000
+ccproxy:
+  debug: true
+  rules:
+    - label: concurrent_test
+      rule: ccproxy.rules.TokenCountRule
+      params:
+        - threshold: 50000
 """
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write(yaml_content)
-            yaml_path = Path(f.name)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            ccproxy_path = Path(temp_dir) / "ccproxy.yaml"
+            ccproxy_path.write_text(yaml_content)
 
-        try:
-            with mock.patch("ccproxy.config.Path") as mock_path:
-                mock_path.return_value = yaml_path
+            # Change to temp directory so ./ccproxy.yaml exists
+            original_cwd = Path.cwd()
+            os.chdir(temp_dir)
+
+            try:
                 # Track which thread created the config
                 config_ids: set[int] = set()
                 lock = threading.Lock()
@@ -409,7 +488,6 @@ general_settings:
 
                 # All threads should get the same instance
                 assert len(config_ids) == 1
-
-        finally:
-            yaml_path.unlink()
-            clear_config_instance()
+            finally:
+                os.chdir(original_cwd)
+                clear_config_instance()

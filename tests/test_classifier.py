@@ -5,25 +5,9 @@ from unittest import mock
 
 import pytest
 
-from ccproxy.classifier import ClassificationRule, RequestClassifier, RoutingLabel
-from ccproxy.config import CCProxyConfig, ConfigProvider
-
-
-class TestRoutingLabel:
-    """Tests for RoutingLabel enum."""
-
-    def test_routing_labels(self) -> None:
-        """Test that all expected routing labels are defined."""
-        assert RoutingLabel.DEFAULT == "default"
-        assert RoutingLabel.BACKGROUND == "background"
-        assert RoutingLabel.THINK == "think"
-        assert RoutingLabel.TOKEN_COUNT == "token_count"  # noqa: S105
-        assert RoutingLabel.WEB_SEARCH == "web_search"
-
-    def test_routing_label_is_string(self) -> None:
-        """Test that routing labels behave as strings."""
-        assert isinstance(RoutingLabel.DEFAULT, str)
-        assert str(RoutingLabel.DEFAULT) == "default"
+from ccproxy.classifier import RequestClassifier
+from ccproxy.config import CCProxyConfig, ConfigProvider, RuleConfig
+from ccproxy.rules import ClassificationRule
 
 
 class TestRequestClassifier:
@@ -32,7 +16,15 @@ class TestRequestClassifier:
     @pytest.fixture
     def config(self) -> CCProxyConfig:
         """Create a test configuration."""
-        return CCProxyConfig(token_count_threshold=50000)
+        # Create config with test rules
+        config = CCProxyConfig(debug=True)
+        config.rules = [
+            RuleConfig("token_count", "ccproxy.rules.TokenCountRule", [{"threshold": 50000}]),
+            RuleConfig("background", "ccproxy.rules.MatchModelRule", [{"model_name": "claude-3-5-haiku"}]),
+            RuleConfig("think", "ccproxy.rules.ThinkingRule", []),
+            RuleConfig("web_search", "ccproxy.rules.MatchToolRule", [{"tool_name": "web_search"}]),
+        ]
+        return config
 
     @pytest.fixture
     def config_provider(self, config: CCProxyConfig) -> ConfigProvider:
@@ -57,7 +49,7 @@ class TestRequestClassifier:
     def test_classify_default(self, classifier: RequestClassifier) -> None:
         """Test that classify returns DEFAULT when no rules match."""
         request = {"model": "gpt-4", "messages": []}
-        assert classifier.classify(request) == RoutingLabel.DEFAULT
+        assert classifier.classify(request) == "default"
 
     def test_classify_with_pydantic_model(self, classifier: RequestClassifier) -> None:
         """Test classify with a pydantic-like model."""
@@ -66,7 +58,7 @@ class TestRequestClassifier:
         mock_model.model_dump.return_value = {"model": "gpt-4", "messages": []}
 
         result = classifier.classify(mock_model)
-        assert result == RoutingLabel.DEFAULT
+        assert result == "default"
         mock_model.model_dump.assert_called_once()
 
     def test_add_rule(self, classifier: RequestClassifier) -> None:
@@ -76,42 +68,42 @@ class TestRequestClassifier:
 
         # Create a mock rule
         mock_rule = mock.Mock(spec=ClassificationRule)
-        mock_rule.evaluate.return_value = RoutingLabel.THINK
+        mock_rule.evaluate.return_value = True
 
-        # Add the rule
-        classifier.add_rule(mock_rule)
+        # Add the rule with label
+        classifier.add_rule("think", mock_rule)
         assert len(classifier._rules) == initial_count + 1
 
         # Test classification with the rule
         request = {"model": "gpt-4", "messages": []}
         result = classifier.classify(request)
 
-        assert result == RoutingLabel.THINK
+        assert result == "think"
         mock_rule.evaluate.assert_called_once()
 
     def test_multiple_rules_priority(self, classifier: RequestClassifier, config: CCProxyConfig) -> None:
         """Test that rules are evaluated in order."""
         # Create mock rules
         rule1 = mock.Mock(spec=ClassificationRule)
-        rule1.evaluate.return_value = None  # Doesn't match
+        rule1.evaluate.return_value = False  # Doesn't match
 
         rule2 = mock.Mock(spec=ClassificationRule)
-        rule2.evaluate.return_value = RoutingLabel.BACKGROUND  # Matches
+        rule2.evaluate.return_value = True  # Matches
 
         rule3 = mock.Mock(spec=ClassificationRule)
-        rule3.evaluate.return_value = RoutingLabel.THINK  # Also matches but shouldn't be reached
+        rule3.evaluate.return_value = True  # Also matches but shouldn't be reached
 
-        # Add rules in order
-        classifier.add_rule(rule1)
-        classifier.add_rule(rule2)
-        classifier.add_rule(rule3)
+        # Add rules in order with labels
+        classifier.add_rule("token_count", rule1)
+        classifier.add_rule("background", rule2)
+        classifier.add_rule("think", rule3)
 
         # Classify
         request = {"model": "claude-3-haiku", "messages": []}
         result = classifier.classify(request)
 
         # Should return the first matching rule
-        assert result == RoutingLabel.BACKGROUND
+        assert result == "background"
 
         # Verify evaluation order
         rule1.evaluate.assert_called_once_with(request, config)
@@ -126,8 +118,8 @@ class TestRequestClassifier:
 
         # Add some rules
         mock_rule = mock.Mock(spec=ClassificationRule)
-        classifier.add_rule(mock_rule)
-        classifier.add_rule(mock_rule)
+        classifier.add_rule("test1", mock_rule)
+        classifier.add_rule("test2", mock_rule)
 
         assert len(classifier._rules) == 2
 
@@ -142,7 +134,7 @@ class TestRequestClassifier:
 
         # Add a custom rule
         mock_rule = mock.Mock(spec=ClassificationRule)
-        classifier.add_rule(mock_rule)
+        classifier.add_rule("custom", mock_rule)
         assert len(classifier._rules) == 1
 
         # Reset rules
@@ -164,15 +156,13 @@ class TestClassificationRuleProtocol:
         """Test implementing a concrete classification rule."""
 
         class TestRule(ClassificationRule):
-            def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
-                if request.get("test") == "value":
-                    return RoutingLabel.THINK
-                return None
+            def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> bool:
+                return request.get("test") == "value"
 
         # Should be able to instantiate
         rule = TestRule()
         config = CCProxyConfig()
 
         # Test evaluation
-        assert rule.evaluate({"test": "value"}, config) == RoutingLabel.THINK
-        assert rule.evaluate({"test": "other"}, config) is None
+        assert rule.evaluate({"test": "value"}, config) is True
+        assert rule.evaluate({"test": "other"}, config) is False
