@@ -8,6 +8,8 @@ import yaml
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore[import-not-found]
 
+import litellm
+
 
 class CCProxySettings(BaseModel):
     """CCProxy-specific settings from LiteLLM config."""
