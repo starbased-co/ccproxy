@@ -17,11 +17,5 @@
     ],
     "deny": []
   },
-  "enableAllProjectMcpServers": true,
-  "mcpServers": {
-    "whitelistedServers": [
-      "mcp__gitmcp-litellm",
-      "mcp__gitmcp-tyro"
-    ]
-  }
+  "enableAllProjectMcpServers": true
 }
