@@ -10,7 +10,9 @@
       "Bash(PYTHONPATH=src litellm --config demo/demo_config.yaml --port 8000)",
       "Bash(timeout:*)",
       "Bash(PYTHONPATH=/home/starbased/dev/projects/ccproxy/src:$PYTHONPATH uv run litellm --config config.yaml)",
-      "Bash(cclaude:*)"
+      "Bash(cclaude:*)",
+      "Bash(ccproxy:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   },

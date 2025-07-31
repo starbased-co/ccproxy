@@ -43,12 +43,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ccproxy"]
 
-[tool.hatch.build]
-include = [
-    "src/ccproxy",
-    "templates",
-]
-
 [tool.hatch.build.targets.sdist]
 include = [
     "src/ccproxy",

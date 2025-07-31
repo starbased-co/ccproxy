@@ -22,6 +22,11 @@ def get_templates_dir() -> Path:
     if dev_templates.exists():
         return dev_templates
 
+    # When installed as a package, templates will be inside the ccproxy package
+    package_templates = module_dir / "templates"
+    if package_templates.exists():
+        return package_templates
+
     # Then try in site-packages (installed mode)
     # When installed, templates will be at the package root level
     for path in sys.path:
@@ -30,9 +35,9 @@ def get_templates_dir() -> Path:
             return site_templates
 
     # Try one more location - next to the package directory
-    package_templates = module_dir.parent / "templates"
-    if package_templates.exists():
-        return package_templates
+    parent_templates = module_dir.parent / "templates"
+    if parent_templates.exists():
+        return parent_templates
 
     raise RuntimeError("Could not find templates directory. " "Please ensure ccproxy is properly installed.")
 

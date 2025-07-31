@@ -1,0 +1,4 @@
+include README.md
+include LICENSE
+recursive-include templates *.py *.yaml *.md
+recursive-include src/ccproxy/templates *.py *.yaml *.md
