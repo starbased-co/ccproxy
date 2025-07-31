@@ -1,4 +1,4 @@
-# `ccproxy.yaml` Config File Changes
+# `ccproxy.yaml` Config File Changes (Completed)
 
 - Moved `ccproxy` settings out of the LiteLLM proxy `config.yaml` into a new `ccproxy.yaml`. See @./ccproxy.yaml
 - contains settings for `ccproxy` such as debug mode, any other ccproxy specific settings, and most importantly, the `rules` config

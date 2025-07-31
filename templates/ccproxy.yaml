@@ -1,3 +1,10 @@
+litellm:
+  host: 127.0.0.1
+  port: 4000
+  num_workers: 1
+  debug: false
+  detailed_debug: false
+
 ccproxy:
   debug: true
   rules:

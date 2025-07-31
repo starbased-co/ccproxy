@@ -1,0 +1,291 @@
+"""CCProxy CLI for managing the LiteLLM proxy server."""
+
+import argparse
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any
+
+import psutil
+import yaml
+
+
+class CCProxyDaemon:
+    """Manages the LiteLLM proxy server as a daemon process."""
+
+    def __init__(self, config_dir: Path) -> None:
+        """Initialize the daemon with configuration directory."""
+        self.config_dir = config_dir
+        self.pid_file = config_dir / "ccproxy.pid"
+        self.log_file = config_dir / "ccproxy.log"
+
+    def _load_litellm_config(self) -> dict[str, Any]:
+        """Load LiteLLM configuration from ccproxy.yaml."""
+        ccproxy_config_path = self.config_dir / "ccproxy.yaml"
+        if not ccproxy_config_path.exists():
+            return {}
+
+        with ccproxy_config_path.open() as f:
+            config = yaml.safe_load(f)
+
+        litellm_config: dict[str, Any] = config.get("litellm", {}) if config else {}
+        return litellm_config
+
+    def _build_litellm_command(self, cli_args: argparse.Namespace) -> list[str]:
+        """Build the litellm command with all configuration sources."""
+        # Load config file defaults
+        config = self._load_litellm_config()
+
+        # Apply environment variable overrides
+        host = os.environ.get("HOST", config.get("host", "127.0.0.1"))
+        port = os.environ.get("PORT", config.get("port", "4000"))
+        num_workers = os.environ.get("NUM_WORKERS", config.get("num_workers", "1"))
+        debug = os.environ.get("DEBUG", str(config.get("debug", False))).lower() == "true"
+        detailed_debug = os.environ.get("DETAILED_DEBUG", str(config.get("detailed_debug", False))).lower() == "true"
+
+        # Apply CLI argument overrides
+        if hasattr(cli_args, "host") and cli_args.host:
+            host = cli_args.host
+        if hasattr(cli_args, "port") and cli_args.port:
+            port = str(cli_args.port)
+        if hasattr(cli_args, "workers") and cli_args.workers:
+            num_workers = str(cli_args.workers)
+        if hasattr(cli_args, "debug") and cli_args.debug:
+            debug = True
+        if hasattr(cli_args, "detailed_debug") and cli_args.detailed_debug:
+            detailed_debug = True
+
+        # Build command
+        cmd = [
+            "litellm",
+            "--config",
+            str(self.config_dir / "config.yaml"),
+            "--host",
+            host,
+            "--port",
+            port,
+            "--num_workers",
+            num_workers,
+        ]
+
+        if debug:
+            cmd.append("--debug")
+        if detailed_debug:
+            cmd.append("--detailed_debug")
+
+        return cmd
+
+    def _daemonize(self) -> None:
+        """Daemonize the current process."""
+        # First fork
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # Parent process exits
+                sys.exit(0)
+        except OSError as e:
+            print(f"Fork #1 failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        # Decouple from parent environment
+        os.chdir(str(self.config_dir))
+        os.setsid()
+        os.umask(0)
+
+        # Second fork
+        try:
+            pid = os.fork()
+            if pid > 0:
+                # Parent process exits
+                sys.exit(0)
+        except OSError as e:
+            print(f"Fork #2 failed: {e}", file=sys.stderr)
+            sys.exit(1)
+
+        # Redirect standard file descriptors
+        sys.stdout.flush()
+        sys.stderr.flush()
+
+        # Open log file for output
+        log_fd = os.open(str(self.log_file), os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o666)
+        os.dup2(log_fd, sys.stdout.fileno())
+        os.dup2(log_fd, sys.stderr.fileno())
+        os.close(log_fd)
+
+    def start(self, cli_args: argparse.Namespace) -> None:
+        """Start the LiteLLM proxy server as a daemon."""
+        # Check if already running
+        if self.pid_file.exists():
+            try:
+                pid = int(self.pid_file.read_text().strip())
+                if psutil.pid_exists(pid):
+                    print(f"CCProxy is already running (PID: {pid})")
+                    sys.exit(1)
+                else:
+                    # Stale PID file
+                    self.pid_file.unlink()
+            except (ValueError, ProcessLookupError):
+                # Invalid or stale PID file
+                self.pid_file.unlink()
+
+        # Build LiteLLM command
+        cmd = self._build_litellm_command(cli_args)
+
+        # Daemonize
+        self._daemonize()
+
+        # Start LiteLLM as subprocess
+        try:
+            # S603: Command is built from validated config and CLI args only
+            process = subprocess.Popen(  # noqa: S603
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, cwd=str(self.config_dir)
+            )
+
+            # Write PID file with LiteLLM process PID
+            self.pid_file.write_text(str(process.pid))
+
+            # Monitor the subprocess
+            print(f"Started LiteLLM proxy (PID: {process.pid})")
+
+            # Wait for the subprocess
+            process.wait()
+
+        except Exception as e:
+            print(f"Failed to start LiteLLM: {e}", file=sys.stderr)
+            sys.exit(1)
+        finally:
+            # Clean up PID file on exit
+            if self.pid_file.exists():
+                self.pid_file.unlink()
+
+    def stop(self) -> None:
+        """Stop the LiteLLM proxy server."""
+        if not self.pid_file.exists():
+            print("CCProxy is not running")
+            sys.exit(1)
+
+        try:
+            pid = int(self.pid_file.read_text().strip())
+
+            # Check if process exists
+            if not psutil.pid_exists(pid):
+                print("CCProxy is not running (stale PID file)")
+                self.pid_file.unlink()
+                sys.exit(1)
+
+            # Send SIGTERM
+            os.kill(pid, signal.SIGTERM)
+
+            # Wait for graceful shutdown (up to 10 seconds)
+            for _ in range(100):
+                if not psutil.pid_exists(pid):
+                    break
+                time.sleep(0.1)
+            else:
+                # Force kill if still running
+                print("Process did not terminate gracefully, forcing...")
+                os.kill(pid, signal.SIGKILL)
+
+            # Remove PID file
+            self.pid_file.unlink()
+            print(f"Stopped CCProxy (PID: {pid})")
+
+        except (ValueError, ProcessLookupError) as e:
+            print(f"Failed to stop CCProxy: {e}", file=sys.stderr)
+            if self.pid_file.exists():
+                self.pid_file.unlink()
+            sys.exit(1)
+
+    def status(self) -> None:
+        """Check the status of the LiteLLM proxy server."""
+        if not self.pid_file.exists():
+            print("CCProxy is not running")
+            sys.exit(1)
+
+        try:
+            pid = int(self.pid_file.read_text().strip())
+
+            if psutil.pid_exists(pid):
+                try:
+                    process = psutil.Process(pid)
+                    print(f"CCProxy is running (PID: {pid})")
+                    print(f"  CPU: {process.cpu_percent()}%")
+                    print(f"  Memory: {process.memory_info().rss / 1024 / 1024:.1f} MB")
+                    print(f"  Started: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(process.create_time()))}")
+                except psutil.NoSuchProcess:
+                    print("CCProxy is not running (process not found)")
+                    self.pid_file.unlink()
+                    sys.exit(1)
+            else:
+                print("CCProxy is not running (stale PID file)")
+                self.pid_file.unlink()
+                sys.exit(1)
+
+        except ValueError:
+            print("Invalid PID file")
+            self.pid_file.unlink()
+            sys.exit(1)
+
+
+def main() -> None:
+    """Main entry point for the CCProxy CLI."""
+    parser = argparse.ArgumentParser(
+        description="CCProxy - LiteLLM Transformation Hook System",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    parser.add_argument(
+        "--config-dir",
+        type=Path,
+        default=Path.home() / ".ccproxy",
+        help="Configuration directory (default: ~/.ccproxy)",
+    )
+
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    # Start command
+    start_parser = subparsers.add_parser("start", help="Start the LiteLLM proxy server")
+    start_parser.add_argument("--host", help="Host to bind to")
+    start_parser.add_argument("--port", type=int, help="Port to bind to")
+    start_parser.add_argument("--workers", type=int, help="Number of workers")
+    start_parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+    start_parser.add_argument("--detailed-debug", action="store_true", help="Enable detailed debug mode")
+
+    # Stop command
+    subparsers.add_parser("stop", help="Stop the LiteLLM proxy server")
+
+    # Status command
+    subparsers.add_parser("status", help="Check status of the LiteLLM proxy server")
+
+    # Install command (placeholder for future implementation)
+    subparsers.add_parser("install", help="Install CCProxy configuration files")
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        sys.exit(1)
+
+    # Create daemon instance
+    daemon = CCProxyDaemon(args.config_dir)
+
+    # Execute command
+    if args.command == "start":
+        daemon.start(args)
+    elif args.command == "stop":
+        daemon.stop()
+    elif args.command == "status":
+        daemon.status()
+    elif args.command == "install":
+        print("Install command not yet implemented")
+        sys.exit(1)
+    else:
+        parser.print_help()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
