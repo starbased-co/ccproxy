@@ -1,19 +1,41 @@
-"""CCProxy CLI for managing the LiteLLM proxy server."""
+"""CCProxy CLI for managing the LiteLLM proxy server - Tyro implementation."""
 
-import argparse
 import os
 import shutil
 import signal
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 import psutil
+import tyro
 import yaml
+from tyro.extras import SubcommandApp
 
 from ccproxy.utils import get_templates_dir
+
+
+@dataclass
+class ProxyConfig:
+    """Configuration for the LiteLLM proxy server."""
+
+    host: str = "127.0.0.1"
+    """Host to bind the proxy server to."""
+
+    port: int = 4000
+    """Port to bind the proxy server to."""
+
+    workers: int = 1
+    """Number of worker processes."""
+
+    debug: bool = False
+    """Enable debug mode."""
+
+    detailed_debug: bool = False
+    """Enable detailed debug mode."""
 
 
 class CCProxyDaemon:
@@ -37,29 +59,20 @@ class CCProxyDaemon:
         litellm_config: dict[str, Any] = config.get("litellm", {}) if config else {}
         return litellm_config
 
-    def _build_litellm_command(self, cli_args: argparse.Namespace) -> list[str]:
+    def _build_litellm_command(self, proxy_config: ProxyConfig) -> list[str]:
         """Build the litellm command with all configuration sources."""
         # Load config file defaults
         config = self._load_litellm_config()
 
         # Apply environment variable overrides
-        host = os.environ.get("HOST", config.get("host", "127.0.0.1"))
-        port = str(os.environ.get("PORT", config.get("port", "4000")))
-        num_workers = str(os.environ.get("NUM_WORKERS", config.get("num_workers", "1")))
-        debug = os.environ.get("DEBUG", str(config.get("debug", False))).lower() == "true"
-        detailed_debug = os.environ.get("DETAILED_DEBUG", str(config.get("detailed_debug", False))).lower() == "true"
-
-        # Apply CLI argument overrides
-        if hasattr(cli_args, "host") and cli_args.host:
-            host = cli_args.host
-        if hasattr(cli_args, "port") and cli_args.port:
-            port = str(cli_args.port)
-        if hasattr(cli_args, "workers") and cli_args.workers:
-            num_workers = str(cli_args.workers)
-        if hasattr(cli_args, "debug") and cli_args.debug:
-            debug = True
-        if hasattr(cli_args, "detailed_debug") and cli_args.detailed_debug:
-            detailed_debug = True
+        host = os.environ.get("HOST", config.get("host", proxy_config.host))
+        port = str(os.environ.get("PORT", config.get("port", proxy_config.port)))
+        num_workers = str(os.environ.get("NUM_WORKERS", config.get("num_workers", proxy_config.workers)))
+        debug = os.environ.get("DEBUG", str(config.get("debug", proxy_config.debug))).lower() == "true"
+        detailed_debug = (
+            os.environ.get("DETAILED_DEBUG", str(config.get("detailed_debug", proxy_config.detailed_debug))).lower()
+            == "true"
+        )
 
         # Build command
         cmd = [
@@ -118,8 +131,12 @@ class CCProxyDaemon:
         os.dup2(log_fd, sys.stderr.fileno())
         os.close(log_fd)
 
-    def start(self, cli_args: argparse.Namespace) -> None:
-        """Start the LiteLLM proxy server as a daemon."""
+    def start(self, proxy_config: ProxyConfig, foreground: bool = False) -> None:
+        """Start the LiteLLM proxy server as a daemon or in foreground."""
+        # Clear log file on start
+        if self.log_file.exists():
+            self.log_file.unlink()
+
         # Check if already running
         if self.pid_file.exists():
             try:
@@ -135,7 +152,36 @@ class CCProxyDaemon:
                 self.pid_file.unlink()
 
         # Build LiteLLM command
-        cmd = self._build_litellm_command(cli_args)
+        cmd = self._build_litellm_command(proxy_config)
+
+        if foreground:
+            # Run in foreground mode
+            print("Starting CCProxy in foreground mode...")
+            print(f"Command: {' '.join(cmd)}")
+            print(f"Config directory: {self.config_dir}")
+            print("Press Ctrl+C to stop")
+
+            try:
+                # Set up environment
+                env = os.environ.copy()
+                import ccproxy
+
+                ccproxy_path = Path(ccproxy.__file__).parent.parent
+                if "PYTHONPATH" in env:
+                    env["PYTHONPATH"] = f"{ccproxy_path}:{env['PYTHONPATH']}"
+                else:
+                    env["PYTHONPATH"] = str(ccproxy_path)
+
+                # Run the subprocess directly in foreground
+                # S603: Command is built from validated config and CLI args only
+                result = subprocess.run(cmd, cwd=str(self.config_dir), env=env)  # noqa: S603
+                sys.exit(result.returncode)
+            except KeyboardInterrupt:
+                print("\nShutting down CCProxy...")
+                sys.exit(0)
+            except Exception as e:
+                print(f"Failed to start LiteLLM: {e}", file=sys.stderr)
+                sys.exit(1)
 
         # Daemonize
         self._daemonize()
@@ -254,7 +300,65 @@ class CCProxyDaemon:
             sys.exit(1)
 
 
-def install(config_dir: Path, force: bool = False) -> None:
+# Subcommand definitions using dataclasses
+@dataclass
+class Start:
+    """Start the LiteLLM proxy server."""
+
+    host: str | None = None
+    """Host to bind to (overrides config)."""
+
+    port: int | None = None
+    """Port to bind to (overrides config)."""
+
+    workers: int | None = None
+    """Number of workers (overrides config)."""
+
+    debug: bool = False
+    """Enable debug mode."""
+
+    detailed_debug: bool = False
+    """Enable detailed debug mode."""
+
+    foreground: Annotated[bool, tyro.conf.arg(aliases=["-f"])] = False
+    """Run in foreground mode instead of as daemon."""
+
+
+@dataclass
+class Stop:
+    """Stop the LiteLLM proxy server."""
+
+    pass
+
+
+@dataclass
+class Status:
+    """Check status of the LiteLLM proxy server."""
+
+    pass
+
+
+@dataclass
+class Install:
+    """Install CCProxy configuration files."""
+
+    force: bool = False
+    """Overwrite existing configuration."""
+
+
+@dataclass
+class Run:
+    """Run a command with ccproxy environment."""
+
+    command: Annotated[list[str], tyro.conf.Positional]
+    """Command and arguments to execute with proxy settings."""
+
+
+# Type alias for all subcommands
+Command = Start | Stop | Status | Install | Run
+
+
+def install_config(config_dir: Path, force: bool = False) -> None:
     """Install CCProxy configuration files.
 
     Args:
@@ -376,74 +480,153 @@ def run_with_proxy(config_dir: Path, command: list[str]) -> None:
         sys.exit(130)  # Standard exit code for Ctrl+C
 
 
-def main() -> None:
-    """Main entry point for the CCProxy CLI."""
-    parser = argparse.ArgumentParser(
-        description="CCProxy - LiteLLM Transformation Hook System",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+def main(
+    cmd: Annotated[Command, tyro.conf.arg(name="")],
+    *,
+    config_dir: Annotated[Path | None, tyro.conf.arg(help="Configuration directory")] = None,
+) -> None:
+    """CCProxy - LiteLLM Transformation Hook System.
 
-    parser.add_argument(
-        "--config-dir",
-        type=Path,
-        default=Path.home() / ".ccproxy",
-        help="Configuration directory (default: ~/.ccproxy)",
-    )
-
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
-
-    # Start command
-    start_parser = subparsers.add_parser("start", help="Start the LiteLLM proxy server")
-    start_parser.add_argument("--host", help="Host to bind to")
-    start_parser.add_argument("--port", type=int, help="Port to bind to")
-    start_parser.add_argument("--workers", type=int, help="Number of workers")
-    start_parser.add_argument("--debug", action="store_true", help="Enable debug mode")
-    start_parser.add_argument("--detailed-debug", action="store_true", help="Enable detailed debug mode")
-
-    # Stop command
-    subparsers.add_parser("stop", help="Stop the LiteLLM proxy server")
-
-    # Status command
-    subparsers.add_parser("status", help="Check status of the LiteLLM proxy server")
-
-    # Install command
-    install_parser = subparsers.add_parser("install", help="Install CCProxy configuration files")
-    install_parser.add_argument("--force", action="store_true", help="Overwrite existing configuration")
-
-    # Run command
-    run_parser = subparsers.add_parser("run", help="Run a command with ccproxy environment")
-    run_parser.add_argument("cmd", nargs=argparse.REMAINDER, help="Command to execute with proxy settings")
-
-    args = parser.parse_args()
-
-    if not args.command:
-        parser.print_help()
-        sys.exit(1)
+    A powerful routing system for LiteLLM that dynamically routes requests
+    to different models based on configurable rules.
+    """
+    if config_dir is None:
+        config_dir = Path.home() / ".ccproxy"
 
     # Create daemon instance
-    daemon = CCProxyDaemon(args.config_dir)
+    daemon = CCProxyDaemon(config_dir)
 
-    # Execute command
-    if args.command == "start":
-        daemon.start(args)
-    elif args.command == "stop":
+    # Handle each command type
+    if isinstance(cmd, Start):
+        # Build proxy config from command options
+        proxy_config = ProxyConfig(
+            host=cmd.host or "127.0.0.1",
+            port=cmd.port or 4000,
+            workers=cmd.workers or 1,
+            debug=cmd.debug,
+            detailed_debug=cmd.detailed_debug,
+        )
+        daemon.start(proxy_config, foreground=cmd.foreground)
+
+    elif isinstance(cmd, Stop):
         daemon.stop()
-    elif args.command == "status":
+
+    elif isinstance(cmd, Status):
         daemon.status()
-    elif args.command == "install":
-        install(args.config_dir, force=args.force)
-    elif args.command == "run":
-        # Get the actual command arguments (stored in args.cmd by argparse.REMAINDER)
-        cmd_args = getattr(args, "cmd", [])
-        if not cmd_args:
+
+    elif isinstance(cmd, Install):
+        install_config(config_dir, force=cmd.force)
+
+    elif isinstance(cmd, Run):
+        if not cmd.command:
             print("Error: No command specified to run", file=sys.stderr)
             print("Usage: ccproxy run <command> [args...]", file=sys.stderr)
             sys.exit(1)
-        run_with_proxy(args.config_dir, cmd_args)
-    else:
-        parser.print_help()
-        sys.exit(1)
+        run_with_proxy(config_dir, cmd.command)
+
+
+def main_decorator() -> None:
+    """Alternative entry point using decorator-based subcommand API."""
+    app = SubcommandApp()
+
+    @app.command
+    def start(
+        config_dir: Path | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        workers: int | None = None,
+        debug: bool = False,
+        detailed_debug: bool = False,
+        foreground: bool = False,
+    ) -> None:
+        """Start the LiteLLM proxy server.
+
+        Args:
+            config_dir: Configuration directory
+            host: Host to bind to (overrides config)
+            port: Port to bind to (overrides config)
+            workers: Number of workers (overrides config)
+            debug: Enable debug mode
+            detailed_debug: Enable detailed debug mode
+            foreground: Run in foreground mode instead of as daemon
+        """
+        if config_dir is None:
+            config_dir = Path.home() / ".ccproxy"
+        daemon = CCProxyDaemon(config_dir)
+        proxy_config = ProxyConfig(
+            host=host or "127.0.0.1",
+            port=port or 4000,
+            workers=workers or 1,
+            debug=debug,
+            detailed_debug=detailed_debug,
+        )
+        daemon.start(proxy_config, foreground=foreground)
+
+    @app.command
+    def stop(config_dir: Path | None = None) -> None:
+        """Stop the LiteLLM proxy server.
+
+        Args:
+            config_dir: Configuration directory
+        """
+        if config_dir is None:
+            config_dir = Path.home() / ".ccproxy"
+        daemon = CCProxyDaemon(config_dir)
+        daemon.stop()
+
+    @app.command
+    def status(config_dir: Path | None = None) -> None:
+        """Check status of the LiteLLM proxy server.
+
+        Args:
+            config_dir: Configuration directory
+        """
+        if config_dir is None:
+            config_dir = Path.home() / ".ccproxy"
+        daemon = CCProxyDaemon(config_dir)
+        daemon.status()
+
+    @app.command
+    def install(
+        config_dir: Path | None = None,
+        force: bool = False,
+    ) -> None:
+        """Install CCProxy configuration files.
+
+        Args:
+            config_dir: Configuration directory
+            force: Overwrite existing configuration
+        """
+        if config_dir is None:
+            config_dir = Path.home() / ".ccproxy"
+        install_config(config_dir, force=force)
+
+    @app.command(name="run")
+    def run_cmd(
+        *command: str,
+        config_dir: Path | None = None,
+    ) -> None:
+        """Run a command with ccproxy environment.
+
+        Args:
+            command: Command and arguments to execute
+            config_dir: Configuration directory
+        """
+        if not command:
+            print("Error: No command specified to run", file=sys.stderr)
+            print("Usage: ccproxy run <command> [args...]", file=sys.stderr)
+            sys.exit(1)
+        if config_dir is None:
+            config_dir = Path.home() / ".ccproxy"
+        run_with_proxy(config_dir, list(command))
+
+    app.cli()
+
+
+def entry_point() -> None:
+    """Entry point for the ccproxy command."""
+    tyro.cli(main)
 
 
 if __name__ == "__main__":
-    main()
+    entry_point()
