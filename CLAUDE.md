@@ -22,20 +22,35 @@
 ### Core Components
 
 - **CCProxyHandler**: Main CustomLogger implementation for LiteLLM hooks
-- **Router Logic**: Request classification (default/background/think/large_context/web_search)
-- **Configuration**: YAML-based model mapping and settings
-- **Type Safety**: Comprehensive type hints using typing-extensions
+- **Router**: Dynamic rule-based request classification system
+- **Configuration**: Dual YAML system (ccproxy.yaml + config.yaml)
+- **Rules Engine**: Extensible classification rules with boolean returns
+- **Type Safety**: Comprehensive type hints with strict mypy checking
 
-### Request Classification Rules
+### Configuration System
+
+- **ccproxy.yaml**: Contains ccproxy-specific settings and rule definitions
+- **config.yaml**: LiteLLM proxy configuration with model deployments
+- Rules are dynamically loaded using Python import paths
+- Labels in ccproxy rules must match model_name entries in LiteLLM's model_list
+
+### Classification Architecture
 
 ```python
-# Classification priority order:
-1. (tokens > threshold) → large_context
-2. Model is claude-3-5-haiku → background
-3. Request has thinking field → think
-4. Tools contain web_search → web_search
-5. Default case → default
+# Dynamic rule evaluation:
+1. Rules are loaded from ccproxy.yaml with parameters
+2. Each rule returns boolean (True = use this label's model)
+3. First matching rule determines the routing label
+4. Label is mapped to model via LiteLLM's model_list
+5. Default model used if no rules match
 ```
+
+### Built-in Rules
+
+- **TokenCountRule**: Routes based on token count threshold
+- **MatchModelRule**: Routes based on model name pattern matching
+- **ThinkingFieldRule**: Routes when request contains thinking field
+- **WebSearchToolRule**: Routes when web_search tool is present
 
 ## Development Workflow
 
@@ -83,15 +98,25 @@ uv run pytest  # Run tests
 src/ccproxy/
 ├── __init__.py
 ├── handler.py      # CCProxyHandler implementation
-├── router.py       # Request classification logic
-├── config.py       # Configuration parsing
-└── types.py        # Type definitions
+├── router.py       # Dynamic rule-based routing engine
+├── config.py       # Configuration management (singleton)
+├── rules.py        # Classification rule implementations
+├── types.py        # Type definitions (currently unused)
+└── cli.py          # Command-line interface
 
 tests/
-├── test_handler.py
-├── test_router.py
-├── test_config.py
-└── test_integration.py
+├── test_handler.py        # Hook integration tests
+├── test_router.py         # Router logic tests
+├── test_config.py         # Configuration tests
+├── test_rules.py          # Rule implementation tests
+├── test_classifier.py     # Rule classification tests
+├── test_integration.py    # End-to-end tests
+└── test_*.py              # Additional test modules
+
+stubs/                      # Type stubs for external dependencies
+├── litellm/
+│   └── proxy.pyi
+└── pydantic_settings.pyi
 ```
 
 ## Quality Assurance
@@ -245,11 +270,48 @@ async def async_pre_call_hook(
     pass
 ```
 
-## LiteLLM Proxy Configuration
+## Configuration Files
 
-### Configuration Files
+### ccproxy.yaml Structure
 
-- `config.yaml` is the LiteLLM proxy config. To access LiteLLM config, you can access it during the proxy hook. Search the LiteLLM documentation with Context7 or gitmcp
+```yaml
+ccproxy:
+  debug: false
+  metrics_enabled: true
+  rules:
+    - label: large_context     # Must match a model_name in config.yaml
+      rule: ccproxy.rules.TokenCountRule
+      params:
+        - threshold: 80000
+    - label: background
+      rule: ccproxy.rules.MatchModelRule
+      params:
+        - model_name: "claude-3-5-haiku"
+    - label: think
+      rule: ccproxy.rules.ThinkingFieldRule
+    - label: web_search
+      rule: ccproxy.rules.WebSearchToolRule
+```
+
+### config.yaml (LiteLLM)
+
+```yaml
+model_list:
+  - model_name: default        # Label referenced by ccproxy rules
+    litellm_params:
+      model: claude-3-5-sonnet-20241022
+  - model_name: large_context  # Matches label in ccproxy.yaml
+    litellm_params:
+      model: gemini-2.0-flash-exp
+  # ... additional models
+```
+
+### Key Configuration Concepts
+
+- **Label Matching**: Labels in ccproxy.yaml rules MUST have corresponding model_name entries in config.yaml
+- **Dynamic Loading**: Rules are loaded at runtime using Python import paths
+- **Parameter Flexibility**: Rules can accept positional args, keyword args, or mixed parameters
+- **Singleton Pattern**: Configuration is loaded once and shared across the application
 
 ## Quick Reference
 
@@ -267,6 +329,41 @@ task-master next          # Get next task
 task-master show <id>     # View task details
 task-master set-status --id=<id> --status=done
 ```
+
+### Creating Custom Rules
+
+```python
+from typing import Any
+from ccproxy.rules import ClassificationRule
+from ccproxy.config import CCProxyConfig
+
+class MyCustomRule(ClassificationRule):
+    """Custom rule implementation."""
+
+    def __init__(self, my_param: str) -> None:
+        self.my_param = my_param
+
+    def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> bool:
+        """Return True to use this rule's label."""
+        # Your custom logic here
+        return "my_condition" in request
+```
+
+Then add to ccproxy.yaml:
+```yaml
+ccproxy:
+  rules:
+    - label: my_custom_label
+      rule: mymodule.MyCustomRule
+      params:
+        - my_param: "value"
+```
+
+### Testing Patterns
+
+- **Test Isolation**: Always use `clear_config_instance()` and `clear_router()` in cleanup
+- **Mock proxy_server**: Use `unittest.mock` to simulate LiteLLM runtime environment
+- **Type Stubs**: Located in `stubs/` directory for external dependencies
 
 ---
 
