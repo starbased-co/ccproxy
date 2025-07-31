@@ -86,27 +86,18 @@ class ThinkingRule(ClassificationRule):
     """Rule for classifying requests with thinking field."""
 
     def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
-        """Evaluate if request has thinking field or thinking tags.
+        """Evaluate if request has thinking field.
 
         Args:
             request: The request to evaluate
             config: The current configuration
 
         Returns:
-            THINK if request has thinking field or <thinking> tags, None otherwise
+            THINK if request has thinking field, None otherwise
         """
         # Check top-level thinking field
         if "thinking" in request:
             return RoutingLabel.THINK
-
-        # Check for <thinking> tags in message content
-        messages = request.get("messages", [])
-        if isinstance(messages, list):
-            for message in messages:
-                if isinstance(message, dict):
-                    content = message.get("content", "")
-                    if isinstance(content, str) and "<thinking>" in content:
-                        return RoutingLabel.THINK
 
         return None
 
@@ -130,14 +121,14 @@ class WebSearchRule(ClassificationRule):
                 if isinstance(tool, dict):
                     # Check direct name field
                     tool_name = tool.get("name", "")
-                    if "web_search" in str(tool_name).lower():
+                    if isinstance(tool_name, str) and "web_search" in tool_name.lower():
                         return RoutingLabel.WEB_SEARCH
 
                     # Check function.name field (OpenAI format)
                     function = tool.get("function", {})
                     if isinstance(function, dict):
                         function_name = function.get("name", "")
-                        if "web_search" in str(function_name).lower():
+                        if isinstance(function_name, str) and "web_search" in function_name.lower():
                             return RoutingLabel.WEB_SEARCH
                 elif isinstance(tool, str) and "web_search" in tool.lower():
                     return RoutingLabel.WEB_SEARCH
