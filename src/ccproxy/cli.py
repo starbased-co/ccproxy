@@ -44,8 +44,8 @@ class CCProxyDaemon:
 
         # Apply environment variable overrides
         host = os.environ.get("HOST", config.get("host", "127.0.0.1"))
-        port = os.environ.get("PORT", config.get("port", "4000"))
-        num_workers = os.environ.get("NUM_WORKERS", config.get("num_workers", "1"))
+        port = str(os.environ.get("PORT", config.get("port", "4000")))
+        num_workers = str(os.environ.get("NUM_WORKERS", config.get("num_workers", "1")))
         debug = os.environ.get("DEBUG", str(config.get("debug", False))).lower() == "true"
         detailed_debug = os.environ.get("DETAILED_DEBUG", str(config.get("detailed_debug", False))).lower() == "true"
 
@@ -142,9 +142,26 @@ class CCProxyDaemon:
 
         # Start LiteLLM as subprocess
         try:
+            # Debug logging
+            print(f"Starting LiteLLM with command: {cmd}")
+            print(f"Working directory: {self.config_dir}")
+
+            # Set up environment to include ccproxy in Python path
+            env = os.environ.copy()
+            # Add the site-packages directory where ccproxy is installed
+            import ccproxy
+
+            ccproxy_path = Path(ccproxy.__file__).parent.parent
+            if "PYTHONPATH" in env:
+                env["PYTHONPATH"] = f"{ccproxy_path}:{env['PYTHONPATH']}"
+            else:
+                env["PYTHONPATH"] = str(ccproxy_path)
+
             # S603: Command is built from validated config and CLI args only
+            # After daemonizing, stdout/stderr are already redirected to log file
+            # So we don't need PIPE here
             process = subprocess.Popen(  # noqa: S603
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, cwd=str(self.config_dir)
+                cmd, stdout=None, stderr=None, text=True, cwd=str(self.config_dir), env=env
             )
 
             # Write PID file with LiteLLM process PID
