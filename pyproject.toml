@@ -18,10 +18,12 @@ dependencies = [
     "psutil>=5.9.0",
     "anthropic>=0.39.0",
     "types-psutil>=7.0.0.20250601",
+    "tyro>=0.7.0",
 ]
 
 [project.scripts]
-ccproxy = "ccproxy.cli:main"
+ccproxy = "ccproxy.cli_tyro:main_decorator"
+ccproxy-legacy = "ccproxy.cli:main"
 
 [project.optional-dependencies]
 dev = [

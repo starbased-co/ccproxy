@@ -16,6 +16,10 @@
 
 @./.taskmaster/CLAUDE.md
 
+## Tyro CLI
+
+@./docs/tyro-guide/CLAUDE.md
+
 ## Project Architecture
 
 ### Core Components

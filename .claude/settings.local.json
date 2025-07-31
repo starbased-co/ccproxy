@@ -13,7 +13,8 @@
       "Bash(PYTHONPATH=/home/starbased/dev/projects/ccproxy/src:$PYTHONPATH uv run litellm --config config.yaml)",
       "Bash(cclaude:*)",
       "Bash(ccproxy:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   },
