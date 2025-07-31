@@ -15,7 +15,6 @@ class CCProxySettings(BaseModel):
     token_count_threshold: int = Field(default=60000, ge=1000, description="Token threshold for token_count")
     debug: bool = Field(default=False, description="Enable debug logging")
     metrics_enabled: bool = Field(default=True, description="Enable metrics collection")
-    reload_config_on_change: bool = Field(default=False, description="Enable hot-reload of config")
 
 
 class LiteLLMConfig(BaseModel):
@@ -39,7 +38,6 @@ class CCProxyConfig(BaseSettings):  # type: ignore[misc]
     token_count_threshold: int = Field(default=60000, ge=1000)
     debug: bool = False
     metrics_enabled: bool = True
-    reload_config_on_change: bool = False
 
     # Path to LiteLLM config
     litellm_config_path: Path = Field(default_factory=lambda: Path("./config.yaml"))
@@ -115,17 +113,6 @@ def get_config() -> CCProxyConfig:
     return _config_instance
 
 
-def reload_config() -> CCProxyConfig:
-    """Reload configuration from disk (thread-safe)."""
-    global _config_instance
-
-    with _config_lock:
-        config_path = Path("./config.yaml")
-        _config_instance = CCProxyConfig.from_litellm_config(config_path)
-
-    return _config_instance
-
-
 def set_config_instance(config: CCProxyConfig) -> None:
     """Set the global configuration instance (for testing)."""
     global _config_instance
@@ -138,11 +125,6 @@ def clear_config_instance() -> None:
     global _config_instance
     with _config_lock:
         _config_instance = None
-
-    # Also clear the router instance to ensure clean state
-    from ccproxy.router import clear_router
-
-    clear_router()
 
 
 class ConfigProvider:
@@ -169,13 +151,6 @@ class ConfigProvider:
                 if self._config is None:
                     # Use the global singleton if no config was provided
                     self._config = get_config()
-        return self._config
-
-    def reload(self) -> CCProxyConfig:
-        """Reload configuration from disk."""
-        with self._lock:
-            config_path = Path("./config.yaml")
-            self._config = CCProxyConfig.from_litellm_config(config_path)
         return self._config
 
     def set(self, config: CCProxyConfig) -> None:

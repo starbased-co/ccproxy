@@ -14,7 +14,6 @@ from ccproxy.config import (
     LiteLLMConfig,
     clear_config_instance,
     get_config,
-    reload_config,
 )
 
 
@@ -27,7 +26,6 @@ class TestCCProxySettings:
         assert settings.token_count_threshold == 60000
         assert settings.debug is False
         assert settings.metrics_enabled is True
-        assert settings.reload_config_on_change is False
 
     def test_custom_settings(self) -> None:
         """Test custom CCProxy settings."""
@@ -114,7 +112,6 @@ class TestCCProxyConfig:
         config = CCProxyConfig()
         assert config.token_count_threshold == 60000
         assert config.debug is False
-        assert config.reload_config_on_change is False
         assert config.metrics_enabled is True
         assert config.litellm_config_path == Path("./config.yaml")
 
@@ -166,7 +163,6 @@ ccproxy_settings:
   token_count_threshold: 80000
   debug: true
   metrics_enabled: false
-  reload_config_on_change: true
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
@@ -179,7 +175,6 @@ ccproxy_settings:
             assert config.token_count_threshold == 80000
             assert config.debug is True
             assert config.metrics_enabled is False
-            assert config.reload_config_on_change is True
 
             # Check that we can get LiteLLM config
             litellm_config = config.get_litellm_config()
@@ -298,46 +293,6 @@ ccproxy_settings:
             yaml_path.unlink()
             clear_config_instance()
 
-    def test_reload_config(self) -> None:
-        """Test that reload_config creates a new instance."""
-        # Clear any existing instance
-        clear_config_instance()
-
-        yaml_content = """
-ccproxy_settings:
-  token_count_threshold: 45000
-"""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write(yaml_content)
-            yaml_path = Path(f.name)
-
-        try:
-            with mock.patch("ccproxy.config.Path") as mock_path:
-                mock_path.return_value = yaml_path
-                config1 = get_config()
-                assert config1.token_count_threshold == 45000
-
-                # Modify the file
-                new_content = """
-ccproxy_settings:
-  token_count_threshold: 65000
-"""
-                with yaml_path.open("w") as f:
-                    f.write(new_content)
-
-                # Reload
-                config2 = reload_config()
-                assert config2 is not config1
-                assert config2.token_count_threshold == 65000
-
-                # Subsequent get_config should return the new instance
-                config3 = get_config()
-                assert config3 is config2
-
-        finally:
-            yaml_path.unlink()
-            clear_config_instance()
-
 
 class TestConfigProvider:
     """Tests for ConfigProvider dependency injection."""
@@ -371,47 +326,6 @@ ccproxy_settings:
 
                 # Subsequent calls return same instance
                 assert provider.get() is config
-
-        finally:
-            yaml_path.unlink()
-
-    def test_provider_reload(self) -> None:
-        """Test ConfigProvider reload functionality."""
-        # Clear any existing singleton
-        clear_config_instance()
-
-        yaml_content = """
-ccproxy_settings:
-  token_count_threshold: 75000
-"""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-            f.write(yaml_content)
-            yaml_path = Path(f.name)
-
-        try:
-            with mock.patch("ccproxy.config.Path") as mock_path:
-                mock_path.return_value = yaml_path
-                provider = ConfigProvider()
-
-                # Get initial config
-                config1 = provider.get()
-                assert config1.token_count_threshold == 75000
-
-                # Modify file
-                new_content = """
-ccproxy_settings:
-  token_count_threshold: 95000
-"""
-                with yaml_path.open("w") as f:
-                    f.write(new_content)
-
-                # Reload
-                config2 = provider.reload()
-                assert config2 is not config1
-                assert config2.token_count_threshold == 95000
-
-                # Subsequent gets return reloaded config
-                assert provider.get() is config2
 
         finally:
             yaml_path.unlink()

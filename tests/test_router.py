@@ -223,8 +223,8 @@ class TestModelRouter:
         assert "claude" in groups
         assert groups["claude"] == ["think"]
 
-    def test_config_reload(self) -> None:
-        """Test configuration hot-reload."""
+    def test_config_update(self) -> None:
+        """Test configuration update handling."""
         initial_litellm_config = LiteLLMConfig(
             model_list=[{"model_name": "default", "litellm_params": {"model": "claude"}}]
         )
@@ -248,9 +248,9 @@ class TestModelRouter:
         assert len(router.get_model_list()) == 1
         assert router.get_model_for_label("default")["litellm_params"]["model"] == "claude"
 
-        # Simulate config reload by updating mock
+        # Simulate config update by updating mock
         mock_config.get_litellm_config.return_value = updated_litellm_config
-        router._load_model_mapping()  # Manually trigger reload
+        router._load_model_mapping()  # Manually trigger mapping update
 
         # Check updated state
         assert len(router.get_model_list()) == 2
