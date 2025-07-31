@@ -43,6 +43,21 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/ccproxy"]
 
+[tool.hatch.build]
+include = [
+    "src/ccproxy",
+    "templates",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/ccproxy",
+    "templates",
+    "tests",
+    "README.md",
+    "LICENSE",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
