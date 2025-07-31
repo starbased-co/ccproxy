@@ -210,7 +210,8 @@ class CCProxyDaemon:
                 os.kill(pid, signal.SIGKILL)
 
             # Remove PID file
-            self.pid_file.unlink()
+            if self.pid_file.exists():
+                self.pid_file.unlink()
             print(f"Stopped CCProxy (PID: {pid})")
 
         except (ValueError, ProcessLookupError) as e:
@@ -237,16 +238,19 @@ class CCProxyDaemon:
                     print(f"  Started: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(process.create_time()))}")
                 except psutil.NoSuchProcess:
                     print("CCProxy is not running (process not found)")
-                    self.pid_file.unlink()
+                    if self.pid_file.exists():
+                        self.pid_file.unlink()
                     sys.exit(1)
             else:
                 print("CCProxy is not running (stale PID file)")
-                self.pid_file.unlink()
+                if self.pid_file.exists():
+                    self.pid_file.unlink()
                 sys.exit(1)
 
         except ValueError:
             print("Invalid PID file")
-            self.pid_file.unlink()
+            if self.pid_file.exists():
+                self.pid_file.unlink()
             sys.exit(1)
 
 
