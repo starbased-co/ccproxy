@@ -278,24 +278,6 @@ def install(config_dir: Path, force: bool = False) -> None:
         else:
             print(f"  Warning: Template {filename} not found", file=sys.stderr)
 
-    # Copy systemd service file to user systemd directory
-    systemd_user_dir = Path.home() / ".config" / "systemd" / "user"
-    systemd_user_dir.mkdir(parents=True, exist_ok=True)
-
-    service_src = templates_dir / "ccproxy.service"
-    service_dst = systemd_user_dir / "ccproxy.service"
-
-    if service_src.exists():
-        if service_dst.exists() and not force:
-            print(f"  Skipping systemd service (already exists at {service_dst})")
-        else:
-            shutil.copy2(service_src, service_dst)
-            print(f"  Installed systemd service to {service_dst}")
-            print("\nTo enable the systemd service:")
-            print("  systemctl --user daemon-reload")
-            print("  systemctl --user enable ccproxy.service")
-            print("  systemctl --user start ccproxy.service")
-
     print(f"\nInstallation complete! Configuration files installed to: {config_dir}")
     print("\nNext steps:")
     print(f"  1. Edit {config_dir}/ccproxy.yaml to configure routing rules")
