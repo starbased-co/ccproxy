@@ -55,19 +55,29 @@ class TokenCountRule(ClassificationRule):
 class ModelNameRule(ClassificationRule):
     """Rule for classifying requests based on model name."""
 
+    def __init__(self, model_name: str, label: RoutingLabel) -> None:
+        """Initialize the rule with a model name to match.
+
+        Args:
+            model_name: The model name substring to match
+            label: The routing label to return if matched
+        """
+        self.model_name = model_name
+        self.label = label
+
     def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> RoutingLabel | None:
-        """Evaluate if request is for a background model.
+        """Evaluate if request matches the configured model name.
 
         Args:
             request: The request to evaluate
             config: The current configuration
 
         Returns:
-            BACKGROUND if model is claude-3-5-haiku, None otherwise
+            The configured label if model matches, None otherwise
         """
         model = request.get("model", "")
-        if isinstance(model, str) and "claude-3-5-haiku" in model:
-            return RoutingLabel.BACKGROUND
+        if isinstance(model, str) and self.model_name in model:
+            return self.label
 
         return None
 

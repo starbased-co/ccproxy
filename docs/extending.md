@@ -68,6 +68,21 @@ classifier = RequestClassifier()
 classifier.add_rule(PriorityHeaderRule())
 ```
 
+## Example: Custom Model Name Routing
+
+You can create additional model name rules for specific models:
+
+```python
+from ccproxy.rules import ModelNameRule
+
+# Route GPT-4o-mini requests to background
+classifier = RequestClassifier()
+classifier.add_rule(ModelNameRule("gpt-4o-mini", RoutingLabel.BACKGROUND))
+
+# Route a specific custom model to think label
+classifier.add_rule(ModelNameRule("my-reasoning-model", RoutingLabel.THINK))
+```
+
 ## Example: Environment-Based Routing
 
 Route requests differently based on deployment environment:
@@ -99,7 +114,7 @@ Rules are evaluated in the order they are added. The first rule that returns a n
 classifier = RequestClassifier()
 # Default rules are added in this order:
 # 1. TokenCountRule (large_context)
-# 2. ModelNameRule (background)
+# 2. ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
 # 3. ThinkingRule (think)
 # 4. WebSearchRule (web_search)
 

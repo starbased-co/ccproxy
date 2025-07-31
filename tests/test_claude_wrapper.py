@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import time
 from unittest.mock import MagicMock, Mock, patch
 
@@ -164,11 +163,10 @@ class TestProxyManagement:
         # Check command
         call_args = mock_popen.call_args
         cmd = call_args[0][0]
-        assert sys.executable in cmd
-        assert "-m" in cmd
-        assert "litellm" in cmd
+        assert cmd[0] == "litellm"
         assert "--port" in cmd
         assert "8888" in cmd
+        assert "--drop_params" in cmd
 
     @patch("ccproxy.claude_wrapper.subprocess.Popen")
     @patch("ccproxy.claude_wrapper.open")

@@ -59,7 +59,7 @@ class TestEdgeCases:
 
     def test_empty_model_string(self) -> None:
         """Test ModelNameRule with empty string model."""
-        rule = ModelNameRule()
+        rule = ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
         config = CCProxyConfig()
 
         request = {"model": ""}
@@ -214,7 +214,7 @@ class TestEdgeCases:
 
     def test_model_name_partial_matches(self) -> None:
         """Test ModelNameRule substring matching behavior."""
-        rule = ModelNameRule()
+        rule = ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
         config = CCProxyConfig()
 
         # These should match (contain "claude-3-5-haiku")

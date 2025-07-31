@@ -87,8 +87,8 @@ class TestModelNameRule:
 
     @pytest.fixture
     def rule(self) -> ModelNameRule:
-        """Create a model name rule."""
-        return ModelNameRule()
+        """Create a model name rule for claude-3-5-haiku."""
+        return ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND)
 
     @pytest.fixture
     def config(self) -> CCProxyConfig:
@@ -215,3 +215,39 @@ class TestWebSearchRule:
             ]
         }
         assert rule.evaluate(request, config) == RoutingLabel.WEB_SEARCH
+
+
+class TestParameterizedModelNameRule:
+    """Tests for parameterized ModelNameRule."""
+
+    def test_custom_model_routing(self) -> None:
+        """Test creating ModelNameRule with custom parameters."""
+        config = CCProxyConfig()
+
+        # Test with GPT-4o-mini routing to background
+        rule = ModelNameRule("gpt-4o-mini", RoutingLabel.BACKGROUND)
+        request = {"model": "gpt-4o-mini"}
+        assert rule.evaluate(request, config) == RoutingLabel.BACKGROUND
+
+        # Test non-matching
+        request = {"model": "gpt-4"}
+        assert rule.evaluate(request, config) is None
+
+    def test_multiple_model_rules(self) -> None:
+        """Test using multiple ModelNameRule instances."""
+        config = CCProxyConfig()
+
+        # Create rules for different models
+        gpt_rule = ModelNameRule("gpt-4o-mini", RoutingLabel.BACKGROUND)
+        custom_rule = ModelNameRule("my-fast-model", RoutingLabel.DEFAULT)
+        reasoning_rule = ModelNameRule("reasoning-v2", RoutingLabel.THINK)
+
+        # Test each rule
+        assert gpt_rule.evaluate({"model": "gpt-4o-mini"}, config) == RoutingLabel.BACKGROUND
+        assert custom_rule.evaluate({"model": "my-fast-model"}, config) == RoutingLabel.DEFAULT
+        assert reasoning_rule.evaluate({"model": "reasoning-v2"}, config) == RoutingLabel.THINK
+
+        # Test non-matching
+        assert gpt_rule.evaluate({"model": "claude"}, config) is None
+        assert custom_rule.evaluate({"model": "gpt-4"}, config) is None
+        assert reasoning_rule.evaluate({"model": "fast-model"}, config) is None

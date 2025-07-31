@@ -128,7 +128,7 @@ class RequestClassifier:
 
         # Add rules in priority order
         self.add_rule(TokenCountRule())  # Priority 1: Large context
-        self.add_rule(ModelNameRule())  # Priority 2: Background models
+        self.add_rule(ModelNameRule("claude-3-5-haiku", RoutingLabel.BACKGROUND))  # Priority 2: Background models
         self.add_rule(ThinkingRule())  # Priority 3: Thinking requests
         self.add_rule(WebSearchRule())  # Priority 4: Web search tools
 
