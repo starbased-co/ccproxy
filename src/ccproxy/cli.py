@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -11,6 +12,8 @@ from typing import Any
 
 import psutil
 import yaml
+
+from ccproxy.utils import get_templates_dir
 
 
 class CCProxyDaemon:
@@ -230,6 +233,76 @@ class CCProxyDaemon:
             sys.exit(1)
 
 
+def install(config_dir: Path, force: bool = False) -> None:
+    """Install CCProxy configuration files.
+
+    Args:
+        config_dir: Directory to install configuration files to
+        force: Whether to overwrite existing configuration
+    """
+    # Check if config directory exists
+    if config_dir.exists() and not force:
+        print(f"Configuration directory {config_dir} already exists.")
+        print("Use --force to overwrite existing configuration.")
+        sys.exit(1)
+
+    # Create config directory
+    config_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Creating configuration directory: {config_dir}")
+
+    # Get templates directory
+    try:
+        templates_dir = get_templates_dir()
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # List of files to copy
+    template_files = [
+        "ccproxy.yaml",
+        "config.yaml",
+        "ccproxy.py",
+    ]
+
+    # Copy template files
+    for filename in template_files:
+        src = templates_dir / filename
+        dst = config_dir / filename
+
+        if src.exists():
+            if dst.exists() and not force:
+                print(f"  Skipping {filename} (already exists)")
+            else:
+                shutil.copy2(src, dst)
+                print(f"  Copied {filename}")
+        else:
+            print(f"  Warning: Template {filename} not found", file=sys.stderr)
+
+    # Copy systemd service file to user systemd directory
+    systemd_user_dir = Path.home() / ".config" / "systemd" / "user"
+    systemd_user_dir.mkdir(parents=True, exist_ok=True)
+
+    service_src = templates_dir / "ccproxy.service"
+    service_dst = systemd_user_dir / "ccproxy.service"
+
+    if service_src.exists():
+        if service_dst.exists() and not force:
+            print(f"  Skipping systemd service (already exists at {service_dst})")
+        else:
+            shutil.copy2(service_src, service_dst)
+            print(f"  Installed systemd service to {service_dst}")
+            print("\nTo enable the systemd service:")
+            print("  systemctl --user daemon-reload")
+            print("  systemctl --user enable ccproxy.service")
+            print("  systemctl --user start ccproxy.service")
+
+    print(f"\nInstallation complete! Configuration files installed to: {config_dir}")
+    print("\nNext steps:")
+    print(f"  1. Edit {config_dir}/ccproxy.yaml to configure routing rules")
+    print(f"  2. Edit {config_dir}/config.yaml to configure LiteLLM models")
+    print("  3. Start the proxy with: ccproxy start")
+
+
 def main() -> None:
     """Main entry point for the CCProxy CLI."""
     parser = argparse.ArgumentParser(
@@ -260,8 +333,9 @@ def main() -> None:
     # Status command
     subparsers.add_parser("status", help="Check status of the LiteLLM proxy server")
 
-    # Install command (placeholder for future implementation)
-    subparsers.add_parser("install", help="Install CCProxy configuration files")
+    # Install command
+    install_parser = subparsers.add_parser("install", help="Install CCProxy configuration files")
+    install_parser.add_argument("--force", action="store_true", help="Overwrite existing configuration")
 
     args = parser.parse_args()
 
@@ -280,8 +354,7 @@ def main() -> None:
     elif args.command == "status":
         daemon.status()
     elif args.command == "install":
-        print("Install command not yet implemented")
-        sys.exit(1)
+        install(args.config_dir, force=args.force)
     else:
         parser.print_help()
         sys.exit(1)
