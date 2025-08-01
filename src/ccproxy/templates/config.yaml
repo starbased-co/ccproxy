@@ -27,18 +27,21 @@ model_list:
 
   - model_name: claude-sonnet-4-20250514
     litellm_params:
-      model: anthropic/claude-3-5-haiku-20241022
+      model: anthropic/claude-3-5-sonnet-20241022
       api_base: https://api.anthropic.com
+      # api_key removed - OAuth token will be forwarded from claude-cli
 
   - model_name: claude-opus-4-20250514
     litellm_params:
-      model: anthropic/claude-3-5-haiku-20241022
+      model: anthropic/claude-3-opus-20240229
       api_base: https://api.anthropic.com
+      # api_key removed - OAuth token will be forwarded from claude-cli
 
   - model_name: claude-3-5-haiku-20241022
     litellm_params:
       model: anthropic/claude-3-5-haiku-20241022
       api_base: https://api.anthropic.com
+      # api_key removed - OAuth token will be forwarded from claude-cli
 
   - model_name: gemini-2.5-pro
     litellm_params:
@@ -54,12 +57,13 @@ model_list:
 
 litellm_settings:
   callbacks: ccproxy.handler
+  # set_verbose: true
 
 general_settings:
   forward_client_headers_to_llm_api: true
+  # LiteLLM already has built-in /anthropic pass-through endpoint
+  # OAuth token conversion is handled in CCProxyHandler for /chat/completions
+  # and LiteLLM's built-in /anthropic endpoint for /v1/messages
+
   # master_key: sk-1234
   # database_url: postgresql://ccproxy:test@127.0.0.1:5432/litellm
-  pass_through_endpoints:
-    - path: /v1/messages?beta=true
-      target: https://api.anthropic.com/v1/messages?beta=true
-      forward_headers: true

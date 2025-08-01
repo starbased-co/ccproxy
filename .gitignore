@@ -65,3 +65,4 @@ poetry.lock
 # Project specific
 *.db
 *.sqlite
+/.ccproxy

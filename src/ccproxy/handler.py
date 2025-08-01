@@ -1,5 +1,6 @@
 """CCProxyHandler - Main LiteLLM CustomLogger implementation."""
 
+import builtins
 import logging
 from typing import Any, TypedDict
 
@@ -9,6 +10,8 @@ from rich import print
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import get_config
 from ccproxy.router import get_router
+
+builtins.print = print
 
 # Set up structured logging
 logger = logging.getLogger(__name__)
@@ -144,6 +147,27 @@ class CCProxyHandler(CustomLogger):
             import uuid
 
             data["metadata"]["request_id"] = str(uuid.uuid4())
+
+        # Handle OAuth token forwarding for Claude CLI
+        # Check if this is a claude-cli request and targeting an Anthropic model
+        request = data.get("proxy_server_request")
+        user_agent = (request.get("headers") or {}).get("user-agent")
+        if "claude-cli" in user_agent and ("anthropic/" in routed_model or routed_model.startswith("claude")):
+            raw_headers = (data.get("secret_fields") or {}).get("raw_headers")
+
+            # Extract OAuth token from Authorization header
+            auth_header = raw_headers.get("authorization", "")
+            data["provider_specific_header"]["extra_headers"]["authorization"] = auth_header
+            # # Log OAuth forwarding
+            logger.info(
+                "Forwarding request with Claude Code OAuth token",
+                extra={
+                    "event": "oauth_forwarding",
+                    "user_agent": user_agent,
+                    "model": routed_model,
+                    "request_id": data["metadata"]["request_id"],
+                },
+            )
 
         # Log routing decision with structured logging
         self._log_routing_decision(

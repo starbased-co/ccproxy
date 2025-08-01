@@ -19,7 +19,9 @@
       "Bash(true)",
       "Bash(rm:*)",
       "Bash(strace:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(pgrep:*)",
+      "Bash(./request.zsh)"
     ],
     "deny": []
   },
