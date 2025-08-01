@@ -29,7 +29,7 @@ litellm_settings:
   callbacks: ccproxy.handler
 
 general_settings:
-  database_url: postgresql://ccproxy:test@127.0.0.1:5432/litellm
+  # database_url: postgresql://ccproxy:test@127.0.0.1:5432/litellm
   master_key: sk-1234
   pass_through_endpoints:
     - path: "/v1/messages?beta=true"

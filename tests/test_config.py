@@ -6,7 +6,6 @@ from unittest import mock
 
 from ccproxy.config import (
     CCProxyConfig,
-    ConfigProvider,
     RuleConfig,
     clear_config_instance,
     get_config,
@@ -99,12 +98,7 @@ model_list:
             assert config.rules[0].label == "token_count"
             assert config.rules[1].label == "background"
 
-            # Test model lookup (reads from YAML when proxy_server is None)
-            assert config.get_model_for_label("default") == "claude-3-5-sonnet-20241022"
-            assert config.get_model_for_label("background") == "claude-3-5-haiku-20241022"
-            assert config.get_model_for_label("token_count") == "gemini-2.5-pro"
-            assert config.get_model_for_label("web_search") == "perplexity/llama-3.1-sonar-large-128k-online"
-            assert config.get_model_for_label("nonexistent") is None
+            # Model lookup functionality has been moved to router.py
 
         finally:
             ccproxy_path.unlink()
@@ -160,8 +154,8 @@ ccproxy:
         finally:
             yaml_path.unlink()
 
-    def test_get_model_for_label(self) -> None:
-        """Test model lookup by routing label."""
+    def test_model_loading_from_yaml(self) -> None:
+        """Test that model configuration can be loaded from YAML files."""
         litellm_yaml_content = """
 model_list:
   - model_name: default
@@ -186,10 +180,9 @@ ccproxy:
         try:
             config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
 
-            # Should return models from YAML when proxy_server is None
-            assert config.get_model_for_label("default") == "gpt-4"
-            assert config.get_model_for_label("background") == "gpt-3.5-turbo"
-            assert config.get_model_for_label("think") is None  # Not in model_list
+            # Config should have the litellm_config_path set
+            assert config.litellm_config_path == litellm_path
+            # Model lookup functionality has been moved to router.py
 
         finally:
             litellm_path.unlink()
@@ -220,67 +213,6 @@ class TestConfigSingleton:
 
         finally:
             clear_config_instance()
-
-
-class TestConfigProvider:
-    """Tests for ConfigProvider dependency injection."""
-
-    def test_provider_initialization(self) -> None:
-        """Test ConfigProvider initialization."""
-        # With config
-        config = CCProxyConfig(debug=True)
-        provider = ConfigProvider(config)
-        assert provider.get() is config
-        assert provider.get().debug is True
-
-    def test_provider_lazy_load(self) -> None:
-        """Test ConfigProvider lazy loading."""
-        # Clear any existing instance
-        clear_config_instance()
-
-        # Set a custom config in the global singleton
-        custom_config = CCProxyConfig(metrics_enabled=False)
-        from ccproxy.config import set_config_instance
-
-        set_config_instance(custom_config)
-
-        try:
-            provider = ConfigProvider()
-
-            # Should load from singleton on first access
-            config = provider.get()
-            assert config.metrics_enabled is False
-
-            # Subsequent calls return same instance
-            assert provider.get() is config
-
-        finally:
-            clear_config_instance()
-
-    def test_provider_set(self) -> None:
-        """Test ConfigProvider set functionality."""
-        provider = ConfigProvider()
-
-        # Set a specific config
-        custom_config = CCProxyConfig(debug=True, metrics_enabled=False)
-        provider.set(custom_config)
-
-        # Should get the custom config
-        assert provider.get() is custom_config
-        assert provider.get().debug is True
-        assert provider.get().metrics_enabled is False
-
-    def test_multiple_providers(self) -> None:
-        """Test that multiple providers can coexist."""
-        # Each provider has its own config
-        provider1 = ConfigProvider(CCProxyConfig(debug=True))
-        provider2 = ConfigProvider(CCProxyConfig(debug=False))
-
-        assert provider1.get().debug is True
-        assert provider2.get().debug is False
-
-        # They should be independent
-        assert provider1.get() is not provider2.get()
 
 
 class TestProxyRuntimeConfig:
@@ -317,7 +249,6 @@ ccproxy:
             # Mock Path("config.yaml") to return our temp config.yaml
             with mock.patch("ccproxy.config.Path") as mock_path:
                 mock_path.return_value = config_yaml
-
                 config = CCProxyConfig.from_proxy_runtime()
 
                 assert config.debug is True
@@ -336,7 +267,6 @@ ccproxy:
             # Mock Path("config.yaml") to return our temp config.yaml
             with mock.patch("ccproxy.config.Path") as mock_path:
                 mock_path.return_value = config_yaml
-
                 config = CCProxyConfig.from_proxy_runtime()
 
                 # Should use defaults
@@ -354,7 +284,6 @@ ccproxy:
             # Mock Path to return our non-existent config.yaml
             with mock.patch("ccproxy.config.Path") as mock_path:
                 mock_path.return_value = config_yaml
-
                 config = CCProxyConfig.from_proxy_runtime()
 
                 # Should use defaults
@@ -362,8 +291,8 @@ ccproxy:
                 assert config.metrics_enabled is True
                 assert config.rules == []
 
-    def test_get_model_for_label_from_runtime(self) -> None:
-        """Test model lookup from proxy_server runtime."""
+    def test_config_from_runtime(self) -> None:
+        """Test loading configuration from proxy_server runtime."""
         # Mock proxy_server
         mock_proxy_server = mock.MagicMock()
         mock_proxy_server.general_settings = {}
@@ -388,9 +317,9 @@ ccproxy:
         with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
             config = CCProxyConfig.from_proxy_runtime()
 
-            assert config.get_model_for_label("default") == "claude-3-5-sonnet-20241022"
-            assert config.get_model_for_label("background") == "claude-3-5-haiku-20241022"
-            assert config.get_model_for_label("unknown") is None
+            # Config should be created successfully
+            assert config is not None
+            # Model lookup functionality has been moved to router.py
 
     def test_get_config_uses_runtime_when_available(self) -> None:
         """Test that get_config prefers runtime config when available."""

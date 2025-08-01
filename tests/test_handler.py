@@ -117,13 +117,86 @@ class TestCCProxyGetModel:
             clear_config_instance()
             clear_router()
 
+    def test_route_to_background(self, config_files):
+        """Test routing haiku model to background."""
+        ccproxy_path, litellm_path = config_files
+
+        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
+        set_config_instance(config)
+
+        try:
+            request_data = {
+                "model": "claude-3-5-haiku-20241022",
+                "messages": [{"role": "user", "content": "Format this code"}],
+            }
+
+            model = ccproxy_get_model(request_data)
+            assert model == "claude-3-5-haiku-20241022"
+        finally:
+            clear_config_instance()
+            clear_router()
+
 
 class TestHandlerHookMethods:
     """Test suite for individual hook methods that haven't been covered."""
 
+    @pytest.fixture
+    def config_files(self):
+        """Create temporary ccproxy.yaml and litellm config files."""
+        # Create litellm config
+        litellm_data = {
+            "model_list": [
+                {
+                    "model_name": "default",
+                    "litellm_params": {
+                        "model": "claude-3-5-sonnet-20241022",
+                    },
+                },
+                {
+                    "model_name": "background",
+                    "litellm_params": {
+                        "model": "claude-3-5-haiku-20241022",
+                    },
+                },
+            ],
+        }
+
+        # Create ccproxy config
+        ccproxy_data = {
+            "ccproxy": {
+                "debug": False,
+                "rules": [
+                    {
+                        "label": "background",
+                        "rule": "ccproxy.rules.MatchModelRule",
+                        "params": [{"model_name": "claude-3-5-haiku-20241022"}],
+                    },
+                ],
+            }
+        }
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
+            yaml.dump(litellm_data, litellm_file)
+            litellm_path = Path(litellm_file.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as ccproxy_file:
+            yaml.dump(ccproxy_data, ccproxy_file)
+            ccproxy_path = Path(ccproxy_file.name)
+
+        yield ccproxy_path, litellm_path
+
+        # Cleanup
+        litellm_path.unlink()
+        ccproxy_path.unlink()
+
+    @pytest.fixture
+    def handler(self) -> CCProxyHandler:
+        """Create a CCProxyHandler instance."""
+        return CCProxyHandler()
+
     @pytest.mark.asyncio
     async def test_log_success_hook(self, handler: CCProxyHandler) -> None:
-        """Test async_log_success_hook method."""
+        """Test async_log_success_event method."""
         kwargs = {
             "litellm_params": {},
             "start_time": 1234567890,
@@ -133,11 +206,11 @@ class TestHandlerHookMethods:
         response_obj = Mock(model="test-model", usage=Mock(completion_tokens=10, prompt_tokens=20, total_tokens=30))
 
         # Should not raise any exceptions
-        await handler.async_log_success_hook(kwargs, response_obj, 1234567890, 1234567900)
+        await handler.async_log_success_event(kwargs, response_obj, 1234567890, 1234567900)
 
     @pytest.mark.asyncio
     async def test_log_failure_hook(self, handler: CCProxyHandler) -> None:
-        """Test async_log_failure_hook method."""
+        """Test async_log_failure_event method."""
         kwargs = {
             "litellm_params": {},
             "start_time": 1234567890,
@@ -146,49 +219,50 @@ class TestHandlerHookMethods:
         response_obj = Mock()
 
         # Should not raise any exceptions
-        await handler.async_log_failure_hook(kwargs, response_obj, 1234567890, 1234567900)
+        await handler.async_log_failure_event(kwargs, response_obj, 1234567890, 1234567900)
 
     @pytest.mark.asyncio
     async def test_logging_hook_with_completion(self, handler: CCProxyHandler) -> None:
-        """Test async_logging_hook with completion call type."""
+        """Test async_pre_call_hook with completion call type."""
         # Create mock data
-        kwargs = {"litellm_params": {}}
-        response_obj = Mock()
-        call_type = "completion"
+        data = {
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+        user_api_key_dict = {}
 
         # Should return without error
-        result = await handler.async_logging_hook(
-            kwargs=kwargs,
-            response_obj=response_obj,
-            start_time=None,
-            end_time=None,
-            user_api_key_dict={},
-            call_type=call_type,
+        result = await handler.async_pre_call_hook(
+            data,
+            user_api_key_dict,
         )
 
-        # Should return None or the response_obj
-        assert result is None or result == response_obj
+        # Should return the modified data
+        assert isinstance(result, dict)
+        assert "model" in result
+        assert "metadata" in result
 
     @pytest.mark.asyncio
     async def test_logging_hook_with_unsupported_call_type(self, handler: CCProxyHandler) -> None:
-        """Test async_logging_hook with unsupported call type."""
-        # Create mock data
-        kwargs = {"litellm_params": {}}
-        response_obj = Mock()
-        call_type = "embeddings"  # Not supported
+        """Test async_pre_call_hook with various request data."""
+        # Create mock data with a different model
+        data = {
+            "model": "gpt-4",  # Not in our config, should use default
+            "messages": [{"role": "user", "content": "Test"}],
+        }
+        user_api_key_dict = {}
 
         # Should return without error
-        result = await handler.async_logging_hook(
-            kwargs=kwargs,
-            response_obj=response_obj,
-            start_time=None,
-            end_time=None,
-            user_api_key_dict={},
-            call_type=call_type,
+        result = await handler.async_pre_call_hook(
+            data,
+            user_api_key_dict,
         )
 
-        # Should return None or the response_obj
-        assert result is None or result == response_obj
+        # Should return the modified data - gpt-4 is not in our config so it passes through
+        assert isinstance(result, dict)
+        assert result["model"] == "gpt-4"  # Should pass through unchanged
+        # Even though model passes through, we still add metadata
+        assert "metadata" in result
 
     @pytest.mark.asyncio
     async def test_log_stream_event(self, handler: CCProxyHandler) -> None:
@@ -211,25 +285,6 @@ class TestHandlerHookMethods:
 
         # Should not raise any exceptions
         await handler.async_log_stream_event(kwargs, response_obj, start_time, end_time)
-
-    def test_route_to_background(self, config_files):
-        """Test routing haiku model to background."""
-        ccproxy_path, litellm_path = config_files
-
-        config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
-        set_config_instance(config)
-
-        try:
-            request_data = {
-                "model": "claude-3-5-haiku-20241022",
-                "messages": [{"role": "user", "content": "Format this code"}],
-            }
-
-            model = ccproxy_get_model(request_data)
-            assert model == "claude-3-5-haiku-20241022"
-        finally:
-            clear_config_instance()
-            clear_router()
 
 
 class TestCCProxyHandler:
@@ -411,99 +466,3 @@ class TestCCProxyHandler:
             ccproxy_path.unlink()
             clear_config_instance()
             clear_router()
-
-
-class TestHandlerLoggingHookMethods:
-    """Test suite for individual hook methods that haven't been covered."""
-
-    @pytest.mark.asyncio
-    async def test_log_success_hook(self) -> None:
-        """Test async_log_success_hook method."""
-        handler = CCProxyHandler()
-        kwargs = {
-            "litellm_params": {},
-            "start_time": 1234567890,
-            "end_time": 1234567900,
-            "cache_hit": False,
-        }
-        response_obj = Mock(model="test-model", usage=Mock(completion_tokens=10, prompt_tokens=20, total_tokens=30))
-
-        # Should not raise any exceptions
-        await handler.async_log_success_hook(kwargs, response_obj, 1234567890, 1234567900)
-
-    @pytest.mark.asyncio
-    async def test_log_failure_hook(self, handler: CCProxyHandler) -> None:
-        """Test async_log_failure_hook method."""
-        kwargs = {
-            "litellm_params": {},
-            "start_time": 1234567890,
-            "end_time": 1234567900,
-        }
-        response_obj = Mock()
-
-        # Should not raise any exceptions
-        await handler.async_log_failure_hook(kwargs, response_obj, 1234567890, 1234567900)
-
-    @pytest.mark.asyncio
-    async def test_logging_hook_with_completion(self, handler: CCProxyHandler) -> None:
-        """Test async_logging_hook with completion call type."""
-        # Create mock data
-        kwargs = {"litellm_params": {}}
-        response_obj = Mock()
-        call_type = "completion"
-
-        # Should return without error
-        result = await handler.async_logging_hook(
-            kwargs=kwargs,
-            response_obj=response_obj,
-            start_time=None,
-            end_time=None,
-            user_api_key_dict={},
-            call_type=call_type,
-        )
-
-        # Should return None or the response_obj
-        assert result is None or result == response_obj
-
-    @pytest.mark.asyncio
-    async def test_logging_hook_with_unsupported_call_type(self, handler: CCProxyHandler) -> None:
-        """Test async_logging_hook with unsupported call type."""
-        # Create mock data
-        kwargs = {"litellm_params": {}}
-        response_obj = Mock()
-        call_type = "embeddings"  # Not supported
-
-        # Should return without error
-        result = await handler.async_logging_hook(
-            kwargs=kwargs,
-            response_obj=response_obj,
-            start_time=None,
-            end_time=None,
-            user_api_key_dict={},
-            call_type=call_type,
-        )
-
-        # Should return None or the response_obj
-        assert result is None or result == response_obj
-
-    @pytest.mark.asyncio
-    async def test_log_stream_event(self, handler: CCProxyHandler) -> None:
-        """Test log_stream_event method."""
-        kwargs = {"litellm_params": {}}
-        response_obj = Mock()
-        start_time = 1234567890
-        end_time = 1234567900
-
-        # Should not raise any exceptions
-        handler.log_stream_event(kwargs, response_obj, start_time, end_time)
-
-    @pytest.mark.asyncio
-    async def test_async_log_stream_event(self, handler: CCProxyHandler) -> None:
-        """Test async_log_stream_event method."""
-        kwargs = {"litellm_params": {}}
-        response_obj = Mock()
-        start_time = 1234567890
-        end_time = 1234567900
-
-        # Should not raise any exceptions
-        await handler.async_log_stream_event(kwargs, response_obj, start_time, end_time)

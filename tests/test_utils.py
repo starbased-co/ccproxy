@@ -30,22 +30,20 @@ class TestGetTemplatesDir:
             assert result == templates_dir
 
     def test_templates_dir_installed_mode(self, tmp_path: Path) -> None:
-        """Test finding templates in sys.path."""
+        """Test finding templates in installed package mode."""
         # Create a fake module location
         fake_module = tmp_path / "fake" / "location" / "ccproxy"
         fake_module.mkdir(parents=True)
         fake_utils = fake_module / "utils.py"
         fake_utils.touch()
 
-        # Create site-packages structure
-        site_packages = tmp_path / "site-packages"
-        site_packages.mkdir()
-        templates_dir = site_packages / "templates"
+        # Create templates inside the package
+        templates_dir = fake_module / "templates"
         templates_dir.mkdir()
         (templates_dir / "ccproxy.yaml").touch()
 
-        # Mock sys.path and __file__
-        with patch("sys.path", [str(site_packages), "/other/path"]), patch("ccproxy.utils.__file__", str(fake_utils)):
+        # Mock __file__
+        with patch("ccproxy.utils.__file__", str(fake_utils)):
             result = get_templates_dir()
             assert result == templates_dir
 

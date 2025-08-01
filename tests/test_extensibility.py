@@ -132,72 +132,77 @@ class TestClassifierExtensibility:
 
     def test_reset_to_default_rules(self) -> None:
         """Test resetting to default rules after customization."""
-        from unittest.mock import Mock
 
-        from ccproxy.config import ConfigProvider, RuleConfig
+        from ccproxy.config import CCProxyConfig, RuleConfig, clear_config_instance, set_config_instance
 
-        # Mock config with token_count rule
-        mock_config = Mock()
-        mock_config.rules = [
+        # Create test config with token_count rule
+        test_config = CCProxyConfig()
+        test_config.rules = [
             RuleConfig(label="token_count", rule_path="ccproxy.rules.TokenCountRule", params=[{"threshold": 60000}])
         ]
 
-        mock_provider = Mock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        # Set the test config
+        clear_config_instance()
+        set_config_instance(test_config)
 
-        classifier = RequestClassifier(config_provider=mock_provider)
+        try:
+            classifier = RequestClassifier()
 
-        # Add custom rule
-        classifier.add_rule("background", CustomHeaderRule())
+            # Add custom rule
+            classifier.add_rule("background", CustomHeaderRule())
 
-        # Clear and add only custom
-        classifier.clear_rules()
-        classifier.add_rule("background", CustomHeaderRule())
+            # Clear and add only custom
+            classifier.clear_rules()
+            classifier.add_rule("background", CustomHeaderRule())
 
-        # Verify default rules don't work
-        request = {"token_count": 100000}
-        label = classifier.classify(request)
-        assert label == "default"
+            # Verify default rules don't work
+            request = {"token_count": 100000}
+            label = classifier.classify(request)
+            assert label == "default"
 
-        # Reset to defaults
-        classifier.reset_rules()
+            # Reset to defaults
+            classifier.reset_rules()
 
-        # Now default rules work again
-        label = classifier.classify(request)
-        assert label == "token_count"
+            # Now default rules work again
+            label = classifier.classify(request)
+            assert label == "token_count"
+        finally:
+            clear_config_instance()
 
     def test_mixed_default_and_custom_rules(self) -> None:
         """Test using both default and custom rules together."""
-        from unittest.mock import Mock
+        from ccproxy.config import CCProxyConfig, RuleConfig, clear_config_instance, set_config_instance
 
-        from ccproxy.config import ConfigProvider, RuleConfig
-
-        # Mock config with token_count rule
-        mock_config = Mock()
-        mock_config.rules = [
+        # Create test config with token_count rule
+        test_config = CCProxyConfig()
+        test_config.rules = [
             RuleConfig(label="token_count", rule_path="ccproxy.rules.TokenCountRule", params=[{"threshold": 60000}])
         ]
 
-        mock_provider = Mock(spec=ConfigProvider)
-        mock_provider.get.return_value = mock_config
+        # Set the test config
+        clear_config_instance()
+        set_config_instance(test_config)
 
-        classifier = RequestClassifier(config_provider=mock_provider)
+        try:
+            classifier = RequestClassifier()
 
-        # Add custom rule on top of defaults
-        classifier.add_rule("production", CustomEnvironmentRule("production"))
+            # Add custom rule on top of defaults
+            classifier.add_rule("production", CustomEnvironmentRule("production"))
 
-        # Test default rule (token count)
-        request = {"token_count": 100000}
-        label = classifier.classify(request)
-        assert label == "token_count"
+            # Test default rule (token count)
+            request = {"token_count": 100000}
+            label = classifier.classify(request)
+            assert label == "token_count"
 
-        # Test custom rule
-        request = {
-            "model": "claude-3-5-sonnet",
-            "metadata": {"environment": "production"},
-        }
-        label = classifier.classify(request)
-        assert label == "production"
+            # Test custom rule
+            request = {
+                "model": "claude-3-5-sonnet",
+                "metadata": {"environment": "production"},
+            }
+            label = classifier.classify(request)
+            assert label == "production"
+        finally:
+            clear_config_instance()
 
     def test_custom_rule_edge_cases(self) -> None:
         """Test edge cases with custom rules."""

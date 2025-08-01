@@ -149,42 +149,14 @@ class CCProxyConfig(BaseSettings):
 
         return instance
 
-    def get_model_for_label(self, label: str) -> str | None:
-        """Get the model name for a given routing label from LiteLLM runtime config."""
-        # Try to get from proxy_server runtime first
-        if proxy_server and hasattr(proxy_server, "llm_router") and proxy_server.llm_router:
-            model_list = proxy_server.llm_router.model_list or []
 
-            # Look for model with matching model_name
-            for model in model_list:
-                if model.get("model_name") == label:
-                    # Return the actual model identifier from litellm_params
-                    litellm_params = model.get("litellm_params", {})
-                    model_name = litellm_params.get("model")
-                    return model_name if isinstance(model_name, str) else None
-
-        # Fall back to reading from YAML if proxy_server not available
-        if self.litellm_config_path.exists():
-            with self.litellm_config_path.open() as f:
-                litellm_data = yaml.safe_load(f) or {}
-                model_list = litellm_data.get("model_list", [])
-
-                for model in model_list:
-                    if model.get("model_name") == label:
-                        litellm_params = model.get("litellm_params", {})
-                        model_name = litellm_params.get("model")
-                        return model_name if isinstance(model_name, str) else None
-
-        return None
-
-
-# Singleton instance holder with thread safety
+# Global configuration instance
 _config_instance: CCProxyConfig | None = None
 _config_lock = threading.Lock()
 
 
 def get_config() -> CCProxyConfig:
-    """Get the singleton configuration instance (thread-safe)."""
+    """Get the configuration instance."""
     global _config_instance
 
     if _config_instance is None:
@@ -206,44 +178,10 @@ def get_config() -> CCProxyConfig:
 def set_config_instance(config: CCProxyConfig) -> None:
     """Set the global configuration instance (for testing)."""
     global _config_instance
-    with _config_lock:
-        _config_instance = config
+    _config_instance = config
 
 
 def clear_config_instance() -> None:
     """Clear the global configuration instance (for testing)."""
     global _config_instance
-    with _config_lock:
-        _config_instance = None
-
-
-class ConfigProvider:
-    """Dependency injection provider for configuration.
-
-    This provides an alternative to the singleton pattern, allowing
-    for easier testing and multiple configuration instances.
-    """
-
-    def __init__(self, config: CCProxyConfig | None = None) -> None:
-        """Initialize the config provider.
-
-        Args:
-            config: Optional initial configuration. If not provided,
-                   will load from environment on first access.
-        """
-        self._config = config
-        self._lock = threading.Lock()
-
-    def get(self) -> CCProxyConfig:
-        """Get the configuration instance."""
-        if self._config is None:
-            with self._lock:
-                if self._config is None:
-                    # Use the global singleton if no config was provided
-                    self._config = get_config()
-        return self._config
-
-    def set(self, config: CCProxyConfig) -> None:
-        """Set the configuration instance."""
-        with self._lock:
-            self._config = config
+    _config_instance = None

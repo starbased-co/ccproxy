@@ -14,11 +14,11 @@
 
 ## Task Master Integration
 
-@./.taskmaster/CLAUDE.md
+./.taskmaster/CLAUDE.md
 
 ## Tyro CLI
 
-@./docs/tyro-guide/CLAUDE.md
+See docs/tyro-guide/CLAUDE.md or the gitmcp-tyro MCP server for Tyro documentation.
 
 ## Project Architecture
 

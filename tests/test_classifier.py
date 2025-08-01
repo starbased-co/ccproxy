@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from ccproxy.classifier import RequestClassifier
-from ccproxy.config import CCProxyConfig, ConfigProvider, RuleConfig
+from ccproxy.config import CCProxyConfig, RuleConfig, clear_config_instance, set_config_instance
 from ccproxy.rules import ClassificationRule
 
 
@@ -27,24 +27,28 @@ class TestRequestClassifier:
         return config
 
     @pytest.fixture
-    def config_provider(self, config: CCProxyConfig) -> ConfigProvider:
-        """Create a config provider with test config."""
-        return ConfigProvider(config)
-
-    @pytest.fixture
-    def classifier(self, config_provider: ConfigProvider) -> RequestClassifier:
+    def classifier(self, config: CCProxyConfig) -> RequestClassifier:
         """Create a classifier with test config."""
-        return RequestClassifier(config_provider)
+        # Set the test config as the global config
+        clear_config_instance()
+        set_config_instance(config)
+        try:
+            yield RequestClassifier()
+        finally:
+            clear_config_instance()
 
     def test_initialization(self, classifier: RequestClassifier) -> None:
         """Test classifier initialization."""
-        assert classifier._config_provider is not None
         assert len(classifier._rules) == 4  # 4 default rules are set up
 
     def test_initialization_without_provider(self) -> None:
         """Test classifier initialization without config provider."""
-        classifier = RequestClassifier()
-        assert classifier._config_provider is not None
+        clear_config_instance()
+        try:
+            classifier = RequestClassifier()
+            assert classifier is not None
+        finally:
+            clear_config_instance()
 
     def test_classify_default(self, classifier: RequestClassifier) -> None:
         """Test that classify returns DEFAULT when no rules match."""

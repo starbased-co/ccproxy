@@ -3,7 +3,7 @@
 import logging
 from typing import Any, TypedDict
 
-from litellm.integrations.custom_logger import CustomLogger  # type: ignore[import-not-found]
+from litellm.integrations.custom_logger import CustomLogger
 
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import get_config
@@ -20,6 +20,39 @@ class RequestData(TypedDict, total=False):
     messages: list[dict[str, Any]]
     tools: list[dict[str, Any]] | None
     metadata: dict[str, Any] | None
+
+
+def _determine_routed_model(
+    data: dict[str, Any],
+    label: str,
+    router: Any,
+    original_model: str | None = None,
+) -> tuple[str, dict[str, Any] | None]:
+    """Determine which model to route to based on classification label.
+
+    Args:
+        data: Request data from LiteLLM
+        label: Classification label from the classifier
+        router: The model router instance
+        original_model: Original model from request (optional)
+
+    Returns:
+        Tuple of (routed_model, model_config)
+    """
+    # Get model for label from router - but only if the specific label exists
+    router_available_models = router.get_available_models()
+
+    if label in router_available_models:
+        # The specific label is configured, use it
+        model_config = router.get_model_for_label(label)
+        if model_config is not None:
+            routed_model = str(model_config["litellm_params"]["model"])
+            return routed_model, model_config
+
+    # The specific label is not configured or no config found, use original model
+    if original_model is None:
+        original_model = str(data.get("model", "claude-3-5-sonnet-20241022"))
+    return original_model, None
 
 
 def ccproxy_get_model(data: dict[str, Any]) -> str:
@@ -41,20 +74,8 @@ def ccproxy_get_model(data: dict[str, Any]) -> str:
     # Classify the request
     label = classifier.classify(data)
 
-    # Get model for label from router - but only if the specific label exists
-    router_available_models = router.get_available_models()
-
-    if label in router_available_models:
-        # The specific label is configured, use it
-        model_config = router.get_model_for_label(label)
-        if model_config is not None:
-            model: str = str(model_config["litellm_params"]["model"])
-        else:
-            # Should not happen, but fallback to original
-            model = str(data.get("model", "claude-3-5-sonnet-20241022"))
-    else:
-        # The specific label is not configured, use original model
-        model = str(data.get("model", "claude-3-5-sonnet-20241022"))
+    # Determine the routed model
+    model, _ = _determine_routed_model(data, label, router)
 
     # Log routing decision if debug enabled
     if config.debug:
@@ -63,7 +84,7 @@ def ccproxy_get_model(data: dict[str, Any]) -> str:
     return model
 
 
-class CCProxyHandler(CustomLogger):  # type: ignore[misc]
+class CCProxyHandler(CustomLogger):
     """LiteLLM CustomLogger for context-aware request routing.
 
     This handler integrates with LiteLLM's callback system to provide
@@ -102,22 +123,11 @@ class CCProxyHandler(CustomLogger):  # type: ignore[misc]
         # Classify the request
         label = self.classifier.classify(data)
 
-        # Get model configuration from router - but only if the specific label exists
-        router_available_models = self.router.get_available_models()
-        model_config = None
+        # Determine the routed model using shared logic
+        routed_model, model_config = _determine_routed_model(data, label, self.router, original_model)
 
-        if label in router_available_models:
-            # The specific label is configured, use it
-            model_config = self.router.get_model_for_label(label)
-            if model_config is not None:
-                data["model"] = model_config["litellm_params"]["model"]
-                routed_model = data["model"]
-            else:
-                # Should not happen, but keep original
-                routed_model = original_model
-        else:
-            # The specific label is not configured, keep original model
-            routed_model = original_model
+        # Update the model in the request
+        data["model"] = routed_model
 
         # Add metadata for tracking
         if "metadata" not in data:

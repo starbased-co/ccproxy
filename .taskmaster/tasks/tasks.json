@@ -415,7 +415,7 @@
           7,
           8
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -423,7 +423,7 @@
             "description": "Identify all core modules, including classification, routing, config, and fallback logic, and design unit tests to achieve comprehensive branch and logic coverage.",
             "dependencies": [],
             "details": "Enumerate all functions and classes in core modules. Define representative test cases for each logic branch, including edge cases. Use pytest (>=8.0) and pytest-asyncio for async code. Mock LiteLLM and external APIs as needed.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Run pytest with coverage.py. Ensure each function and branch is exercised. Use mocks to isolate units. Target 100% branch coverage for each module."
           },
           {
@@ -434,7 +434,7 @@
               "9.1"
             ],
             "details": "Set up test cases that send requests through the full stack, including classification, routing, config, and fallback. Mock external APIs and LiteLLM. Use pytest-asyncio for async flows.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Verify correct routing, config application, and fallback behavior for various request types. Assert end-to-end outcomes and log outputs."
           },
           {
@@ -445,7 +445,7 @@
               "9.1"
             ],
             "details": "Implement fixtures and mock classes for LiteLLM and any external services. Ensure mocks simulate expected responses and error conditions.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Validate that all tests run without real network calls. Test error handling and fallback logic using mocked failures."
           },
           {
@@ -458,7 +458,7 @@
               "9.3"
             ],
             "details": "Configure coverage.py to measure coverage during test runs. Set up CI to fail if coverage drops below 90%. Generate coverage reports for review.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Run full test suite and inspect coverage reports. Confirm CI fails on insufficient coverage and passes when threshold is met."
           },
           {
@@ -470,7 +470,7 @@
               "9.3"
             ],
             "details": "Use pytest and async benchmarking tools to simulate concurrent requests. Measure and record routing latency. Optimize code if overhead exceeds target.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Run performance tests with varying concurrency. Assert that average routing latency is <10ms. Report and address regressions."
           }
         ]
@@ -485,7 +485,7 @@
         "dependencies": [
           1
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -493,7 +493,7 @@
             "description": "Configure the application to load all API keys and secrets from environment variables, utilizing python-dotenv for local development environments.",
             "dependencies": [],
             "details": "Set up a .env file for local use and ensure python-dotenv loads these variables at startup. Avoid hard-coding any secrets in the codebase. Confirm .env is excluded from version control.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test that secrets are correctly loaded from environment variables and .env files. Verify .env is not tracked by version control."
           },
           {
@@ -504,7 +504,7 @@
               "8.1"
             ],
             "details": "Define a list of required environment variables. On startup, iterate through this list and raise a clear error if any are missing.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit test startup with all, some, and no required secrets set. Confirm application fails with informative errors when secrets are missing."
           },
           {
@@ -515,7 +515,7 @@
               "8.2"
             ],
             "details": "Intercept log and error outputs to detect and redact any values matching known secrets or secret patterns before outputting.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Attempt to log secrets and verify that output is redacted. Unit test logging and error handling paths for secret exposure."
           },
           {
@@ -526,7 +526,7 @@
               "8.2"
             ],
             "details": "Set up httpx clients with verify=True for all requests. Audit code to ensure no insecure (HTTP) endpoints are used.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration test outbound requests to ensure HTTPS is enforced and certificate verification failures are handled gracefully."
           },
           {
@@ -540,7 +540,7 @@
               "8.4"
             ],
             "details": "Write documentation specifying each required secret, example .env usage, and guidelines for secure handling in different environments.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Review documentation for completeness and clarity. Validate that all required secrets are documented and instructions are accurate."
           }
         ]
@@ -636,11 +636,24 @@
             "testStrategy": "Run load tests to verify performance targets. Penetration test for security. Review deployment with best practices checklist."
           }
         ]
+      },
+      {
+        "id": 11,
+        "title": "Correct Daemon PID-File Lifecycle Management",
+        "description": "Refactor the daemon so that it retains the PID file while child subprocesses come and go, deleting it only when the daemon itself terminates.",
+        "details": "1. Locate the current daemon entry-point (ccproxy/run_proxy.py) and the util that creates and deletes the PID/state file (~/.ccproxy/claude_proxy.json).\n2. Introduce a DaemonLifecycleManager class that:\n   • Creates the PID/state file exactly once at startup, writing daemon PID, port, start_time, refcount=0.\n   • Registers an atexit handler and SIGTERM/SIGINT traps that trigger _graceful_shutdown(), which is solely responsible for deleting the PID file.\n3. Handle child exits without touching the PID file:\n   • Install a SIGCHLD handler that reap()s exited children and updates refcount in the JSON but DOES NOT remove the file.\n   • If refcount reaches 0, continue running idle for a configurable timeout (default 30 s) before self-shutdown; allows quick reuse without thrashing.\n4. Update claude_wrapper.py (Task 6) to rely on refcount==0 & elapsed_idle>timeout rather than file absence to decide whether the daemon died.\n5. Add logging (using existing redaction utilities) for lifecycle events: child_start, child_exit, refcount_update, idle_timeout, daemon_exit.\n6. Ensure thread/process safety: guard JSON writes with fasteners.InterProcessLock to avoid race conditions with multiple wrappers.\n7. Maintain backwards compatibility: if an old PID file schema (without refcount) is detected, migrate in-place.\n8. Documentation: update inline docs and docstrings to describe new lifecycle behaviour and environment variables (e.g., CCPROXY_IDLE_TIMEOUT).",
+        "testStrategy": "• Unit tests (pytest):\n  1. PID file created once; subsequent child spawns only mutate refcount.\n  2. SIGCHLD handler correctly updates refcount without deleting file.\n  3. _graceful_shutdown() removes file and releases lock.\n  4. Migration logic correctly upgrades old schema.\n• Integration tests:\n  1. Use pytest-subprocess to spawn the daemon, open N child client processes, close them, assert PID file persists until daemon idle-timeout elapses.\n  2. Kill a child unexpectedly; verify daemon keeps running and PID file remains.\n  3. Send SIGTERM to daemon; assert PID file is removed and wrapper detects shutdown.\n• Concurrency stress test: simulate 10 parallel claude_wrapper invocations; ensure no race conditions and correct refcount.\n• Continuous Integration: add new tests to Task 9’s coverage suite; target 95% coverage for DaemonLifecycleManager.",
+        "status": "done",
+        "dependencies": [
+          6
+        ],
+        "priority": "medium",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-07-29T23:37:48.816Z",
-      "updated": "2025-07-30T21:13:38.628Z",
+      "updated": "2025-07-31T22:59:00.197Z",
       "description": "Tasks for master context"
     }
   }

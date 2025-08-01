@@ -1,6 +1,5 @@
 """Utility functions for ccproxy."""
 
-import sys
 from pathlib import Path
 
 
@@ -16,28 +15,17 @@ def get_templates_dir() -> Path:
     Raises:
         RuntimeError: If templates directory cannot be found
     """
-    # First, try relative to this module (development mode)
     module_dir = Path(__file__).parent
+
+    # Development mode: templates at project root
     dev_templates = module_dir.parent.parent / "templates"
-    if dev_templates.exists():
+    if dev_templates.exists() and (dev_templates / "ccproxy.yaml").exists():
         return dev_templates
 
-    # When installed as a package, templates will be inside the ccproxy package
+    # Installed mode: templates inside the package
     package_templates = module_dir / "templates"
-    if package_templates.exists():
+    if package_templates.exists() and (package_templates / "ccproxy.yaml").exists():
         return package_templates
-
-    # Then try in site-packages (installed mode)
-    # When installed, templates will be at the package root level
-    for path in sys.path:
-        site_templates = Path(path) / "templates"
-        if site_templates.exists() and (site_templates / "ccproxy.yaml").exists():
-            return site_templates
-
-    # Try one more location - next to the package directory
-    parent_templates = module_dir.parent / "templates"
-    if parent_templates.exists():
-        return parent_templates
 
     raise RuntimeError("Could not find templates directory. " "Please ensure ccproxy is properly installed.")
 

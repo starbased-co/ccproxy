@@ -3,7 +3,7 @@
 import pytest
 
 from ccproxy.classifier import RequestClassifier
-from ccproxy.config import CCProxyConfig, ConfigProvider, RuleConfig
+from ccproxy.config import CCProxyConfig, RuleConfig, clear_config_instance, set_config_instance
 
 
 class TestRequestClassifierIntegration:
@@ -23,14 +23,15 @@ class TestRequestClassifierIntegration:
         return config
 
     @pytest.fixture
-    def config_provider(self, config: CCProxyConfig) -> ConfigProvider:
-        """Create a config provider with test config."""
-        return ConfigProvider(config)
-
-    @pytest.fixture
-    def classifier(self, config_provider: ConfigProvider) -> RequestClassifier:
+    def classifier(self, config: CCProxyConfig) -> RequestClassifier:
         """Create a classifier with all rules configured."""
-        return RequestClassifier(config_provider)
+        # Set the test config as the global config
+        clear_config_instance()
+        set_config_instance(config)
+        try:
+            yield RequestClassifier()
+        finally:
+            clear_config_instance()
 
     def test_priority_1_token_count_overrides_all(self, classifier: RequestClassifier) -> None:
         """Test that large context has highest priority."""

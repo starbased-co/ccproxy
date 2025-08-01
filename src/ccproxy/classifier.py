@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from ccproxy.config import ConfigProvider
+from ccproxy.config import get_config
 from ccproxy.rules import ClassificationRule
 
 
@@ -32,13 +32,8 @@ class RequestClassifier:
                 - model_name: claude-3-5-haiku-20241022
     """
 
-    def __init__(self, config_provider: ConfigProvider | None = None) -> None:
-        """Initialize the request classifier.
-
-        Args:
-            config_provider: Optional config provider. If None, uses global config.
-        """
-        self._config_provider = config_provider or ConfigProvider()
+    def __init__(self) -> None:
+        """Initialize the request classifier."""
         self._rules: list[tuple[str, ClassificationRule]] = []
         self._setup_rules()
 
@@ -52,7 +47,7 @@ class RequestClassifier:
         self.clear_rules()
 
         # Get configuration
-        config = self._config_provider.get()
+        config = get_config()
 
         # Load rules from configuration
         for rule_config in config.rules:
@@ -84,7 +79,7 @@ class RequestClassifier:
         if hasattr(request, "model_dump"):
             request = request.model_dump()
 
-        config = self._config_provider.get()
+        config = get_config()
 
         # Evaluate rules in order
         for label, rule in self._rules:

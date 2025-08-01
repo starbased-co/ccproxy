@@ -3,7 +3,7 @@
 import threading
 from typing import Any
 
-from ccproxy.config import ConfigProvider
+from ccproxy.config import get_config
 
 
 class ModelRouter:
@@ -36,13 +36,8 @@ class ModelRouter:
         Configuration updates are performed atomically.
     """
 
-    def __init__(self, config_provider: ConfigProvider | None = None) -> None:
-        """Initialize the model router.
-
-        Args:
-            config_provider: Optional config provider. If None, uses global config.
-        """
-        self._config_provider = config_provider or ConfigProvider()
+    def __init__(self) -> None:
+        """Initialize the model router."""
         self._lock = threading.RLock()
         self._model_map: dict[str, dict[str, Any]] = {}
         self._model_list: list[dict[str, Any]] = []
@@ -58,7 +53,7 @@ class ModelRouter:
         This method extracts model routing information from the LiteLLM
         proxy configuration and builds internal lookup structures.
         """
-        config = self._config_provider.get()
+        config = get_config()
 
         with self._lock:
             # Clear existing mappings
@@ -238,23 +233,20 @@ class ModelRouter:
         return None
 
 
-# Global singleton instance for LiteLLM hook access
+# Global router instance
 _router_instance: ModelRouter | None = None
-_router_lock = threading.Lock()
 
 
 def get_router() -> ModelRouter:
     """Get the global ModelRouter instance.
 
     Returns:
-        The singleton ModelRouter instance
+        The global ModelRouter instance
     """
     global _router_instance
 
     if _router_instance is None:
-        with _router_lock:
-            if _router_instance is None:
-                _router_instance = ModelRouter()
+        _router_instance = ModelRouter()
 
     return _router_instance
 
@@ -266,5 +258,4 @@ def clear_router() -> None:
     between test runs.
     """
     global _router_instance
-    with _router_lock:
-        _router_instance = None
+    _router_instance = None
