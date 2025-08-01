@@ -213,8 +213,16 @@ class CCProxyHandler(CustomLogger):
         request_id = metadata.get("request_id", "unknown")
         label = metadata.get("ccproxy_label", "unknown")
 
-        # Calculate duration
-        duration_ms = (end_time - start_time) * 1000
+        # Calculate duration - handle both float timestamps and timedelta objects
+        try:
+            if isinstance(end_time, float) and isinstance(start_time, float):
+                duration_ms = (end_time - start_time) * 1000
+            else:
+                # Handle timedelta objects or mixed types
+                duration_seconds = (end_time - start_time).total_seconds()  # type: ignore[operator,unused-ignore,unreachable]
+                duration_ms = duration_seconds * 1000
+        except (TypeError, AttributeError):
+            duration_ms = 0.0
 
         log_data = {
             "event": "ccproxy_success",
@@ -254,8 +262,16 @@ class CCProxyHandler(CustomLogger):
         request_id = metadata.get("request_id", "unknown")
         label = metadata.get("ccproxy_label", "unknown")
 
-        # Calculate duration
-        duration_ms = (end_time - start_time) * 1000
+        # Calculate duration - handle both float timestamps and timedelta objects
+        try:
+            if isinstance(end_time, float) and isinstance(start_time, float):
+                duration_ms = (end_time - start_time) * 1000
+            else:
+                # Handle timedelta objects or mixed types
+                duration_seconds = (end_time - start_time).total_seconds()  # type: ignore[operator,unused-ignore,unreachable]
+                duration_ms = duration_seconds * 1000
+        except (TypeError, AttributeError):
+            duration_ms = 0.0
 
         log_data = {
             "event": "ccproxy_failure",
@@ -297,8 +313,16 @@ class CCProxyHandler(CustomLogger):
         request_id = metadata.get("request_id", "unknown")
         label = metadata.get("ccproxy_label", "unknown")
 
-        # Calculate duration
-        duration_ms = (end_time - start_time) * 1000
+        # Calculate duration - handle both float timestamps and timedelta objects
+        try:
+            if isinstance(end_time, float) and isinstance(start_time, float):
+                duration_ms = (end_time - start_time) * 1000
+            else:
+                # Handle timedelta objects or mixed types
+                duration_seconds = (end_time - start_time).total_seconds()  # type: ignore[operator,unused-ignore,unreachable]
+                duration_ms = duration_seconds * 1000
+        except (TypeError, AttributeError):
+            duration_ms = 0.0
 
         log_data = {
             "event": "ccproxy_stream_complete",
