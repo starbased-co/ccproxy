@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from ccproxy.handler import CCProxyHandler, ccproxy_get_model
+from ccproxy.handler import CCProxyHandler
 
 
 class TestHandlerLoggingHookMethods:
@@ -57,57 +57,6 @@ class TestHandlerLoggingHookMethods:
         assert result["metadata"]["ccproxy_label"] == "default"
         assert result["metadata"]["ccproxy_original_model"] == "unknown"
 
-    @patch("ccproxy.handler.get_config")
-    @patch("ccproxy.handler.get_router")
-    @patch("ccproxy.handler.RequestClassifier")
-    def test_ccproxy_get_model(self, mock_classifier_class: Mock, mock_get_router: Mock, mock_get_config: Mock) -> None:
-        """Test ccproxy_get_model function."""
-        # Setup mocks
-        mock_config = Mock(debug=True)
-        mock_get_config.return_value = mock_config
-
-        mock_router = Mock()
-        mock_router.get_available_models.return_value = ["default", "large_context"]
-        mock_router.get_model_for_label.return_value = {"litellm_params": {"model": "gemini-2.0-flash-exp"}}
-        mock_get_router.return_value = mock_router
-
-        mock_classifier = Mock()
-        mock_classifier.classify.return_value = "large_context"
-        mock_classifier_class.return_value = mock_classifier
-
-        # Test with label that exists
-        data = {"model": "claude-3-5-sonnet", "messages": []}
-        result = ccproxy_get_model(data)
-
-        assert result == "gemini-2.0-flash-exp"
-        mock_classifier.classify.assert_called_once_with(data)
-
-    @patch("ccproxy.handler.get_config")
-    @patch("ccproxy.handler.get_router")
-    @patch("ccproxy.handler.RequestClassifier")
-    def test_ccproxy_get_model_label_not_configured(
-        self, mock_classifier_class: Mock, mock_get_router: Mock, mock_get_config: Mock
-    ) -> None:
-        """Test ccproxy_get_model when label is not in available models."""
-        # Setup mocks
-        mock_config = Mock(debug=False)
-        mock_get_config.return_value = mock_config
-
-        mock_router = Mock()
-        mock_router.get_available_models.return_value = ["default"]  # "large_context" not available
-        mock_get_router.return_value = mock_router
-
-        mock_classifier = Mock()
-        mock_classifier.classify.return_value = "large_context"
-        mock_classifier_class.return_value = mock_classifier
-
-        # Test with label that doesn't exist
-        data = {"model": "claude-3-5-sonnet", "messages": []}
-        result = ccproxy_get_model(data)
-
-        # Should return original model
-        assert result == "claude-3-5-sonnet"
-
     @patch("ccproxy.handler.logger")
     def test_log_routing_decision(self, mock_logger: Mock) -> None:
         """Test _log_routing_decision method."""
@@ -123,7 +72,7 @@ class TestHandlerLoggingHookMethods:
         }
 
         handler._log_routing_decision(
-            label="large_context",
+            label="token_count",
             original_model="claude-3-5-sonnet",
             routed_model="gemini-2.0-flash-exp",
             request_id="test-123",
@@ -138,7 +87,7 @@ class TestHandlerLoggingHookMethods:
         # Check extra data
         extra = call_args[1]["extra"]
         assert extra["event"] == "ccproxy_routing"
-        assert extra["label"] == "large_context"
+        assert extra["label"] == "token_count"
         assert extra["original_model"] == "claude-3-5-sonnet"
         assert extra["routed_model"] == "gemini-2.0-flash-exp"
         assert extra["request_id"] == "test-123"

@@ -8,12 +8,12 @@ import pytest
 import yaml
 
 from ccproxy.config import CCProxyConfig, clear_config_instance, set_config_instance
-from ccproxy.handler import CCProxyHandler, ccproxy_get_model
+from ccproxy.handler import CCProxyHandler
 from ccproxy.router import ModelRouter, clear_router
 
 
-class TestCCProxyGetModel:
-    """Tests for ccproxy_get_model routing function."""
+class TestCCProxyRouting:
+    """Tests for CCProxyHandler routing logic."""
 
     def _create_router_with_models(self, model_list: list) -> ModelRouter:
         """Helper to create a router with mocked models."""
@@ -114,7 +114,7 @@ class TestCCProxyGetModel:
         litellm_path.unlink()
         ccproxy_path.unlink()
 
-    def test_route_to_default(self, config_files):
+    async def test_route_to_default(self, config_files):
         """Test routing simple request to default model."""
         ccproxy_path, litellm_path = config_files
 
@@ -155,18 +155,20 @@ class TestCCProxyGetModel:
 
         try:
             with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+                handler = CCProxyHandler()
                 request_data = {
                     "model": "claude-3-5-sonnet-20241022",
                     "messages": [{"role": "user", "content": "Hello"}],
                 }
+                user_api_key_dict = {}
 
-                model = ccproxy_get_model(request_data)
-                assert model == "claude-3-5-sonnet-20241022"
+                result = await handler.async_pre_call_hook(request_data, user_api_key_dict)
+                assert result["model"] == "claude-3-5-sonnet-20241022"
         finally:
             clear_config_instance()
             clear_router()
 
-    def test_route_to_background(self, config_files):
+    async def test_route_to_background(self, config_files):
         """Test routing haiku model to background."""
         ccproxy_path, litellm_path = config_files
 
@@ -206,13 +208,15 @@ class TestCCProxyGetModel:
 
         try:
             with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+                handler = CCProxyHandler()
                 request_data = {
                     "model": "claude-3-5-haiku-20241022",
                     "messages": [{"role": "user", "content": "Format this code"}],
                 }
+                user_api_key_dict = {}
 
-                model = ccproxy_get_model(request_data)
-                assert model == "claude-3-5-haiku-20241022"
+                result = await handler.async_pre_call_hook(request_data, user_api_key_dict)
+                assert result["model"] == "claude-3-5-haiku-20241022"
         finally:
             clear_config_instance()
             clear_router()

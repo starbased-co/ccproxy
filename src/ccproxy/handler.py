@@ -4,7 +4,6 @@ import logging
 from typing import Any, TypedDict
 
 from litellm.integrations.custom_logger import CustomLogger
-from rich import print
 
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import get_config
@@ -55,35 +54,6 @@ def _determine_routed_model(
     if original_model is None:
         original_model = str(data.get("model", "claude-3-5-sonnet-20241022"))
     return original_model, None
-
-
-def ccproxy_get_model(data: dict[str, Any]) -> str:
-    """Main routing function that determines which model to use.
-
-    This function is called by LiteLLM to determine model routing.
-    It provides backward compatibility for direct function calls.
-
-    Args:
-        data: Request data from LiteLLM
-
-    Returns:
-        Model name to route to
-    """
-    config = get_config()
-    router = get_router()
-    classifier = RequestClassifier()
-
-    # Classify the request
-    label = classifier.classify(data)
-
-    # Determine the routed model
-    model, _ = _determine_routed_model(data, label, router)
-
-    # Log routing decision if debug enabled
-    if config.debug:
-        print(f"[ccproxy] Routed to {model} (label: {label})")
-
-    return model
 
 
 class CCProxyHandler(CustomLogger):

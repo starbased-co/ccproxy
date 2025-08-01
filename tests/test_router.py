@@ -3,7 +3,6 @@
 import threading
 from unittest.mock import MagicMock, patch
 
-from ccproxy.config import CCProxyConfig
 from ccproxy.router import ModelRouter, clear_router, get_router
 
 
@@ -12,8 +11,6 @@ class TestModelRouter:
 
     def _create_router_with_models(self, model_list: list) -> ModelRouter:
         """Helper to create a router with mocked models."""
-        mock_config = MagicMock(spec=CCProxyConfig)
-
         # Create a mock that will be returned by the import
         mock_proxy_server = MagicMock()
         mock_proxy_server.llm_router = MagicMock()
@@ -23,10 +20,7 @@ class TestModelRouter:
         mock_module = MagicMock()
         mock_module.proxy_server = mock_proxy_server
 
-        with (
-            patch("ccproxy.router.get_config", return_value=mock_config),
-            patch.dict("sys.modules", {"litellm.proxy": mock_module}),
-        ):
+        with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
             return ModelRouter()
 
     def test_init_loads_config(self) -> None:
@@ -171,16 +165,11 @@ class TestModelRouter:
 
     def test_no_proxy_server(self) -> None:
         """Test handling when proxy_server is not available."""
-        mock_config = MagicMock(spec=CCProxyConfig)
-
         # Create a mock module without proxy_server
         mock_module = MagicMock()
         mock_module.proxy_server = None
 
-        with (
-            patch("ccproxy.router.get_config", return_value=mock_config),
-            patch.dict("sys.modules", {"litellm.proxy": mock_module}),
-        ):
+        with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
             router = ModelRouter()
 
         assert router.get_available_models() == []
@@ -189,8 +178,6 @@ class TestModelRouter:
 
     def test_no_llm_router(self) -> None:
         """Test handling when proxy_server has no llm_router."""
-        mock_config = MagicMock(spec=CCProxyConfig)
-
         # Create a mock with no llm_router
         mock_proxy_server = MagicMock()
         mock_proxy_server.llm_router = None
@@ -198,10 +185,7 @@ class TestModelRouter:
         mock_module = MagicMock()
         mock_module.proxy_server = mock_proxy_server
 
-        with (
-            patch("ccproxy.router.get_config", return_value=mock_config),
-            patch.dict("sys.modules", {"litellm.proxy": mock_module}),
-        ):
+        with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
             router = ModelRouter()
 
         assert router.get_available_models() == []
@@ -210,8 +194,6 @@ class TestModelRouter:
 
     def test_missing_model_list(self) -> None:
         """Test handling when llm_router has no model_list."""
-        mock_config = MagicMock(spec=CCProxyConfig)
-
         # Create a mock with None model_list
         mock_proxy_server = MagicMock()
         mock_proxy_server.llm_router = MagicMock()
@@ -220,10 +202,7 @@ class TestModelRouter:
         mock_module = MagicMock()
         mock_module.proxy_server = mock_proxy_server
 
-        with (
-            patch("ccproxy.router.get_config", return_value=mock_config),
-            patch.dict("sys.modules", {"litellm.proxy": mock_module}),
-        ):
+        with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
             router = ModelRouter()
 
         assert router.get_available_models() == []
