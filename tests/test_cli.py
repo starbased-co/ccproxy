@@ -4,239 +4,88 @@ import os
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import httpx
 import pytest
 
 from ccproxy.cli import (
-    CCProxyManager,
     Install,
-    ProxyConfig,
+    LiteLLM,
     Run,
-    Start,
-    Status,
-    Stop,
     install_config,
+    litellm_with_config,
     main,
     run_with_proxy,
 )
 
 
-class TestCCProxyManager:
-    """Test suite for CCProxyManager class."""
+class TestLiteLLMWithConfig:
+    """Test suite for litellm_with_config function."""
 
-    def test_init(self, tmp_path: Path) -> None:
-        """Test manager initialization."""
-        manager = CCProxyManager(tmp_path)
-        assert manager.config_dir == tmp_path
-
-    def test_load_litellm_config_exists(self, tmp_path: Path) -> None:
-        """Test loading existing litellm config."""
-        config_file = tmp_path / "ccproxy.yaml"
-        config_file.write_text("""
-litellm:
-  host: 0.0.0.0
-  port: 8080
-  num_workers: 4
-  debug: true
-""")
-        manager = CCProxyManager(tmp_path)
-        config = manager._load_litellm_config()
-
-        assert config["host"] == "0.0.0.0"
-        assert config["port"] == 8080
-        assert config["num_workers"] == 4
-        assert config["debug"] is True
-
-    def test_load_litellm_config_not_exists(self, tmp_path: Path) -> None:
-        """Test loading litellm config when file doesn't exist."""
-        manager = CCProxyManager(tmp_path)
-        config = manager._load_litellm_config()
-        assert config == {}
-
-    def test_get_server_config_defaults(self, tmp_path: Path) -> None:
-        """Test getting server config with defaults."""
-        manager = CCProxyManager(tmp_path)
-        host, port = manager._get_server_config()
-
-        assert host == "127.0.0.1"
-        assert port == 4000
-
-    def test_get_server_config_from_file(self, tmp_path: Path) -> None:
-        """Test getting server config from file."""
-        config_file = tmp_path / "ccproxy.yaml"
-        config_file.write_text("""
-litellm:
-  host: 192.168.1.1
-  port: 8888
-""")
-        manager = CCProxyManager(tmp_path)
-        host, port = manager._get_server_config()
-
-        assert host == "192.168.1.1"
-        assert port == 8888
-
-    def test_get_server_config_env_override(self, tmp_path: Path) -> None:
-        """Test getting server config with environment overrides."""
-        config_file = tmp_path / "ccproxy.yaml"
-        config_file.write_text("""
-litellm:
-  host: 192.168.1.1
-  port: 8888
-""")
-        manager = CCProxyManager(tmp_path)
-
-        with patch.dict(os.environ, {"HOST": "10.0.0.1", "PORT": "9999"}):
-            host, port = manager._get_server_config()
-
-        assert host == "10.0.0.1"
-        assert port == 9999
-
-    @patch("httpx.Client")
-    def test_check_server_status_running(self, mock_client_class: Mock, tmp_path: Path) -> None:
-        """Test checking server status when running."""
-        manager = CCProxyManager(tmp_path)
-
-        mock_client = Mock()
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_client.get.return_value = mock_response
-        mock_client_class.return_value.__enter__.return_value = mock_client
-
-        assert manager._check_server_status() is True
-        mock_client.get.assert_called_once_with("http://127.0.0.1:4000/health")
-
-    @patch("httpx.Client")
-    def test_check_server_status_not_running(self, mock_client_class: Mock, tmp_path: Path) -> None:
-        """Test checking server status when not running."""
-        manager = CCProxyManager(tmp_path)
-
-        mock_client = Mock()
-        mock_client.get.side_effect = httpx.ConnectError("Connection refused")
-        mock_client_class.return_value.__enter__.return_value = mock_client
-
-        assert manager._check_server_status() is False
-
-    @patch("httpx.Client")
-    def test_check_server_status_timeout(self, mock_client_class: Mock, tmp_path: Path) -> None:
-        """Test checking server status with timeout."""
-        manager = CCProxyManager(tmp_path)
-
-        mock_client = Mock()
-        mock_client.get.side_effect = httpx.TimeoutException("Timeout")
-        mock_client_class.return_value.__enter__.return_value = mock_client
-
-        assert manager._check_server_status() is False
-
-    @patch.object(CCProxyManager, "_check_server_status")
-    def test_start_already_running(self, mock_check_status: Mock, tmp_path: Path, capsys) -> None:
-        """Test start when server is already running."""
-        manager = CCProxyManager(tmp_path)
-        mock_check_status.return_value = True
-
-        proxy_config = ProxyConfig()
-
+    def test_litellm_no_config(self, tmp_path: Path, capsys) -> None:
+        """Test litellm when config doesn't exist."""
         with pytest.raises(SystemExit) as exc_info:
-            manager.start(proxy_config)
+            litellm_with_config(tmp_path)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "LiteLLM server is already running" in captured.out
+        assert "Configuration not found" in captured.err
+        assert "Run 'ccproxy install' first" in captured.err
 
-    @patch.object(CCProxyManager, "_check_server_status")
-    def test_start_not_running(self, mock_check_status: Mock, tmp_path: Path, capsys) -> None:
-        """Test start when server is not running."""
-        manager = CCProxyManager(tmp_path)
-        mock_check_status.return_value = False
+    @patch("subprocess.run")
+    def test_litellm_with_config_success(self, mock_run: Mock, tmp_path: Path) -> None:
+        """Test successful litellm execution."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("litellm: config")
 
-        proxy_config = ProxyConfig(
-            host="192.168.1.1",
-            port=8080,
-            workers=4,
-            debug=True,
-            detailed_debug=True,
-        )
+        mock_run.return_value = Mock(returncode=0)
 
         with pytest.raises(SystemExit) as exc_info:
-            manager.start(proxy_config)
+            litellm_with_config(tmp_path)
 
         assert exc_info.value.code == 0
-        captured = capsys.readouterr()
-        assert "To start LiteLLM server, run:" in captured.out
-        assert f"litellm --config {tmp_path}/config.yaml" in captured.out
-        assert "--host 192.168.1.1" in captured.out
-        assert "--port 8080" in captured.out
-        assert "--num_workers 4" in captured.out
-        assert "Add: --debug" in captured.out
-        assert "Add: --detailed_debug" in captured.out
+        mock_run.assert_called_once_with(["litellm", "--config", str(config_file)])
 
-    @patch.object(CCProxyManager, "_check_server_status")
-    def test_stop_not_running(self, mock_check_status: Mock, tmp_path: Path, capsys) -> None:
-        """Test stop when server is not running."""
-        manager = CCProxyManager(tmp_path)
-        mock_check_status.return_value = False
+    @patch("subprocess.run")
+    def test_litellm_with_args(self, mock_run: Mock, tmp_path: Path) -> None:
+        """Test litellm with additional arguments."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("litellm: config")
+
+        mock_run.return_value = Mock(returncode=0)
 
         with pytest.raises(SystemExit) as exc_info:
-            manager.stop()
+            litellm_with_config(tmp_path, args=["--debug", "--port", "8080"])
+
+        assert exc_info.value.code == 0
+        mock_run.assert_called_once_with(["litellm", "--config", str(config_file), "--debug", "--port", "8080"])
+
+    @patch("subprocess.run")
+    def test_litellm_command_not_found(self, mock_run: Mock, tmp_path: Path, capsys) -> None:
+        """Test litellm when command is not found."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("litellm: config")
+
+        mock_run.side_effect = FileNotFoundError()
+
+        with pytest.raises(SystemExit) as exc_info:
+            litellm_with_config(tmp_path)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "LiteLLM server is not running" in captured.out
+        assert "litellm command not found" in captured.err
+        assert "pip install litellm" in captured.err
 
-    @patch.object(CCProxyManager, "_check_server_status")
-    def test_stop_running(self, mock_check_status: Mock, tmp_path: Path, capsys) -> None:
-        """Test stop when server is running."""
-        manager = CCProxyManager(tmp_path)
-        mock_check_status.return_value = True
+    @patch("subprocess.run")
+    def test_litellm_keyboard_interrupt(self, mock_run: Mock, tmp_path: Path) -> None:
+        """Test litellm with keyboard interrupt."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("litellm: config")
 
-        with pytest.raises(SystemExit) as exc_info:
-            manager.stop()
-
-        assert exc_info.value.code == 0
-        captured = capsys.readouterr()
-        assert "To stop the LiteLLM server" in captured.out
-        assert "ps aux | grep litellm" in captured.out
-        assert "kill <PID>" in captured.out
-
-    @patch.object(CCProxyManager, "_check_server_status")
-    @patch("httpx.Client")
-    def test_status_running(self, mock_client_class: Mock, mock_check_status: Mock, tmp_path: Path, capsys) -> None:
-        """Test status when server is running."""
-        manager = CCProxyManager(tmp_path)
-        mock_check_status.return_value = True
-
-        mock_client = Mock()
-        # Health response
-        mock_health_response = Mock()
-        mock_health_response.status_code = 200
-        # Models response
-        mock_models_response = Mock()
-        mock_models_response.status_code = 200
-        mock_models_response.json.return_value = {"data": [{"id": "model1"}, {"id": "model2"}]}
-
-        mock_client.get.side_effect = [mock_health_response, mock_models_response]
-        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_run.side_effect = KeyboardInterrupt()
 
         with pytest.raises(SystemExit) as exc_info:
-            manager.status()
+            litellm_with_config(tmp_path)
 
-        assert exc_info.value.code == 0
-        captured = capsys.readouterr()
-        assert "LiteLLM server is running on 127.0.0.1:4000" in captured.out
-        assert "Status: Healthy" in captured.out
-        assert "Available models: 2" in captured.out
-
-    @patch.object(CCProxyManager, "_check_server_status")
-    def test_status_not_running(self, mock_check_status: Mock, tmp_path: Path, capsys) -> None:
-        """Test status when server is not running."""
-        manager = CCProxyManager(tmp_path)
-        mock_check_status.return_value = False
-
-        with pytest.raises(SystemExit) as exc_info:
-            manager.status()
-
-        assert exc_info.value.code == 1
-        captured = capsys.readouterr()
-        assert "LiteLLM server is not running on 127.0.0.1:4000" in captured.out
+        assert exc_info.value.code == 130
 
 
 class TestInstallConfig:
@@ -332,8 +181,7 @@ class TestRunWithProxy:
         assert "Run 'ccproxy install' first" in captured.err
 
     @patch("subprocess.run")
-    @patch.object(CCProxyManager, "_check_server_status")
-    def test_run_with_proxy_success(self, mock_check_status: Mock, mock_run: Mock, tmp_path: Path, capsys) -> None:
+    def test_run_with_proxy_success(self, mock_run: Mock, tmp_path: Path) -> None:
         """Test successful command execution with proxy environment."""
         config_file = tmp_path / "ccproxy.yaml"
         config_file.write_text("""
@@ -342,7 +190,6 @@ litellm:
   port: 8888
 """)
 
-        mock_check_status.return_value = True
         mock_run.return_value = Mock(returncode=0)
 
         with pytest.raises(SystemExit) as exc_info:
@@ -350,34 +197,12 @@ litellm:
 
         assert exc_info.value.code == 0
 
-        captured = capsys.readouterr()
-        assert "Using running LiteLLM server on 192.168.1.1:8888" in captured.out
-
         # Check environment variables were set
         call_args = mock_run.call_args
         env = call_args[1]["env"]
         assert env["OPENAI_API_BASE"] == "http://192.168.1.1:8888/v1"
         assert env["ANTHROPIC_BASE_URL"] == "http://192.168.1.1:8888/v1"
         assert env["HTTP_PROXY"] == "http://192.168.1.1:8888"
-
-    @patch("subprocess.run")
-    @patch.object(CCProxyManager, "_check_server_status")
-    def test_run_with_proxy_server_not_running(
-        self, mock_check_status: Mock, mock_run: Mock, tmp_path: Path, capsys
-    ) -> None:
-        """Test run command when server is not running."""
-        config_file = tmp_path / "ccproxy.yaml"
-        config_file.write_text("litellm: {}")
-
-        mock_check_status.return_value = False
-        mock_run.return_value = Mock(returncode=0)
-
-        with pytest.raises(SystemExit):
-            run_with_proxy(tmp_path, ["echo", "test"])
-
-        captured = capsys.readouterr()
-        assert "Warning: LiteLLM server is not running." in captured.err
-        assert "Run 'litellm --config" in captured.err
 
     @patch("subprocess.run")
     def test_run_with_env_override(self, mock_run: Mock, tmp_path: Path) -> None:
@@ -435,34 +260,21 @@ litellm:
 class TestMainFunction:
     """Test suite for main CLI function using Tyro."""
 
-    @patch.object(CCProxyManager, "start")
-    def test_main_start_command(self, mock_start: Mock, tmp_path: Path) -> None:
-        """Test main with start command."""
-        cmd = Start(host="192.168.1.1", port=8080, debug=True)
+    @patch("ccproxy.cli.litellm_with_config")
+    def test_main_litellm_command(self, mock_litellm: Mock, tmp_path: Path) -> None:
+        """Test main with litellm command."""
+        cmd = LiteLLM(args=["--debug", "--port", "8080"])
         main(cmd, config_dir=tmp_path)
 
-        mock_start.assert_called_once()
-        call_args = mock_start.call_args[0][0]
-        assert isinstance(call_args, ProxyConfig)
-        assert call_args.host == "192.168.1.1"
-        assert call_args.port == 8080
-        assert call_args.debug is True
+        mock_litellm.assert_called_once_with(tmp_path, args=["--debug", "--port", "8080"])
 
-    @patch.object(CCProxyManager, "stop")
-    def test_main_stop_command(self, mock_stop: Mock, tmp_path: Path) -> None:
-        """Test main with stop command."""
-        cmd = Stop()
+    @patch("ccproxy.cli.litellm_with_config")
+    def test_main_litellm_no_args(self, mock_litellm: Mock, tmp_path: Path) -> None:
+        """Test main with litellm command without args."""
+        cmd = LiteLLM()
         main(cmd, config_dir=tmp_path)
 
-        mock_stop.assert_called_once()
-
-    @patch.object(CCProxyManager, "status")
-    def test_main_status_command(self, mock_status: Mock, tmp_path: Path) -> None:
-        """Test main with status command."""
-        cmd = Status()
-        main(cmd, config_dir=tmp_path)
-
-        mock_status.assert_called_once()
+        mock_litellm.assert_called_once_with(tmp_path, args=None)
 
     @patch("ccproxy.cli.install_config")
     def test_main_install_command(self, mock_install: Mock, tmp_path: Path) -> None:
@@ -496,14 +308,10 @@ class TestMainFunction:
         """Test main uses default config directory when not specified."""
         with (
             patch.object(Path, "home", return_value=tmp_path),
-            patch("ccproxy.cli.CCProxyManager") as mock_manager_class,
+            patch("ccproxy.cli.litellm_with_config") as mock_litellm,
         ):
-            mock_manager = Mock()
-            mock_manager_class.return_value = mock_manager
-
-            cmd = Status()
+            cmd = LiteLLM()
             main(cmd)
 
-            # Check that the manager was created with the default config dir
-            mock_manager_class.assert_called_once_with(tmp_path / ".ccproxy")
-            mock_manager.status.assert_called_once()
+            # Check that litellm was called with the default config dir
+            mock_litellm.assert_called_once_with(tmp_path / ".ccproxy", args=None)
