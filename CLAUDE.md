@@ -12,13 +12,15 @@
 - **DO NOT**: Use pip - always use `uv` for package management
 - **DO NOT**: Create unnecessary files or verbose documentation unless requested
 
-## Task Master Integration
+## Project Libraries and Frameworks
 
-./.taskmaster/CLAUDE.md
+### LiteLLM
 
-## Tyro CLI
+Use the gitmcp-litellm MCP server to search for LiteLLM implementation details, and use the Context7 MCP server to search for LiteLLM documentation.
 
-See docs/tyro-guide/CLAUDE.md or the gitmcp-tyro MCP server for Tyro documentation.
+### Tyro CLI
+
+Use the gitmcp-tyro MCP server for all CLI related tasks.
 
 ## Project Architecture
 
@@ -36,6 +38,8 @@ See docs/tyro-guide/CLAUDE.md or the gitmcp-tyro MCP server for Tyro documentati
 - **config.yaml**: LiteLLM proxy configuration with model deployments
 - Rules are dynamically loaded using Python import paths
 - Labels in ccproxy rules must match model_name entries in LiteLLM's model_list
+- `~/.ccproxy` is the project's default `config_dir`
+- The files in `./src/ccproxy/templates/{ccproxy.py,ccproxy.yaml,config.yaml}` are symlinked to `~/.ccproxy/{ccproxy.py,ccproxy.yaml,config.yaml}`
 
 ### Classification Architecture
 
@@ -326,11 +330,6 @@ uv sync                    # Install dependencies
 uv run pytest             # Run tests
 uv run mypy src/          # Type check
 uv run ruff check .       # Lint
-
-# Task Master
-task-master next          # Get next task
-task-master show <id>     # View task details
-task-master set-status --id=<id> --status=done
 ```
 
 ### Creating Custom Rules
