@@ -3,7 +3,7 @@ litellm:
   port: 4000
   num_workers: 4
   debug: true
-  detailed_debug: false
+  detailed_debug: true
 
 ccproxy:
   debug: true

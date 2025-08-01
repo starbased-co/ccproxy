@@ -1,6 +1,7 @@
 """Utility functions for ccproxy."""
 
 from pathlib import Path
+from typing import Any
 
 
 def get_templates_dir() -> Path:
@@ -49,3 +50,28 @@ def get_template_file(filename: str) -> Path:
         raise FileNotFoundError(f"Template file not found: {filename}")
 
     return template_path
+
+
+def calculate_duration_ms(start_time: Any, end_time: Any) -> float:
+    """Calculate duration in milliseconds between two timestamps.
+
+    Handles both float timestamps and timedelta objects.
+
+    Args:
+        start_time: Start timestamp (float or timedelta)
+        end_time: End timestamp (float or timedelta)
+
+    Returns:
+        Duration in milliseconds, rounded to 2 decimal places
+    """
+    try:
+        if isinstance(end_time, float) and isinstance(start_time, float):
+            duration_ms = (end_time - start_time) * 1000
+        else:
+            # Handle timedelta objects or mixed types
+            duration_seconds = (end_time - start_time).total_seconds()  # type: ignore[operator,unused-ignore,unreachable]
+            duration_ms = duration_seconds * 1000
+    except (TypeError, AttributeError):
+        duration_ms = 0.0
+
+    return round(duration_ms, 2)

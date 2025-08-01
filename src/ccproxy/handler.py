@@ -9,6 +9,7 @@ from rich import print
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import get_config
 from ccproxy.router import get_router
+from ccproxy.utils import calculate_duration_ms
 
 # Set up structured logging
 logger = logging.getLogger(__name__)
@@ -212,6 +213,42 @@ class CCProxyHandler(CustomLogger):
             request_id: Unique request identifier
             model_config: Model configuration from router (None if fallback)
         """
+        # Display colored routing decision
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
+
+        console = Console()
+
+        # Color scheme based on routing
+        if model_config is None:
+            # Fallback - yellow
+            color = "yellow"
+            routing_type = "FALLBACK"
+        elif original_model == routed_model:
+            # No change - dim
+            color = "dim"
+            routing_type = "PASSTHROUGH"
+        else:
+            # Routed - green
+            color = "green"
+            routing_type = "ROUTED"
+
+        # Create the routing message
+        routing_text = Text()
+        routing_text.append("🚀 CCProxy Routing Decision\n", style="bold cyan")
+        routing_text.append("├─ Type: ", style="dim")
+        routing_text.append(f"{routing_type}\n", style=f"bold {color}")
+        routing_text.append("├─ Label: ", style="dim")
+        routing_text.append(f"{label}\n", style="magenta")
+        routing_text.append("├─ Original: ", style="dim")
+        routing_text.append(f"{original_model}\n", style="blue")
+        routing_text.append("└─ Routed to: ", style="dim")
+        routing_text.append(f"{routed_model}", style=f"bold {color}")
+
+        # Print the panel
+        console.print(Panel(routing_text, border_style=color, padding=(0, 1)))
+
         log_data = {
             "event": "ccproxy_routing",
             "label": label,
@@ -254,16 +291,8 @@ class CCProxyHandler(CustomLogger):
         request_id = metadata.get("request_id", "unknown")
         label = metadata.get("ccproxy_label", "unknown")
 
-        # Calculate duration - handle both float timestamps and timedelta objects
-        try:
-            if isinstance(end_time, float) and isinstance(start_time, float):
-                duration_ms = (end_time - start_time) * 1000
-            else:
-                # Handle timedelta objects or mixed types
-                duration_seconds = (end_time - start_time).total_seconds()  # type: ignore[operator,unused-ignore,unreachable]
-                duration_ms = duration_seconds * 1000
-        except (TypeError, AttributeError):
-            duration_ms = 0.0
+        # Calculate duration using utility function
+        duration_ms = calculate_duration_ms(start_time, end_time)
 
         log_data = {
             "event": "ccproxy_success",
@@ -303,16 +332,8 @@ class CCProxyHandler(CustomLogger):
         request_id = metadata.get("request_id", "unknown")
         label = metadata.get("ccproxy_label", "unknown")
 
-        # Calculate duration - handle both float timestamps and timedelta objects
-        try:
-            if isinstance(end_time, float) and isinstance(start_time, float):
-                duration_ms = (end_time - start_time) * 1000
-            else:
-                # Handle timedelta objects or mixed types
-                duration_seconds = (end_time - start_time).total_seconds()  # type: ignore[operator,unused-ignore,unreachable]
-                duration_ms = duration_seconds * 1000
-        except (TypeError, AttributeError):
-            duration_ms = 0.0
+        # Calculate duration using utility function
+        duration_ms = calculate_duration_ms(start_time, end_time)
 
         log_data = {
             "event": "ccproxy_failure",
@@ -323,14 +344,9 @@ class CCProxyHandler(CustomLogger):
             "error_type": type(response_obj).__name__,
         }
 
-        # Add error message if available (but mask sensitive content)
+        # Add error message if available
         if hasattr(response_obj, "message"):
             error_message = str(response_obj.message)
-            # Basic masking of potential API keys or tokens
-            import re
-
-            error_message = re.sub(r"sk-[a-zA-Z0-9]{20,}", "[REDACTED_API_KEY]", error_message)
-            error_message = re.sub(r"[a-fA-F0-9]{32,}", "[REDACTED_TOKEN]", error_message)
             log_data["error_message"] = error_message[:500]  # Truncate long messages
 
         logger.error("CCProxy request failed", extra=log_data)
@@ -354,16 +370,8 @@ class CCProxyHandler(CustomLogger):
         request_id = metadata.get("request_id", "unknown")
         label = metadata.get("ccproxy_label", "unknown")
 
-        # Calculate duration - handle both float timestamps and timedelta objects
-        try:
-            if isinstance(end_time, float) and isinstance(start_time, float):
-                duration_ms = (end_time - start_time) * 1000
-            else:
-                # Handle timedelta objects or mixed types
-                duration_seconds = (end_time - start_time).total_seconds()  # type: ignore[operator,unused-ignore,unreachable]
-                duration_ms = duration_seconds * 1000
-        except (TypeError, AttributeError):
-            duration_ms = 0.0
+        # Calculate duration using utility function
+        duration_ms = calculate_duration_ms(start_time, end_time)
 
         log_data = {
             "event": "ccproxy_stream_complete",

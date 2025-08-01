@@ -2,18 +2,35 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import yaml
 
 from ccproxy.config import CCProxyConfig, clear_config_instance, set_config_instance
 from ccproxy.handler import CCProxyHandler, ccproxy_get_model
-from ccproxy.router import clear_router
+from ccproxy.router import ModelRouter, clear_router
 
 
 class TestCCProxyGetModel:
     """Tests for ccproxy_get_model routing function."""
+
+    def _create_router_with_models(self, model_list: list) -> ModelRouter:
+        """Helper to create a router with mocked models."""
+        mock_config = MagicMock(spec=CCProxyConfig)
+
+        mock_proxy_server = MagicMock()
+        mock_proxy_server.llm_router = MagicMock()
+        mock_proxy_server.llm_router.model_list = model_list
+
+        mock_module = MagicMock()
+        mock_module.proxy_server = mock_proxy_server
+
+        with (
+            patch("ccproxy.router.get_config", return_value=mock_config),
+            patch.dict("sys.modules", {"litellm.proxy": mock_module}),
+        ):
+            return ModelRouter()
 
     @pytest.fixture
     def config_files(self):
@@ -105,14 +122,46 @@ class TestCCProxyGetModel:
         config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
 
-        try:
-            request_data = {
-                "model": "claude-3-5-sonnet-20241022",
-                "messages": [{"role": "user", "content": "Hello"}],
-            }
+        # Create model list for mocking
+        test_model_list = [
+            {
+                "model_name": "default",
+                "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
+            },
+            {
+                "model_name": "background",
+                "litellm_params": {"model": "claude-3-5-haiku-20241022"},
+            },
+            {
+                "model_name": "think",
+                "litellm_params": {"model": "claude-3-5-opus-20250514"},
+            },
+            {
+                "model_name": "token_count",
+                "litellm_params": {"model": "gemini-2.5-pro"},
+            },
+            {
+                "model_name": "web_search",
+                "litellm_params": {"model": "perplexity/llama-3.1-sonar-large-128k-online"},
+            },
+        ]
 
-            model = ccproxy_get_model(request_data)
-            assert model == "claude-3-5-sonnet-20241022"
+        mock_proxy_server = MagicMock()
+        mock_proxy_server.llm_router = MagicMock()
+        mock_proxy_server.llm_router.model_list = test_model_list
+
+        mock_module = MagicMock()
+        mock_module.proxy_server = mock_proxy_server
+
+        try:
+            with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+                request_data = {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                }
+
+                model = ccproxy_get_model(request_data)
+                assert model == "claude-3-5-sonnet-20241022"
         finally:
             clear_config_instance()
             clear_router()
@@ -124,14 +173,46 @@ class TestCCProxyGetModel:
         config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
 
-        try:
-            request_data = {
-                "model": "claude-3-5-haiku-20241022",
-                "messages": [{"role": "user", "content": "Format this code"}],
-            }
+        # Create model list for mocking
+        test_model_list = [
+            {
+                "model_name": "default",
+                "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
+            },
+            {
+                "model_name": "background",
+                "litellm_params": {"model": "claude-3-5-haiku-20241022"},
+            },
+            {
+                "model_name": "think",
+                "litellm_params": {"model": "claude-3-5-opus-20250514"},
+            },
+            {
+                "model_name": "token_count",
+                "litellm_params": {"model": "gemini-2.5-pro"},
+            },
+            {
+                "model_name": "web_search",
+                "litellm_params": {"model": "perplexity/llama-3.1-sonar-large-128k-online"},
+            },
+        ]
 
-            model = ccproxy_get_model(request_data)
-            assert model == "claude-3-5-haiku-20241022"
+        mock_proxy_server = MagicMock()
+        mock_proxy_server.llm_router = MagicMock()
+        mock_proxy_server.llm_router.model_list = test_model_list
+
+        mock_module = MagicMock()
+        mock_module.proxy_server = mock_proxy_server
+
+        try:
+            with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+                request_data = {
+                    "model": "claude-3-5-haiku-20241022",
+                    "messages": [{"role": "user", "content": "Format this code"}],
+                }
+
+                model = ccproxy_get_model(request_data)
+                assert model == "claude-3-5-haiku-20241022"
         finally:
             clear_config_instance()
             clear_router()
@@ -297,9 +378,43 @@ class TestCCProxyHandler:
 
         config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
         set_config_instance(config)
-        yield CCProxyHandler()
-        clear_config_instance()
-        clear_router()
+
+        # Create model list for mocking
+        test_model_list = [
+            {
+                "model_name": "default",
+                "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
+            },
+            {
+                "model_name": "background",
+                "litellm_params": {"model": "claude-3-5-haiku-20241022"},
+            },
+        ]
+
+        mock_proxy_server = MagicMock()
+        mock_proxy_server.llm_router = MagicMock()
+        mock_proxy_server.llm_router.model_list = test_model_list
+
+        mock_module = MagicMock()
+        mock_module.proxy_server = mock_proxy_server
+
+        # We need to patch the proxy_server import for the handler's initialization
+        # This will ensure the router gets the mocked model list
+        import sys
+
+        original_module = sys.modules.get("litellm.proxy")
+        sys.modules["litellm.proxy"] = mock_module
+
+        try:
+            handler = CCProxyHandler()
+            yield handler
+        finally:
+            if original_module is None:
+                sys.modules.pop("litellm.proxy", None)
+            else:
+                sys.modules["litellm.proxy"] = original_module
+            clear_config_instance()
+            clear_router()
 
     @pytest.fixture
     def config_files(self):
@@ -399,23 +514,6 @@ class TestCCProxyHandler:
     async def test_handler_uses_config_threshold(self):
         """Test that handler uses context threshold from config."""
         # Create config with custom threshold
-        litellm_data = {
-            "model_list": [
-                {
-                    "model_name": "default",
-                    "litellm_params": {
-                        "model": "claude-3-5-sonnet-20241022",
-                    },
-                },
-                {
-                    "model_name": "token_count",
-                    "litellm_params": {
-                        "model": "gemini-2.5-pro",
-                    },
-                },
-            ],
-        }
-
         ccproxy_data = {
             "ccproxy": {
                 "debug": False,
@@ -429,6 +527,9 @@ class TestCCProxyHandler:
             }
         }
 
+        # Create a dummy litellm config file (required by CCProxyConfig)
+        litellm_data = {"model_list": []}
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as litellm_file:
             yaml.dump(litellm_data, litellm_file)
             litellm_path = Path(litellm_file.name)
@@ -441,28 +542,52 @@ class TestCCProxyHandler:
             config = CCProxyConfig.from_yaml(ccproxy_path, litellm_config_path=litellm_path)
             set_config_instance(config)
 
-            handler = CCProxyHandler()
+            # Create model list for mocking
+            test_model_list = [
+                {
+                    "model_name": "default",
+                    "litellm_params": {
+                        "model": "claude-3-5-sonnet-20241022",
+                    },
+                },
+                {
+                    "model_name": "token_count",
+                    "litellm_params": {
+                        "model": "gemini-2.5-pro",
+                    },
+                },
+            ]
 
-            # Create request with >10k tokens (10k threshold * 4 chars/token = 40k+ chars)
-            large_message = "a" * 45000  # ~11.25k tokens
-            request_data = {
-                "model": "claude-3-5-sonnet-20241022",
-                "messages": [{"role": "user", "content": large_message}],
-            }
-            user_api_key_dict = {}
+            mock_proxy_server = MagicMock()
+            mock_proxy_server.llm_router = MagicMock()
+            mock_proxy_server.llm_router.model_list = test_model_list
 
-            # Call the hook
-            modified_data = await handler.async_pre_call_hook(
-                request_data,
-                user_api_key_dict,
-            )
+            mock_module = MagicMock()
+            mock_module.proxy_server = mock_proxy_server
 
-            # Should route to token_count
-            assert modified_data["model"] == "gemini-2.5-pro"
-            assert modified_data["metadata"]["ccproxy_label"] == "token_count"
+            with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+                handler = CCProxyHandler()
+
+                # Create request with >10k tokens (10k threshold * 4 chars/token = 40k+ chars)
+                large_message = "a" * 45000  # ~11.25k tokens
+                request_data = {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "messages": [{"role": "user", "content": large_message}],
+                }
+                user_api_key_dict = {}
+
+                # Call the hook
+                modified_data = await handler.async_pre_call_hook(
+                    request_data,
+                    user_api_key_dict,
+                )
+
+                # Should route to token_count
+                assert modified_data["model"] == "gemini-2.5-pro"
+                assert modified_data["metadata"]["ccproxy_label"] == "token_count"
 
         finally:
-            litellm_path.unlink()
             ccproxy_path.unlink()
+            litellm_path.unlink()
             clear_config_instance()
             clear_router()

@@ -186,6 +186,7 @@ def get_config() -> CCProxyConfig:
                     ccproxy_yaml_path = config_path / "ccproxy.yaml"
                     if ccproxy_yaml_path.exists():
                         _config_instance = CCProxyConfig.from_yaml(ccproxy_yaml_path)
+                        _config_instance.litellm_config_path = config_path / "config.yaml"
                     else:
                         # Create default config with proper paths
                         _config_instance = CCProxyConfig(
@@ -197,6 +198,7 @@ def get_config() -> CCProxyConfig:
                     ccproxy_path = fallback_config_dir / "ccproxy.yaml"
                     if ccproxy_path.exists():
                         _config_instance = CCProxyConfig.from_yaml(ccproxy_path)
+                        _config_instance.litellm_config_path = fallback_config_dir / "config.yaml"
                     else:
                         # Use from_proxy_runtime which will look for ccproxy.yaml
                         # in the same directory as config.yaml

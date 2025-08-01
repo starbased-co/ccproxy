@@ -160,11 +160,8 @@ def run_with_proxy(config_dir: Path, command: list[str]) -> None:
     env["OPENAI_BASE_URL"] = f"{proxy_url}"
     env["ANTHROPIC_BASE_URL"] = f"{proxy_url}"
 
-    # Also set standard HTTP proxy variables for general compatibility
-    env["HTTP_PROXY"] = proxy_url
-    env["HTTPS_PROXY"] = proxy_url
-    env["http_proxy"] = proxy_url
-    env["https_proxy"] = proxy_url
+    # Don't set HTTP_PROXY/HTTPS_PROXY as these cause Claude Code to treat
+    # the LiteLLM server as a general HTTP proxy, not an API endpoint
 
     # Execute the command with the proxy environment
     try:
@@ -234,6 +231,7 @@ def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach:
                     stdout=log,
                     stderr=subprocess.STDOUT,
                     start_new_session=True,  # Detach from parent process group
+                    env=os.environ.copy(),  # Pass environment variables including CCPROXY_CONFIG_DIR
                 )
 
             # Save PID
@@ -251,7 +249,7 @@ def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach:
         # Execute litellm command in foreground
         try:
             # S603: Command construction is safe - we control the litellm path
-            result = subprocess.run(cmd)  # noqa: S603
+            result = subprocess.run(cmd, env=os.environ.copy())  # noqa: S603
             sys.exit(result.returncode)
         except FileNotFoundError:
             print("Error: litellm command not found.", file=sys.stderr)

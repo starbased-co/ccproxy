@@ -3,8 +3,6 @@
 import threading
 from typing import Any
 
-from ccproxy.config import get_config
-
 
 class ModelRouter:
     """Routes classification labels to model configurations.
@@ -53,8 +51,6 @@ class ModelRouter:
         This method extracts model routing information from the LiteLLM
         proxy configuration and builds internal lookup structures.
         """
-        config = get_config()
-
         with self._lock:
             # Clear existing mappings
             self._model_map.clear()
@@ -62,18 +58,13 @@ class ModelRouter:
             self._model_group_alias.clear()
             self._available_models.clear()
 
-            # Try to load from proxy_server runtime first
-            try:
-                from litellm.proxy import proxy_server
+            # Get model list from proxy server
+            from litellm.proxy import proxy_server
 
-                if proxy_server and hasattr(proxy_server, "llm_router") and proxy_server.llm_router:
-                    model_list = proxy_server.llm_router.model_list or []
-                else:
-                    # Fallback to loading from YAML
-                    model_list = self._load_models_from_yaml(config)
-            except ImportError:
-                # proxy_server not available, load from YAML
-                model_list = self._load_models_from_yaml(config)
+            if proxy_server and hasattr(proxy_server, "llm_router") and proxy_server.llm_router:
+                model_list = proxy_server.llm_router.model_list or []
+            else:
+                model_list = []
 
             # Build model mapping and list
             for model_entry in model_list:
@@ -99,23 +90,6 @@ class ModelRouter:
                         if underlying_model not in self._model_group_alias:
                             self._model_group_alias[underlying_model] = []
                         self._model_group_alias[underlying_model].append(model_name)
-
-    def _load_models_from_yaml(self, config: Any) -> list[dict[str, Any]]:
-        """Load model list from LiteLLM YAML config file.
-
-        Args:
-            config: The CCProxyConfig instance
-
-        Returns:
-            List of model configurations
-        """
-        import yaml
-
-        if config.litellm_config_path.exists():
-            with config.litellm_config_path.open() as f:
-                litellm_data = yaml.safe_load(f) or {}
-                return list(litellm_data.get("model_list", []))
-        return []
 
     def get_model_for_label(self, label: str) -> dict[str, Any] | None:
         """Get model configuration for a given classification label.
@@ -144,8 +118,8 @@ class ModelRouter:
             if model is not None:
                 return model
 
-            # Fallback logic: try to find an alternative model
-            return self._get_fallback_model(label_str)
+            # Fallback to 'default' model if label not found
+            return self._model_map.get("default")
 
     def get_model_list(self) -> list[dict[str, Any]]:
         """Get the complete list of available models.
@@ -206,31 +180,6 @@ class ModelRouter:
         """
         with self._lock:
             return model_name in self._available_models
-
-    def _get_fallback_model(self, label: str) -> dict[str, Any] | None:
-        """Get a fallback model when the preferred model is unavailable.
-
-        This method implements a fallback strategy:
-        1. If label is unknown, try 'default' model
-        2. If 'default' is unavailable, use first available model
-        3. Return None only if no models are available
-
-        Args:
-            label: The routing label that was not found
-
-        Returns:
-            A fallback model configuration or None
-        """
-        # Try 'default' model first as the primary fallback
-        if label != "default" and "default" in self._model_map:
-            return self._model_map["default"]
-
-        # If no default found, use the first available model
-        if self._model_list:
-            return self._model_list[0].copy()
-
-        # No models available at all
-        return None
 
 
 # Global router instance

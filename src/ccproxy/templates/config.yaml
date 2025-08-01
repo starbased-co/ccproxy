@@ -33,7 +33,7 @@ model_list:
 
   - model_name: claude-opus-4-20250514
     litellm_params:
-      model: anthropic/claude-3-opus-20240229
+      model: anthropic/claude-opus-4-20250514
       api_base: https://api.anthropic.com
       # api_key removed - OAuth token will be forwarded from claude-cli
 

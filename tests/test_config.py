@@ -360,7 +360,11 @@ ccproxy:
             os.chdir(temp_dir)
 
             try:
-                with mock.patch("ccproxy.config.proxy_server", mock_proxy_server):
+                # Set environment variable to point to test directory
+                with (
+                    mock.patch("ccproxy.config.proxy_server", mock_proxy_server),
+                    mock.patch.dict(os.environ, {"CCPROXY_CONFIG_DIR": temp_dir}),
+                ):
                     config = get_config()
                     assert config.debug is True
                     assert len(config.rules) == 1

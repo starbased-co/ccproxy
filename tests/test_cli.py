@@ -3,7 +3,7 @@
 import os
 import subprocess
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
@@ -47,7 +47,7 @@ class TestLiteLLMWithConfig:
             litellm_with_config(tmp_path)
 
         assert exc_info.value.code == 0
-        mock_run.assert_called_once_with(["litellm", "--config", str(config_file)])
+        mock_run.assert_called_once_with(["litellm", "--config", str(config_file)], env=ANY)
 
     @patch("subprocess.run")
     def test_litellm_with_args(self, mock_run: Mock, tmp_path: Path) -> None:
@@ -61,7 +61,9 @@ class TestLiteLLMWithConfig:
             litellm_with_config(tmp_path, args=["--debug", "--port", "8080"])
 
         assert exc_info.value.code == 0
-        mock_run.assert_called_once_with(["litellm", "--config", str(config_file), "--debug", "--port", "8080"])
+        mock_run.assert_called_once_with(
+            ["litellm", "--config", str(config_file), "--debug", "--port", "8080"], env=ANY
+        )
 
     @patch("subprocess.run")
     def test_litellm_command_not_found(self, mock_run: Mock, tmp_path: Path, capsys) -> None:
@@ -277,9 +279,10 @@ litellm:
         # Check environment variables were set
         call_args = mock_run.call_args
         env = call_args[1]["env"]
-        assert env["OPENAI_API_BASE"] == "http://192.168.1.1:8888/v1"
-        assert env["ANTHROPIC_BASE_URL"] == "http://192.168.1.1:8888/v1"
-        assert env["HTTP_PROXY"] == "http://192.168.1.1:8888"
+        assert env["OPENAI_API_BASE"] == "http://192.168.1.1:8888"
+        assert env["ANTHROPIC_BASE_URL"] == "http://192.168.1.1:8888"
+        # HTTP_PROXY should not be set to avoid CONNECT issues
+        assert "HTTP_PROXY" not in env or env.get("HTTP_PROXY") == os.environ.get("HTTP_PROXY")
 
     @patch("subprocess.run")
     def test_run_with_env_override(self, mock_run: Mock, tmp_path: Path) -> None:
@@ -302,8 +305,9 @@ litellm:
         # Check environment variables use env overrides
         call_args = mock_run.call_args
         env = call_args[1]["env"]
-        assert env["OPENAI_API_BASE"] == "http://10.0.0.1:9999/v1"
-        assert env["HTTP_PROXY"] == "http://10.0.0.1:9999"
+        assert env["OPENAI_API_BASE"] == "http://10.0.0.1:9999"
+        # HTTP_PROXY should not be set to avoid CONNECT issues
+        assert "HTTP_PROXY" not in env or env.get("HTTP_PROXY") == os.environ.get("HTTP_PROXY")
 
     @patch("subprocess.run")
     def test_run_command_not_found(self, mock_run: Mock, tmp_path: Path, capsys) -> None:
