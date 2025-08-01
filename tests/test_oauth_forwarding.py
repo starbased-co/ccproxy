@@ -1,14 +1,49 @@
 """Test OAuth token forwarding for Claude CLI requests."""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 
+from ccproxy.config import clear_config_instance
 from ccproxy.handler import CCProxyHandler
+from ccproxy.router import clear_router
+
+
+@pytest.fixture
+def mock_handler():
+    """Create a CCProxyHandler with mocked router that provides a default model."""
+    # Mock proxy server with default model
+    mock_proxy_server = MagicMock()
+    mock_proxy_server.llm_router = MagicMock()
+    mock_proxy_server.llm_router.model_list = [
+        {
+            "model_name": "default",
+            "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
+        },
+        {
+            "model_name": "background",
+            "litellm_params": {"model": "claude-3-5-haiku-20241022"},
+        },
+    ]
+
+    mock_module = MagicMock()
+    mock_module.proxy_server = mock_proxy_server
+
+    # Patch the proxy server import
+    with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+        clear_router()  # Clear any existing router
+        handler = CCProxyHandler()  # Create actual handler instance
+        yield handler
+
+    # Cleanup
+    clear_config_instance()
+    clear_router()
 
 
 @pytest.mark.asyncio
-async def test_oauth_forwarding_for_claude_cli():
+async def test_oauth_forwarding_for_claude_cli(mock_handler):
     """Test that OAuth tokens are forwarded for claude-cli requests."""
-    handler = CCProxyHandler()
+    handler = mock_handler
 
     # Test data for Anthropic model with required structure
     data = {
@@ -33,9 +68,9 @@ async def test_oauth_forwarding_for_claude_cli():
 
 
 @pytest.mark.asyncio
-async def test_no_oauth_forwarding_for_non_claude_cli():
+async def test_no_oauth_forwarding_for_non_claude_cli(mock_handler):
     """Test that OAuth tokens are NOT forwarded for non-claude-cli requests."""
-    handler = CCProxyHandler()
+    handler = mock_handler
 
     # Test data with different user agent
     data = {
@@ -58,34 +93,72 @@ async def test_no_oauth_forwarding_for_non_claude_cli():
 
 
 @pytest.mark.asyncio
-async def test_no_oauth_forwarding_for_non_anthropic_models():
-    """Test that OAuth tokens are NOT forwarded for non-Anthropic models."""
-    handler = CCProxyHandler()
+async def test_no_oauth_forwarding_for_non_anthropic_models(mock_handler):
+    """Test that OAuth tokens are NOT forwarded when model doesn't route to Anthropic."""
+    # Create a handler with proper routing config that includes gemini
+    mock_proxy_server = MagicMock()
+    mock_proxy_server.llm_router = MagicMock()
+    mock_proxy_server.llm_router.model_list = [
+        {
+            "model_name": "default",
+            "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
+        },
+        {
+            "model_name": "token_count",
+            "litellm_params": {"model": "gemini-2.5-pro"},
+        },
+    ]
 
-    # Test data for non-Anthropic model
-    data = {
-        "model": "gemini-2.5-pro",
-        "messages": [{"role": "user", "content": "test"}],
-        "metadata": {},
-        "provider_specific_header": {"extra_headers": {}},
-        "proxy_server_request": {"headers": {"user-agent": "claude-cli/1.0.62 (external, cli)"}},
-        "secret_fields": {"raw_headers": {"authorization": "Bearer sk-ant-oat01-test-token-123"}},
-    }
+    mock_module = MagicMock()
+    mock_module.proxy_server = mock_proxy_server
 
-    user_api_key_dict = {}
-    kwargs = {}
+    # Create config with token count rule
+    from ccproxy.config import CCProxyConfig, RuleConfig, set_config_instance
 
-    # Call the hook
-    result = await handler.async_pre_call_hook(data, user_api_key_dict, **kwargs)
+    config = CCProxyConfig(
+        debug=False,
+        rules=[
+            RuleConfig(
+                label="token_count",
+                rule_path="ccproxy.rules.TokenCountRule",
+                params=[{"threshold": 100}],  # Low threshold to trigger
+            ),
+        ],
+    )
+    set_config_instance(config)
 
-    # Verify OAuth token was NOT forwarded
-    assert "authorization" not in result["provider_specific_header"]["extra_headers"]
+    with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+        clear_router()
+        handler = CCProxyHandler()
+
+        # Test data with high token count to trigger routing to gemini
+        data = {
+            "model": "claude-3-5-sonnet-20241022",
+            "messages": [{"role": "user", "content": "a" * 500}],  # >100 tokens
+            "metadata": {},
+            "provider_specific_header": {"extra_headers": {}},
+            "proxy_server_request": {"headers": {"user-agent": "claude-cli/1.0.62 (external, cli)"}},
+            "secret_fields": {"raw_headers": {"authorization": "Bearer sk-ant-oat01-test-token-123"}},
+        }
+
+        user_api_key_dict = {}
+        kwargs = {}
+
+        # Call the hook
+        result = await handler.async_pre_call_hook(data, user_api_key_dict, **kwargs)
+
+        # Verify OAuth token was NOT forwarded because we routed to gemini
+        assert "authorization" not in result["provider_specific_header"]["extra_headers"]
+        assert result["model"] == "gemini-2.5-pro"
+
+    clear_config_instance()
+    clear_router()
 
 
 @pytest.mark.asyncio
-async def test_oauth_forwarding_handles_missing_headers():
+async def test_oauth_forwarding_handles_missing_headers(mock_handler):
     """Test that OAuth forwarding handles missing headers gracefully."""
-    handler = CCProxyHandler()
+    handler = mock_handler
 
     # Test data with missing secret_fields
     data = {
@@ -108,9 +181,9 @@ async def test_oauth_forwarding_handles_missing_headers():
 
 
 @pytest.mark.asyncio
-async def test_oauth_forwarding_preserves_existing_extra_headers():
+async def test_oauth_forwarding_preserves_existing_extra_headers(mock_handler):
     """Test that OAuth forwarding preserves existing extra_headers."""
-    handler = CCProxyHandler()
+    handler = mock_handler
 
     # Test data with existing extra_headers
     data = {
@@ -136,9 +209,9 @@ async def test_oauth_forwarding_preserves_existing_extra_headers():
 
 
 @pytest.mark.asyncio
-async def test_oauth_forwarding_with_claude_prefix_model():
+async def test_oauth_forwarding_with_claude_prefix_model(mock_handler):
     """Test that OAuth tokens are forwarded for models starting with 'claude'."""
-    handler = CCProxyHandler()
+    handler = mock_handler
 
     # Test data for model starting with 'claude'
     data = {
@@ -161,9 +234,9 @@ async def test_oauth_forwarding_with_claude_prefix_model():
 
 
 @pytest.mark.asyncio
-async def test_oauth_forwarding_with_routed_model():
-    """Test that OAuth forwarding works with routed models."""
-    handler = CCProxyHandler()
+async def test_oauth_forwarding_with_routed_model(mock_handler):
+    """Test that OAuth forwarding works based on the routed model destination."""
+    handler = mock_handler
 
     # Test data that will be routed to an Anthropic model
     data = {
@@ -181,9 +254,53 @@ async def test_oauth_forwarding_with_routed_model():
     # Call the hook
     result = await handler.async_pre_call_hook(data, user_api_key_dict, **kwargs)
 
-    # The routed model should be checked in the handler
-    # If it routes to an anthropic model, OAuth should be forwarded
-    # This test verifies the logic works with routing
-    if "anthropic/" in result.get("model", "") or result.get("model", "").startswith("claude"):
-        expected_token = "Bearer sk-ant-oat01-test-token-123"  # noqa: S105
-        assert result["provider_specific_header"]["extra_headers"]["authorization"] == expected_token
+    # OAuth forwarding should be based on the routed model destination
+    # Since the routed model is an Anthropic model, OAuth SHOULD be forwarded
+    # regardless of what the original model was
+    assert result["provider_specific_header"]["extra_headers"]["authorization"] == "Bearer sk-ant-oat01-test-token-123"
+
+    # Verify the model was routed correctly
+    assert result["model"] == "claude-3-5-sonnet-20241022"
+
+
+@pytest.mark.asyncio
+async def test_no_oauth_forwarding_when_routed_to_non_anthropic(mock_handler):
+    """Test that OAuth tokens are NOT forwarded when routing to non-Anthropic models."""
+    # Create a handler with a mock router that routes to a non-Anthropic model
+    mock_proxy_server = MagicMock()
+    mock_proxy_server.llm_router = MagicMock()
+    mock_proxy_server.llm_router.model_list = [
+        {
+            "model_name": "default",
+            "litellm_params": {"model": "gemini-2.5-pro"},  # Non-Anthropic model
+        },
+    ]
+
+    mock_module = MagicMock()
+    mock_module.proxy_server = mock_proxy_server
+
+    with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+        clear_router()
+        handler = CCProxyHandler()
+
+        # Test data from claude-cli that will be routed to a non-Anthropic model
+        data = {
+            "model": "default",
+            "messages": [{"role": "user", "content": "test"}],
+            "metadata": {},
+            "provider_specific_header": {"extra_headers": {}},
+            "proxy_server_request": {"headers": {"user-agent": "claude-cli/1.0.62 (external, cli)"}},
+            "secret_fields": {"raw_headers": {"authorization": "Bearer sk-ant-oat01-test-token-123"}},
+        }
+
+        user_api_key_dict = {}
+        kwargs = {}
+
+        # Call the hook
+        result = await handler.async_pre_call_hook(data, user_api_key_dict, **kwargs)
+
+        # OAuth should NOT be forwarded since we're routing to a non-Anthropic model
+        assert "authorization" not in result["provider_specific_header"]["extra_headers"]
+
+        # Verify the model was routed correctly
+        assert result["model"] == "gemini-2.5-pro"

@@ -47,10 +47,11 @@ def _determine_routed_model(
         routed_model = str(model_config["litellm_params"]["model"])
         return routed_model, model_config
 
-    # No model config found (not even default), use original model
-    if original_model is None:
-        original_model = str(data.get("model", "unknown"))
-    return original_model, None
+    # No model config found (not even default)
+    raise ValueError(
+        f"No model configured for label '{label}' and no 'default' model available. "
+        "Please ensure a 'default' model is configured in your config.yaml file."
+    )
 
 
 class CCProxyHandler(CustomLogger):
@@ -113,13 +114,14 @@ class CCProxyHandler(CustomLogger):
             data["metadata"]["request_id"] = str(uuid.uuid4())
 
         # Handle OAuth token forwarding for Claude CLI
-        # Check if this is a claude-cli request and targeting an Anthropic model
+        # Check if this is a claude-cli request and routing to an Anthropic provider
         request = data.get("proxy_server_request")
         if request:
             headers = request.get("headers") or {}
             user_agent = headers.get("user-agent", "")
 
-            # Check if this is a claude-cli request and an Anthropic model
+            # Check if this is a claude-cli request and the routed model is going to Anthropic
+            # Forward OAuth token when the final destination is Anthropic provider
             if (
                 user_agent
                 and "claude-cli" in user_agent
