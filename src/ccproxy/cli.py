@@ -22,6 +22,9 @@ class Litellm:
     args: Annotated[list[str] | None, tyro.conf.Positional] = None
     """Additional arguments to pass to litellm command."""
 
+    detach: Annotated[bool, tyro.conf.arg(aliases=["-d"])] = False
+    """Run in background and save PID to litellm.lock."""
+
 
 @dataclass
 class Install:
@@ -148,12 +151,13 @@ def run_with_proxy(config_dir: Path, command: list[str]) -> None:
         sys.exit(130)  # Standard exit code for Ctrl+C
 
 
-def litellm_with_config(config_dir: Path, args: list[str] | None = None) -> None:
+def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach: bool = False) -> None:
     """Run the LiteLLM proxy server with ccproxy configuration.
 
     Args:
         config_dir: Configuration directory containing config files
         args: Additional arguments to pass to litellm command
+        detach: Run in background mode with PID tracking
     """
     # Check if config exists
     config_path = config_dir / "config.yaml"
@@ -169,17 +173,63 @@ def litellm_with_config(config_dir: Path, args: list[str] | None = None) -> None
     if args:
         cmd.extend(args)
 
-    # Execute litellm command
-    try:
-        # S603: Command construction is safe - we control the litellm path
-        result = subprocess.run(cmd)  # noqa: S603
-        sys.exit(result.returncode)
-    except FileNotFoundError:
-        print("Error: litellm command not found.", file=sys.stderr)
-        print("Please ensure LiteLLM is installed: pip install litellm", file=sys.stderr)
-        sys.exit(1)
-    except KeyboardInterrupt:
-        sys.exit(130)
+    if detach:
+        # Run in background mode
+        pid_file = config_dir / "litellm.lock"
+        log_file = config_dir / "litellm.log"
+
+        # Check if already running
+        if pid_file.exists():
+            try:
+                pid = int(pid_file.read_text().strip())
+                # Check if process is still running
+                try:
+                    os.kill(pid, 0)  # This doesn't kill, just checks if process exists
+                    print(f"LiteLLM is already running with PID {pid}", file=sys.stderr)
+                    print(f"To stop it, run: kill {pid}", file=sys.stderr)
+                    sys.exit(1)
+                except ProcessLookupError:
+                    # Process is not running, clean up stale PID file
+                    pid_file.unlink()
+            except (ValueError, OSError):
+                # Invalid PID file, remove it
+                pid_file.unlink()
+
+        # Start process in background
+        try:
+            with log_file.open("w") as log:
+                # S603: Command construction is safe - we control the litellm path
+                process = subprocess.Popen(  # noqa: S603
+                    cmd,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,  # Detach from parent process group
+                )
+
+            # Save PID
+            pid_file.write_text(str(process.pid))
+
+            print(f"LiteLLM started in background with PID {process.pid}")
+            print(f"Log file: {log_file}")
+            print(f"To stop: kill {process.pid}")
+            sys.exit(0)
+
+        except FileNotFoundError:
+            print("Error: litellm command not found.", file=sys.stderr)
+            print("Please ensure LiteLLM is installed: pip install litellm", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Execute litellm command in foreground
+        try:
+            # S603: Command construction is safe - we control the litellm path
+            result = subprocess.run(cmd)  # noqa: S603
+            sys.exit(result.returncode)
+        except FileNotFoundError:
+            print("Error: litellm command not found.", file=sys.stderr)
+            print("Please ensure LiteLLM is installed: pip install litellm", file=sys.stderr)
+            sys.exit(1)
+        except KeyboardInterrupt:
+            sys.exit(130)
 
 
 def main(
@@ -197,7 +247,7 @@ def main(
 
     # Handle each command type
     if isinstance(cmd, Litellm):
-        litellm_with_config(config_dir, args=cmd.args)
+        litellm_with_config(config_dir, args=cmd.args, detach=cmd.detach)
 
     elif isinstance(cmd, Install):
         install_config(config_dir, force=cmd.force)

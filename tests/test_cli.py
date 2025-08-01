@@ -87,6 +87,77 @@ class TestLiteLLMWithConfig:
 
         assert exc_info.value.code == 130
 
+    @patch("subprocess.Popen")
+    def test_litellm_detach_success(self, mock_popen: Mock, tmp_path: Path, capsys) -> None:
+        """Test successful litellm execution in detached mode."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("litellm: config")
+
+        mock_process = Mock()
+        mock_process.pid = 12345
+        mock_popen.return_value = mock_process
+
+        with pytest.raises(SystemExit) as exc_info:
+            litellm_with_config(tmp_path, detach=True)
+
+        assert exc_info.value.code == 0
+
+        # Check PID file was created
+        pid_file = tmp_path / "litellm.lock"
+        assert pid_file.exists()
+        assert pid_file.read_text() == "12345"
+
+        # Check output
+        captured = capsys.readouterr()
+        assert "LiteLLM started in background with PID 12345" in captured.out
+        assert f"Log file: {tmp_path / 'litellm.log'}" in captured.out
+
+    @patch("os.kill")
+    def test_litellm_detach_already_running(self, mock_kill: Mock, tmp_path: Path, capsys) -> None:
+        """Test litellm detach when already running."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("litellm: config")
+
+        # Create existing PID file
+        pid_file = tmp_path / "litellm.lock"
+        pid_file.write_text("67890")
+
+        # Mock process is still running
+        mock_kill.return_value = None
+
+        with pytest.raises(SystemExit) as exc_info:
+            litellm_with_config(tmp_path, detach=True)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "LiteLLM is already running with PID 67890" in captured.err
+
+    @patch("subprocess.Popen")
+    @patch("os.kill")
+    def test_litellm_detach_stale_pid(self, mock_kill: Mock, mock_popen: Mock, tmp_path: Path) -> None:
+        """Test litellm detach with stale PID file."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("litellm: config")
+
+        # Create existing PID file
+        pid_file = tmp_path / "litellm.lock"
+        pid_file.write_text("67890")
+
+        # Mock process is not running (raises ProcessLookupError)
+        mock_kill.side_effect = ProcessLookupError()
+
+        mock_process = Mock()
+        mock_process.pid = 12345
+        mock_popen.return_value = mock_process
+
+        with pytest.raises(SystemExit) as exc_info:
+            litellm_with_config(tmp_path, detach=True)
+
+        assert exc_info.value.code == 0
+
+        # Check PID file was updated
+        assert pid_file.read_text() == "12345"
+
 
 class TestInstallConfig:
     """Test suite for install_config function."""
@@ -266,7 +337,7 @@ class TestMainFunction:
         cmd = Litellm(args=["--debug", "--port", "8080"])
         main(cmd, config_dir=tmp_path)
 
-        mock_litellm.assert_called_once_with(tmp_path, args=["--debug", "--port", "8080"])
+        mock_litellm.assert_called_once_with(tmp_path, args=["--debug", "--port", "8080"], detach=False)
 
     @patch("ccproxy.cli.litellm_with_config")
     def test_main_litellm_no_args(self, mock_litellm: Mock, tmp_path: Path) -> None:
@@ -274,7 +345,15 @@ class TestMainFunction:
         cmd = Litellm()
         main(cmd, config_dir=tmp_path)
 
-        mock_litellm.assert_called_once_with(tmp_path, args=None)
+        mock_litellm.assert_called_once_with(tmp_path, args=None, detach=False)
+
+    @patch("ccproxy.cli.litellm_with_config")
+    def test_main_litellm_detach(self, mock_litellm: Mock, tmp_path: Path) -> None:
+        """Test main with litellm command in detach mode."""
+        cmd = Litellm(detach=True)
+        main(cmd, config_dir=tmp_path)
+
+        mock_litellm.assert_called_once_with(tmp_path, args=None, detach=True)
 
     @patch("ccproxy.cli.install_config")
     def test_main_install_command(self, mock_install: Mock, tmp_path: Path) -> None:
@@ -314,4 +393,4 @@ class TestMainFunction:
             main(cmd)
 
             # Check that litellm was called with the default config dir
-            mock_litellm.assert_called_once_with(tmp_path / ".ccproxy", args=None)
+            mock_litellm.assert_called_once_with(tmp_path / ".ccproxy", args=None, detach=False)
