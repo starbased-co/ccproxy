@@ -1,6 +1,7 @@
 """Tests for the CCProxy CLI."""
 
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -9,6 +10,7 @@ import pytest
 from ccproxy.cli import (
     Install,
     Litellm,
+    Logs,
     Run,
     Stop,
     install_config,
@@ -16,6 +18,7 @@ from ccproxy.cli import (
     main,
     run_with_proxy,
     stop_litellm,
+    view_logs,
 )
 
 
@@ -111,8 +114,9 @@ class TestLiteLLMWithConfig:
 
         # Check output
         captured = capsys.readouterr()
-        assert "LiteLLM started in background with PID 12345" in captured.out
-        assert f"Log file: {tmp_path / 'litellm.log'}" in captured.out
+        assert "LiteLLM started in background" in captured.out
+        assert "Log file:" in captured.out
+        assert str(tmp_path / "litellm.log") in captured.out
 
     @patch("os.kill")
     def test_litellm_detach_already_running(self, mock_kill: Mock, tmp_path: Path, capsys) -> None:
@@ -423,6 +427,116 @@ class TestStopLiteLLM:
         assert "Error reading PID file" in captured.err
 
 
+class TestViewLogs:
+    """Test suite for view_logs function."""
+
+    def test_logs_no_file(self, tmp_path: Path, capsys) -> None:
+        """Test logs when log file doesn't exist."""
+        with pytest.raises(SystemExit) as exc_info:
+            view_logs(tmp_path)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No log file found" in captured.err
+        assert str(tmp_path / "litellm.log") in captured.err
+
+    @patch("subprocess.run")
+    def test_logs_follow(self, mock_run: Mock, tmp_path: Path) -> None:
+        """Test logs with follow option."""
+        log_file = tmp_path / "litellm.log"
+        log_file.write_text("log content")
+
+        mock_run.return_value = Mock(returncode=0)
+
+        with pytest.raises(SystemExit) as exc_info:
+            view_logs(tmp_path, follow=True)
+
+        assert exc_info.value.code == 0
+        mock_run.assert_called_once_with(["tail", "-f", str(log_file)])
+
+    @patch("subprocess.run")
+    def test_logs_follow_keyboard_interrupt(self, mock_run: Mock, tmp_path: Path) -> None:
+        """Test logs follow with keyboard interrupt."""
+        log_file = tmp_path / "litellm.log"
+        log_file.write_text("log content")
+
+        mock_run.side_effect = KeyboardInterrupt()
+
+        with pytest.raises(SystemExit) as exc_info:
+            view_logs(tmp_path, follow=True)
+
+        assert exc_info.value.code == 0
+
+    def test_logs_empty_file(self, tmp_path: Path, capsys) -> None:
+        """Test logs with empty log file."""
+        log_file = tmp_path / "litellm.log"
+        log_file.write_text("")
+
+        with pytest.raises(SystemExit) as exc_info:
+            view_logs(tmp_path)
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "Log file is empty" in captured.out
+
+    def test_logs_short_content(self, tmp_path: Path, capsys) -> None:
+        """Test logs with short content (no pager)."""
+        log_file = tmp_path / "litellm.log"
+        content = "\n".join([f"Line {i}" for i in range(10)])
+        log_file.write_text(content)
+
+        with pytest.raises(SystemExit) as exc_info:
+            view_logs(tmp_path, lines=20)
+
+        assert exc_info.value.code == 0
+        captured = capsys.readouterr()
+        assert "Line 0" in captured.out
+        assert "Line 9" in captured.out
+
+    @patch("subprocess.Popen")
+    def test_logs_long_content_with_pager(self, mock_popen: Mock, tmp_path: Path) -> None:
+        """Test logs with long content (uses pager)."""
+        log_file = tmp_path / "litellm.log"
+        content = "\n".join([f"Line {i}" for i in range(30)])
+        log_file.write_text(content)
+
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = (b"", b"")
+        mock_popen.return_value = mock_process
+
+        with pytest.raises(SystemExit) as exc_info:
+            view_logs(tmp_path, lines=25)
+
+        assert exc_info.value.code == 0
+        mock_popen.assert_called_once()
+
+        # Verify last 25 lines were passed to pager
+        call_args = mock_process.communicate.call_args[0][0].decode()
+        assert "Line 5" in call_args
+        assert "Line 29" in call_args
+        assert "Line 4" not in call_args
+
+    @patch("subprocess.Popen")
+    @patch.dict(os.environ, {"PAGER": "cat"})
+    def test_logs_with_cat_pager(self, mock_popen: Mock, tmp_path: Path) -> None:
+        """Test logs with cat as pager."""
+        log_file = tmp_path / "litellm.log"
+        content = "Some log content"
+        log_file.write_text(content)
+
+        mock_process = Mock()
+        mock_process.returncode = 0
+        mock_process.communicate.return_value = (b"", b"")
+        mock_popen.return_value = mock_process
+
+        with pytest.raises(SystemExit) as exc_info:
+            view_logs(tmp_path)
+
+        assert exc_info.value.code == 0
+        mock_popen.assert_called_once_with(["cat"], stdin=subprocess.PIPE)
+
+
 class TestMainFunction:
     """Test suite for main CLI function using Tyro."""
 
@@ -497,3 +611,11 @@ class TestMainFunction:
         main(cmd, config_dir=tmp_path)
 
         mock_stop.assert_called_once_with(tmp_path)
+
+    @patch("ccproxy.cli.view_logs")
+    def test_main_logs_command(self, mock_logs: Mock, tmp_path: Path) -> None:
+        """Test main with logs command."""
+        cmd = Logs(follow=True, lines=50)
+        main(cmd, config_dir=tmp_path)
+
+        mock_logs.assert_called_once_with(tmp_path, follow=True, lines=50)

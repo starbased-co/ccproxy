@@ -11,6 +11,7 @@ from typing import Annotated
 
 import tyro
 import yaml
+from rich import print
 
 from ccproxy.utils import get_templates_dir
 
@@ -48,8 +49,19 @@ class Stop:
     """Stop the background LiteLLM proxy server."""
 
 
+@dataclass
+class Logs:
+    """View the LiteLLM log file."""
+
+    follow: Annotated[bool, tyro.conf.arg(aliases=["-f"])] = False
+    """Follow log output (like tail -f)."""
+
+    lines: Annotated[int, tyro.conf.arg(aliases=["-n"])] = 100
+    """Number of lines to show (default: 100)."""
+
+
 # Type alias for all subcommands
-Command = Litellm | Install | Run | Stop
+Command = Litellm | Install | Run | Stop | Logs
 
 
 def install_config(config_dir: Path, force: bool = False) -> None:
@@ -215,9 +227,9 @@ def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach:
             # Save PID
             pid_file.write_text(str(process.pid))
 
-            print(f"LiteLLM started in background with PID {process.pid}")
+            print("LiteLLM started in background")
             print(f"Log file: {log_file}")
-            print(f"To stop: kill {process.pid}")
+            print("To shutdown LiteLLM: `ccproxy stop`")
             sys.exit(0)
 
         except FileNotFoundError:
@@ -290,6 +302,66 @@ def stop_litellm(config_dir: Path) -> None:
         sys.exit(1)
 
 
+def view_logs(config_dir: Path, follow: bool = False, lines: int = 100) -> None:
+    """View the LiteLLM log file using system pager.
+
+    Args:
+        config_dir: Configuration directory containing the log file
+        follow: Follow log output (like tail -f)
+        lines: Number of lines to show
+    """
+    log_file = config_dir / "litellm.log"
+
+    # Check if log file exists
+    if not log_file.exists():
+        print("[red]No log file found[/red]", file=sys.stderr)
+        print(f"[dim]Expected at: {log_file}[/dim]", file=sys.stderr)
+        sys.exit(1)
+
+    if follow:
+        # Use tail -f for following logs
+        try:
+            # S603, S607: tail is a standard system command, file path is validated
+            result = subprocess.run(["tail", "-f", str(log_file)])  # noqa: S603, S607
+            sys.exit(result.returncode)
+        except KeyboardInterrupt:
+            sys.exit(0)
+        except FileNotFoundError:
+            print("[red]Error: 'tail' command not found[/red]", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # Get the pager from environment or use default
+        pager = os.environ.get("PAGER", "less")
+
+        # Read the last N lines
+        try:
+            with log_file.open("r") as f:
+                # Read all lines and get the last N
+                all_lines = f.readlines()
+                tail_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+                content = "".join(tail_lines)
+
+                if not content.strip():
+                    print("[yellow]Log file is empty[/yellow]")
+                    sys.exit(0)
+
+                # Use the pager if output is substantial
+                if len(tail_lines) > 20 or pager == "cat":
+                    # For cat or when there are many lines, use pager
+                    # S603: pager comes from PAGER env var, standard practice for CLI tools
+                    process = subprocess.Popen([pager], stdin=subprocess.PIPE)  # noqa: S603
+                    process.communicate(content.encode())
+                    sys.exit(process.returncode)
+                else:
+                    # For short output, just print directly
+                    print(content, end="")
+                    sys.exit(0)
+
+        except OSError as e:
+            print(f"[red]Error reading log file: {e}[/red]", file=sys.stderr)
+            sys.exit(1)
+
+
 def main(
     cmd: Annotated[Command, tyro.conf.arg(name="")],
     *,
@@ -319,6 +391,9 @@ def main(
 
     elif isinstance(cmd, Stop):
         stop_litellm(config_dir)
+
+    elif isinstance(cmd, Logs):
+        view_logs(config_dir, follow=cmd.follow, lines=cmd.lines)
 
 
 def entry_point() -> None:
