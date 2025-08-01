@@ -1,6 +1,5 @@
 """CCProxyHandler - Main LiteLLM CustomLogger implementation."""
 
-import builtins
 import logging
 from typing import Any, TypedDict
 
@@ -10,8 +9,6 @@ from rich import print
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import get_config
 from ccproxy.router import get_router
-
-builtins.print = print
 
 # Set up structured logging
 logger = logging.getLogger(__name__)
@@ -130,7 +127,6 @@ class CCProxyHandler(CustomLogger):
         # Determine the routed model using shared logic
         routed_model, model_config = _determine_routed_model(data, label, self.router, original_model)
 
-        print(f"original: {original_model}\n label: {label}\n routed: {routed_model}")
         # Update the model in the request
         data["model"] = routed_model
 
@@ -151,23 +147,42 @@ class CCProxyHandler(CustomLogger):
         # Handle OAuth token forwarding for Claude CLI
         # Check if this is a claude-cli request and targeting an Anthropic model
         request = data.get("proxy_server_request")
-        user_agent = (request.get("headers") or {}).get("user-agent")
-        if "claude-cli" in user_agent and ("anthropic/" in routed_model or routed_model.startswith("claude")):
-            raw_headers = (data.get("secret_fields") or {}).get("raw_headers")
+        if request:
+            headers = request.get("headers") or {}
+            user_agent = headers.get("user-agent", "")
 
-            # Extract OAuth token from Authorization header
-            auth_header = raw_headers.get("authorization", "")
-            data["provider_specific_header"]["extra_headers"]["authorization"] = auth_header
-            # # Log OAuth forwarding
-            logger.info(
-                "Forwarding request with Claude Code OAuth token",
-                extra={
-                    "event": "oauth_forwarding",
-                    "user_agent": user_agent,
-                    "model": routed_model,
-                    "request_id": data["metadata"]["request_id"],
-                },
-            )
+            # Check if this is a claude-cli request and an Anthropic model
+            if (
+                user_agent
+                and "claude-cli" in user_agent
+                and ("anthropic/" in routed_model or routed_model.startswith("claude"))
+            ):
+                # Get the raw headers containing the OAuth token
+                secret_fields = data.get("secret_fields") or {}
+                raw_headers = secret_fields.get("raw_headers") or {}
+                auth_header = raw_headers.get("authorization", "")
+
+                # Only forward if we have an auth header
+                if auth_header:
+                    # Ensure the provider_specific_header structure exists
+                    if "provider_specific_header" not in data:
+                        data["provider_specific_header"] = {}
+                    if "extra_headers" not in data["provider_specific_header"]:
+                        data["provider_specific_header"]["extra_headers"] = {}
+
+                    # Set the authorization header
+                    data["provider_specific_header"]["extra_headers"]["authorization"] = auth_header
+
+                    # Log OAuth forwarding
+                    logger.info(
+                        "Forwarding request with Claude Code OAuth token",
+                        extra={
+                            "event": "oauth_forwarding",
+                            "user_agent": user_agent,
+                            "model": routed_model,
+                            "request_id": data["metadata"]["request_id"],
+                        },
+                    )
 
         # Log routing decision with structured logging
         self._log_routing_decision(
