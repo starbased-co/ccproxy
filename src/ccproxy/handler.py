@@ -4,6 +4,7 @@ import logging
 from typing import Any, TypedDict
 
 from litellm.integrations.custom_logger import CustomLogger
+from rich import print
 
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import get_config
@@ -126,6 +127,7 @@ class CCProxyHandler(CustomLogger):
         # Determine the routed model using shared logic
         routed_model, model_config = _determine_routed_model(data, label, self.router, original_model)
 
+        print(f"original: {original_model}\n label: {label}\n routed: {routed_model}")
         # Update the model in the request
         data["model"] = routed_model
 

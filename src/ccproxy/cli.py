@@ -204,7 +204,7 @@ def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach:
                 try:
                     os.kill(pid, 0)  # This doesn't kill, just checks if process exists
                     print(f"LiteLLM is already running with PID {pid}", file=sys.stderr)
-                    print(f"To stop it, run: kill {pid}", file=sys.stderr)
+                    print("To stop it, run: `ccproxy stop`", file=sys.stderr)
                     sys.exit(1)
                 except ProcessLookupError:
                     # Process is not running, clean up stale PID file
@@ -229,7 +229,6 @@ def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach:
 
             print("LiteLLM started in background")
             print(f"Log file: {log_file}")
-            print("To shutdown LiteLLM: `ccproxy stop`")
             sys.exit(0)
 
         except FileNotFoundError:

@@ -1,5 +1,6 @@
 """Additional tests for CCProxyHandler logging hook methods."""
 
+from datetime import timedelta
 from unittest.mock import Mock, patch
 
 import pytest
@@ -147,3 +148,39 @@ class TestHandlerLoggingHookMethods:
         assert "api_key" not in extra["model_info"]
         assert extra["model_info"]["provider"] == "google"
         assert extra["model_info"]["max_tokens"] == 1000000
+
+    @pytest.mark.asyncio
+    async def test_timedelta_duration_handling(self) -> None:
+        """Test that handler correctly handles timedelta objects for timestamps."""
+        handler = CCProxyHandler()
+        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_label": "default"}, "model": "test-model"}
+        response_obj = Mock()
+
+        # Test with timedelta objects (simulating LiteLLM's behavior)
+        start_time = timedelta(seconds=100)
+        end_time = timedelta(seconds=102, milliseconds=500)
+
+        # Should not raise any exceptions - test success logging
+        await handler.async_log_success_event(kwargs, response_obj, start_time, end_time)
+
+        # Should not raise any exceptions - test failure logging
+        await handler.async_log_failure_event(kwargs, response_obj, start_time, end_time)
+
+        # Should not raise any exceptions - test streaming logging
+        await handler.async_log_stream_event(kwargs, response_obj, start_time, end_time)
+
+    @pytest.mark.asyncio
+    async def test_mixed_timestamp_types_handling(self) -> None:
+        """Test that handler correctly handles mixed float/timedelta timestamp types."""
+        handler = CCProxyHandler()
+        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_label": "default"}, "model": "test-model"}
+        response_obj = Mock()
+
+        # Test with mixed types (float start, timedelta end)
+        start_time = 100.0
+        end_time = timedelta(seconds=102, milliseconds=500)
+
+        # Should not raise any exceptions and handle gracefully
+        await handler.async_log_success_event(kwargs, response_obj, start_time, end_time)
+        await handler.async_log_failure_event(kwargs, response_obj, start_time, end_time)
+        await handler.async_log_stream_event(kwargs, response_obj, start_time, end_time)

@@ -12,7 +12,7 @@ curl \
   --compressed \
   -X POST "$ANTHROPIC_BASE_URL/v1/messages?beta=true" \
   -d '{
-      "model": "default",
+      "model": "claude-sonnet-4-20250514",
       "messages": [
         {"role": "user", "content": "Hello, Claude!"}
       ],

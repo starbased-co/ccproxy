@@ -1,12 +1,18 @@
 litellm:
   host: 127.0.0.1
-  port: 4000
-  # num_workers: 1
+  # port: 4000
+  num_workers: 4
   debug: true
   detailed_debug: true
 
 ccproxy:
   debug: true
+  models:
+    default: claude-sonnet-4-20250514
+    background: claude-3-5-haiku-20241022
+    think: claude-opus-4-20250514
+    token_count: gemini-2.5-pro
+    web_search: gemini-2.5-flash
   rules:
     - label: token_count
       rule: ccproxy.rules.TokenCountRule
