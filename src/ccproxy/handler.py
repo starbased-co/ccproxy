@@ -40,19 +40,16 @@ def _determine_routed_model(
     Returns:
         Tuple of (routed_model, model_config)
     """
-    # Get model for label from router - but only if the specific label exists
-    router_available_models = router.get_available_models()
+    # Get model for label from router (includes fallback to 'default' label)
+    model_config = router.get_model_for_label(label)
 
-    if label in router_available_models:
-        # The specific label is configured, use it
-        model_config = router.get_model_for_label(label)
-        if model_config is not None:
-            routed_model = str(model_config["litellm_params"]["model"])
-            return routed_model, model_config
+    if model_config is not None:
+        routed_model = str(model_config["litellm_params"]["model"])
+        return routed_model, model_config
 
-    # The specific label is not configured or no config found, use original model
+    # No model config found (not even default), use original model
     if original_model is None:
-        original_model = str(data.get("model", "claude-3-5-sonnet-20241022"))
+        original_model = str(data.get("model", "unknown"))
     return original_model, None
 
 

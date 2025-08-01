@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 import yaml
 
-from ccproxy.config import CCProxyConfig, clear_config_instance, set_config_instance
+from ccproxy.config import CCProxyConfig, RuleConfig, clear_config_instance, set_config_instance
 from ccproxy.handler import CCProxyHandler
 from ccproxy.router import ModelRouter, clear_router
 
@@ -593,5 +593,69 @@ class TestCCProxyHandler:
         finally:
             ccproxy_path.unlink()
             litellm_path.unlink()
+            clear_config_instance()
+            clear_router()
+
+    @pytest.mark.asyncio
+    async def test_no_default_model_fallback(self) -> None:
+        """Test that handler uses original model when no 'default' label is configured."""
+        # Create config without a 'default' model
+        ccproxy_config = CCProxyConfig(
+            debug=False,
+            rules=[
+                RuleConfig(
+                    label="token_count",
+                    rule_path="ccproxy.rules.TokenCountRule",
+                    params=[{"threshold": 60000}],
+                ),
+            ],
+        )
+        set_config_instance(ccproxy_config)
+
+        # Mock proxy server with only token_count model (no default)
+        mock_proxy_server = MagicMock()
+        mock_proxy_server.llm_router = MagicMock()
+        mock_proxy_server.llm_router.model_list = [
+            {
+                "model_name": "token_count",
+                "litellm_params": {"model": "gemini-2.5-pro"},
+            },
+        ]
+
+        mock_module = MagicMock()
+        mock_module.proxy_server = mock_proxy_server
+
+        try:
+            with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+                clear_router()  # Clear router to force reload
+                handler = CCProxyHandler()
+
+                # Test with request that doesn't match any rule
+                request_data = {
+                    "model": "claude-3-opus-20240229",
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "token_count": 100,  # Below threshold
+                }
+                user_api_key_dict = {}
+
+                # Should keep original model since no default is configured
+                result = await handler.async_pre_call_hook(request_data, user_api_key_dict)
+                assert result["model"] == "claude-3-opus-20240229"
+                assert result["metadata"]["ccproxy_label"] == "default"
+                assert result["metadata"]["ccproxy_original_model"] == "claude-3-opus-20240229"
+                assert result["metadata"]["ccproxy_routed_model"] == "claude-3-opus-20240229"
+
+                # Test with missing model field
+                request_data_no_model = {
+                    "messages": [{"role": "user", "content": "Hello"}],
+                    "token_count": 100,  # Below threshold
+                }
+
+                # Should use "unknown" since no model specified and no default configured
+                result = await handler.async_pre_call_hook(request_data_no_model, user_api_key_dict)
+                assert result["model"] == "unknown"
+                assert result["metadata"]["ccproxy_original_model"] == "unknown"
+
+        finally:
             clear_config_instance()
             clear_router()
