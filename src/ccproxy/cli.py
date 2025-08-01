@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated
@@ -42,8 +43,13 @@ class Run:
     """Command and arguments to execute with proxy settings."""
 
 
+@dataclass
+class Stop:
+    """Stop the background LiteLLM proxy server."""
+
+
 # Type alias for all subcommands
-Command = Litellm | Install | Run
+Command = Litellm | Install | Run | Stop
 
 
 def install_config(config_dir: Path, force: bool = False) -> None:
@@ -232,6 +238,58 @@ def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach:
             sys.exit(130)
 
 
+def stop_litellm(config_dir: Path) -> None:
+    """Stop the background LiteLLM proxy server.
+
+    Args:
+        config_dir: Configuration directory containing the PID file
+    """
+    pid_file = config_dir / "litellm.lock"
+
+    # Check if PID file exists
+    if not pid_file.exists():
+        print("No LiteLLM server is running (PID file not found)", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        pid = int(pid_file.read_text().strip())
+
+        # Check if process is still running
+        try:
+            os.kill(pid, 0)  # Check if process exists
+
+            # Process exists, kill it
+            print(f"Stopping LiteLLM server (PID: {pid})...")
+            os.kill(pid, 15)  # SIGTERM - graceful shutdown
+
+            # Wait a moment for graceful shutdown
+            time.sleep(0.5)
+
+            # Check if still running
+            try:
+                os.kill(pid, 0)
+                # Still running, force kill
+                os.kill(pid, 9)  # SIGKILL
+                print(f"Force killed LiteLLM server (PID: {pid})")
+            except ProcessLookupError:
+                print(f"LiteLLM server stopped successfully (PID: {pid})")
+
+            # Remove PID file
+            pid_file.unlink()
+
+            sys.exit(0)
+
+        except ProcessLookupError:
+            # Process is not running, clean up stale PID file
+            print(f"LiteLLM server was not running (stale PID: {pid})")
+            pid_file.unlink()
+            sys.exit(1)
+
+    except (ValueError, OSError) as e:
+        print(f"Error reading PID file: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
 def main(
     cmd: Annotated[Command, tyro.conf.arg(name="")],
     *,
@@ -258,6 +316,9 @@ def main(
             print("Usage: ccproxy run <command> [args...]", file=sys.stderr)
             sys.exit(1)
         run_with_proxy(config_dir, cmd.command)
+
+    elif isinstance(cmd, Stop):
+        stop_litellm(config_dir)
 
 
 def entry_point() -> None:

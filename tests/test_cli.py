@@ -10,10 +10,12 @@ from ccproxy.cli import (
     Install,
     Litellm,
     Run,
+    Stop,
     install_config,
     litellm_with_config,
     main,
     run_with_proxy,
+    stop_litellm,
 )
 
 
@@ -328,6 +330,99 @@ litellm:
         assert exc_info.value.code == 130  # Standard exit code for Ctrl+C
 
 
+class TestStopLiteLLM:
+    """Test suite for stop_litellm function."""
+
+    def test_stop_no_pid_file(self, tmp_path: Path, capsys) -> None:
+        """Test stop when PID file doesn't exist."""
+        with pytest.raises(SystemExit) as exc_info:
+            stop_litellm(tmp_path)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "No LiteLLM server is running (PID file not found)" in captured.err
+
+    @patch("os.kill")
+    @patch("time.sleep")
+    def test_stop_successful(self, mock_sleep: Mock, mock_kill: Mock, tmp_path: Path, capsys) -> None:
+        """Test successful stop of running process."""
+        pid_file = tmp_path / "litellm.lock"
+        pid_file.write_text("12345")
+
+        # First call: check if running (returns None)
+        # Second call: send SIGTERM (returns None)
+        # Third call: check if still running (raises ProcessLookupError - stopped)
+        mock_kill.side_effect = [None, None, ProcessLookupError()]
+
+        with pytest.raises(SystemExit) as exc_info:
+            stop_litellm(tmp_path)
+
+        assert exc_info.value.code == 0
+        assert not pid_file.exists()  # PID file should be removed
+
+        captured = capsys.readouterr()
+        assert "Stopping LiteLLM server (PID: 12345)" in captured.out
+        assert "LiteLLM server stopped successfully (PID: 12345)" in captured.out
+
+        # Verify kill calls
+        assert mock_kill.call_count == 3
+        mock_kill.assert_any_call(12345, 0)  # Check if running
+        mock_kill.assert_any_call(12345, 15)  # SIGTERM
+
+    @patch("os.kill")
+    @patch("time.sleep")
+    def test_stop_force_kill(self, mock_sleep: Mock, mock_kill: Mock, tmp_path: Path, capsys) -> None:
+        """Test force kill when process doesn't respond to SIGTERM."""
+        pid_file = tmp_path / "litellm.lock"
+        pid_file.write_text("12345")
+
+        # Process keeps running after SIGTERM
+        mock_kill.side_effect = [None, None, None, None]
+
+        with pytest.raises(SystemExit) as exc_info:
+            stop_litellm(tmp_path)
+
+        assert exc_info.value.code == 0
+        assert not pid_file.exists()
+
+        captured = capsys.readouterr()
+        assert "Force killed LiteLLM server (PID: 12345)" in captured.out
+
+        # Verify kill calls
+        assert mock_kill.call_count == 4
+        mock_kill.assert_any_call(12345, 9)  # SIGKILL
+
+    @patch("os.kill")
+    def test_stop_stale_pid(self, mock_kill: Mock, tmp_path: Path, capsys) -> None:
+        """Test stop with stale PID file."""
+        pid_file = tmp_path / "litellm.lock"
+        pid_file.write_text("12345")
+
+        # Process not running
+        mock_kill.side_effect = ProcessLookupError()
+
+        with pytest.raises(SystemExit) as exc_info:
+            stop_litellm(tmp_path)
+
+        assert exc_info.value.code == 1
+        assert not pid_file.exists()  # Stale PID file should be removed
+
+        captured = capsys.readouterr()
+        assert "LiteLLM server was not running (stale PID: 12345)" in captured.out
+
+    def test_stop_invalid_pid_file(self, tmp_path: Path, capsys) -> None:
+        """Test stop with invalid PID file content."""
+        pid_file = tmp_path / "litellm.lock"
+        pid_file.write_text("invalid-pid")
+
+        with pytest.raises(SystemExit) as exc_info:
+            stop_litellm(tmp_path)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Error reading PID file" in captured.err
+
+
 class TestMainFunction:
     """Test suite for main CLI function using Tyro."""
 
@@ -394,3 +489,11 @@ class TestMainFunction:
 
             # Check that litellm was called with the default config dir
             mock_litellm.assert_called_once_with(tmp_path / ".ccproxy", args=None, detach=False)
+
+    @patch("ccproxy.cli.stop_litellm")
+    def test_main_stop_command(self, mock_stop: Mock, tmp_path: Path) -> None:
+        """Test main with stop command."""
+        cmd = Stop()
+        main(cmd, config_dir=tmp_path)
+
+        mock_stop.assert_called_once_with(tmp_path)
