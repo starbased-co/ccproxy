@@ -8,7 +8,7 @@ import pytest
 
 from ccproxy.cli import (
     Install,
-    LiteLLM,
+    Litellm,
     Run,
     install_config,
     litellm_with_config,
@@ -263,7 +263,7 @@ class TestMainFunction:
     @patch("ccproxy.cli.litellm_with_config")
     def test_main_litellm_command(self, mock_litellm: Mock, tmp_path: Path) -> None:
         """Test main with litellm command."""
-        cmd = LiteLLM(args=["--debug", "--port", "8080"])
+        cmd = Litellm(args=["--debug", "--port", "8080"])
         main(cmd, config_dir=tmp_path)
 
         mock_litellm.assert_called_once_with(tmp_path, args=["--debug", "--port", "8080"])
@@ -271,7 +271,7 @@ class TestMainFunction:
     @patch("ccproxy.cli.litellm_with_config")
     def test_main_litellm_no_args(self, mock_litellm: Mock, tmp_path: Path) -> None:
         """Test main with litellm command without args."""
-        cmd = LiteLLM()
+        cmd = Litellm()
         main(cmd, config_dir=tmp_path)
 
         mock_litellm.assert_called_once_with(tmp_path, args=None)
@@ -310,7 +310,7 @@ class TestMainFunction:
             patch.object(Path, "home", return_value=tmp_path),
             patch("ccproxy.cli.litellm_with_config") as mock_litellm,
         ):
-            cmd = LiteLLM()
+            cmd = Litellm()
             main(cmd)
 
             # Check that litellm was called with the default config dir

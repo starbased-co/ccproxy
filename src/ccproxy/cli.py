@@ -16,7 +16,7 @@ from ccproxy.utils import get_templates_dir
 
 # Subcommand definitions using dataclasses
 @dataclass
-class LiteLLM:
+class Litellm:
     """Run the LiteLLM proxy server with ccproxy configuration."""
 
     args: Annotated[list[str] | None, tyro.conf.Positional] = None
@@ -40,7 +40,7 @@ class Run:
 
 
 # Type alias for all subcommands
-Command = LiteLLM | Install | Run
+Command = Litellm | Install | Run
 
 
 def install_config(config_dir: Path, force: bool = False) -> None:
@@ -196,7 +196,7 @@ def main(
         config_dir = Path.home() / ".ccproxy"
 
     # Handle each command type
-    if isinstance(cmd, LiteLLM):
+    if isinstance(cmd, Litellm):
         litellm_with_config(config_dir, args=cmd.args)
 
     elif isinstance(cmd, Install):
