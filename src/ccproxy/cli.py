@@ -184,6 +184,9 @@ def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach:
         print("Run 'ccproxy install' first to set up configuration.", file=sys.stderr)
         sys.exit(1)
 
+    # Set environment variable for ccproxy configuration location
+    os.environ["CCPROXY_CONFIG_DIR"] = str(config_dir.absolute())
+
     # Build litellm command
     cmd = ["litellm", "--config", str(config_path)]
 

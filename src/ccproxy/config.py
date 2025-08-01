@@ -163,14 +163,44 @@ def get_config() -> CCProxyConfig:
         with _config_lock:
             # Double-check locking pattern
             if _config_instance is None:
-                # Try to load from ccproxy.yaml
-                ccproxy_path = Path("./ccproxy.yaml")
-                if ccproxy_path.exists():
-                    _config_instance = CCProxyConfig.from_yaml(ccproxy_path)
+                # Try to get config path from environment variable set by CLI
+                config_path = None
+                import os
+
+                env_config_dir = os.environ.get("CCPROXY_CONFIG_DIR")
+
+                if env_config_dir:
+                    config_path = Path(env_config_dir)
                 else:
-                    # Use from_proxy_runtime which will look for ccproxy.yaml
-                    # in the same directory as config.yaml
-                    _config_instance = CCProxyConfig.from_proxy_runtime()
+                    # Try to get config path from LiteLLM proxy_server runtime
+                    try:
+                        from litellm.proxy import proxy_server
+
+                        if proxy_server and hasattr(proxy_server, "config_path") and proxy_server.config_path:
+                            config_path = Path(proxy_server.config_path).parent
+                    except ImportError:
+                        pass
+
+                # If we found the runtime config path, look for ccproxy.yaml there
+                if config_path:
+                    ccproxy_yaml_path = config_path / "ccproxy.yaml"
+                    if ccproxy_yaml_path.exists():
+                        _config_instance = CCProxyConfig.from_yaml(ccproxy_yaml_path)
+                    else:
+                        # Create default config with proper paths
+                        _config_instance = CCProxyConfig(
+                            litellm_config_path=config_path / "config.yaml", ccproxy_config_path=ccproxy_yaml_path
+                        )
+                else:
+                    # Fallback: Try to load from ~/.ccproxy directory
+                    fallback_config_dir = Path.home() / ".ccproxy"
+                    ccproxy_path = fallback_config_dir / "ccproxy.yaml"
+                    if ccproxy_path.exists():
+                        _config_instance = CCProxyConfig.from_yaml(ccproxy_path)
+                    else:
+                        # Use from_proxy_runtime which will look for ccproxy.yaml
+                        # in the same directory as config.yaml
+                        _config_instance = CCProxyConfig.from_proxy_runtime()
 
     return _config_instance
 
