@@ -106,17 +106,20 @@ CCProxy provides several commands for managing the proxy server:
 # Install configuration files
 ccproxy install [--force]
 
-# Start the proxy server as a daemon
-ccproxy start [--host HOST] [--port PORT] [--debug]
+# Start the LiteLLM proxy server
+ccproxy litellm [--detach]
 
-# Stop the proxy server
+# Stop the background proxy server
 ccproxy stop
 
-# Check proxy server status
-ccproxy status
+# View proxy server logs
+ccproxy logs [-f] [-n LINES]
 
 # Run any command with proxy environment variables
 ccproxy run <command> [args...]
+
+# Set up shell integration for automatic aliasing
+ccproxy shell-integration [--shell=bash|zsh|auto] [--install]
 ```
 
 ## Usage
@@ -132,10 +135,35 @@ ccproxy run claude -p "Explain quantum computing"
 ccproxy run curl http://localhost:4000/health
 ccproxy run python my_script.py
 
-# Or set an alias for convenience:
-alias claude='ccproxy run claude'
+# Or set up automatic aliasing with shell integration:
+ccproxy shell-integration --install
+source ~/.zshrc  # or ~/.bashrc for bash
+
+# Now when LiteLLM proxy is running, 'claude' is automatically aliased
 claude -p "Hello world"
 ```
+
+### Shell Integration
+
+CCProxy can automatically set up a `claude` alias when the LiteLLM proxy is running:
+
+```bash
+# Install shell integration (auto-detects your shell)
+ccproxy shell-integration --install
+
+# Or specify shell explicitly
+ccproxy shell-integration --shell=zsh --install
+ccproxy shell-integration --shell=bash --install
+
+# View the integration script without installing
+ccproxy shell-integration --shell=zsh
+```
+
+Once installed:
+- The `claude` alias is automatically available when LiteLLM proxy is running
+- The alias is removed when the proxy is stopped
+- Works with both bash and zsh
+- Checks proxy status before each prompt (zsh) or command (bash)
 
 The `ccproxy run` command sets up the following environment variables:
 - `OPENAI_API_BASE` / `OPENAI_BASE_URL` - For OpenAI SDK compatibility
