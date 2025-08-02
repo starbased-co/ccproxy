@@ -1,9 +1,12 @@
 """Request classification module for context-aware routing."""
 
+import logging
 from typing import Any
 
 from ccproxy.config import get_config
 from ccproxy.rules import ClassificationRule
+
+logger = logging.getLogger(__name__)
 
 
 class RequestClassifier:
@@ -61,7 +64,7 @@ class RequestClassifier:
                 if config.debug:
                     print(f"Failed to load rule {rule_config.rule_path}: {e}")
 
-    def classify(self, request: dict[str, Any]) -> str:
+    def classify(self, request: Any) -> str:
         """Classify a request based on configured rules.
 
         Args:
@@ -76,8 +79,16 @@ class RequestClassifier:
             determines the routing label. If no rules match, "default" is returned.
         """
         # Convert pydantic model to dict if needed
-        if hasattr(request, "model_dump"):
-            request = request.model_dump()
+        try:
+            if hasattr(request, "model_dump") and callable(getattr(request, "model_dump", None)):
+                request = request.model_dump()
+        except Exception as e:
+            logger.warning(f"Failed to convert request to dict: {e}")
+            # If conversion fails, try to use request as-is
+
+        if not isinstance(request, dict):
+            logger.error("Request is not a dict and could not be converted")
+            return "default"
 
         config = get_config()
 

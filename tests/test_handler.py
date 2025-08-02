@@ -620,7 +620,7 @@ class TestCCProxyHandler:
 
     @pytest.mark.asyncio
     async def test_no_default_model_fallback(self) -> None:
-        """Test that handler raises error when no 'default' label is configured."""
+        """Test that handler continues processing when no 'default' label is configured."""
         # Create config without a 'default' model
         ccproxy_config = CCProxyConfig(
             debug=False,
@@ -660,12 +660,11 @@ class TestCCProxyHandler:
                 }
                 user_api_key_dict = {}
 
-                # Should raise ValueError since no default is configured
-                with pytest.raises(ValueError) as exc_info:
-                    await handler.async_pre_call_hook(request_data, user_api_key_dict)
+                # Should log error but continue processing
+                result = await handler.async_pre_call_hook(request_data, user_api_key_dict)
 
-                assert "No model configured for label 'default'" in str(exc_info.value)
-                assert "no 'default' model available" in str(exc_info.value)
+                # Verify request continues with original model
+                assert result["model"] == "claude-3-opus-20240229"
 
                 # Test with missing model field
                 request_data_no_model = {
@@ -673,11 +672,8 @@ class TestCCProxyHandler:
                     "token_count": 100,  # Below threshold
                 }
 
-                # Should also raise ValueError
-                with pytest.raises(ValueError) as exc_info:
-                    await handler.async_pre_call_hook(request_data_no_model, user_api_key_dict)
-
-                assert "No model configured for label 'default'" in str(exc_info.value)
+                # Should log error but continue processing
+                await handler.async_pre_call_hook(request_data_no_model, user_api_key_dict)
 
         finally:
             clear_config_instance()

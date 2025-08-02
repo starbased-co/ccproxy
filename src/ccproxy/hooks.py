@@ -10,8 +10,11 @@ logger = logging.getLogger(__name__)
 
 
 def classify_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
-    classifier = kwargs["classifier"]
-    assert isinstance(classifier, RequestClassifier)
+    classifier = kwargs.get("classifier")
+    if not isinstance(classifier, RequestClassifier):
+        logger.warning("Classifier not found or invalid type in classify_hook")
+        return data
+
     if "metadata" not in data:
         data["metadata"] = {}
 
@@ -24,19 +27,26 @@ def classify_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], **kwa
 
 
 def rewrite_model_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
-    router = kwargs["router"]
-    assert isinstance(router, ModelRouter)
+    router = kwargs.get("router")
+    if not isinstance(router, ModelRouter):
+        logger.warning("Router not found or invalid type in rewrite_model_hook")
+        return data
 
-    label = data.get("metadata", {}).get("ccproxy_label", None)
-    assert label is not None
+    # Get label with safe default
+    label = data.get("metadata", {}).get("ccproxy_label", "default")
+    if not label:
+        logger.warning("No ccproxy_label found, using default")
+        label = "default"
 
     # Get model for label from router (includes fallback to 'default' label)
     model_config = router.get_model_for_label(label)
 
     if model_config is not None:
         routed_model = model_config.get("litellm_params", {}).get("model")
-        assert routed_model is not None
-        data["model"] = routed_model
+        if routed_model:
+            data["model"] = routed_model
+        else:
+            logger.warning(f"No model found in config for label: {label}")
         data["metadata"]["ccproxy_litellm_model"] = routed_model
         data["metadata"]["ccproxy_model_config"] = model_config
     else:
@@ -99,14 +109,15 @@ def forward_oauth_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], 
             # Set the authorization header
             data["provider_specific_header"]["extra_headers"]["authorization"] = auth_header
 
-            # Log OAuth forwarding
+            # Log OAuth forwarding (without exposing the token)
             logger.info(
-                "Forwarding request with Claude Code OAuth token",
+                "Forwarding request with Claude Code OAuth authentication",
                 extra={
                     "event": "oauth_forwarding",
                     "user_agent": user_agent,
                     "model": routed_model,
                     "request_id": data["metadata"].get("request_id", None),
+                    "auth_present": bool(auth_header),  # Just indicate if auth is present
                 },
             )
 

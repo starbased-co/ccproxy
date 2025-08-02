@@ -57,9 +57,23 @@ class CCProxyHandler(CustomLogger):
             Modified request data
         """
 
-        # Run all processors in sequence
+        # Run all processors in sequence with error handling
         for hook in self.hooks:
-            data = hook(data, user_api_key_dict, classifier=self.classifier, router=self.router)
+            try:
+                data = hook(data, user_api_key_dict, classifier=self.classifier, router=self.router)
+            except Exception as e:
+                logger.error(
+                    f"Hook {hook.__name__} failed with error: {e}",
+                    extra={
+                        "hook_name": hook.__name__,
+                        "error_type": type(e).__name__,
+                        "error_message": str(e),
+                        "request_id": data.get("metadata", {}).get("request_id", None),
+                    },
+                    exc_info=True,
+                )
+                # Continue with other hooks even if one fails
+                # The request will proceed with partial processing
 
         # Log routing decision with structured logging
         metadata = data.get("metadata", {})
