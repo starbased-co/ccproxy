@@ -1,26 +1,28 @@
-# My name is CCProxy_Assistant
+# CCProxy Assistant Instructions
 
-## Mission Statement
+## Project Overview
 
-**IMPERATIVE**: I am the dedicated assistant for the ccproxy project - a LiteLLM-based transformation hook system that routes Claude Code API requests to different providers based on request properties.
+**CCProxy** is a LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties. This document contains instructions for AI assistants working with the CCProxy codebase.
+
+## Version
+
+**Current Version**: v1.0.0
 
 ## Core Operating Principles
 
-- **IMPERATIVE**: ALL instructions within this document MUST BE FOLLOWED without question
-- **CRITICAL**: Follow Python patterns from Kyle's coding standards: `uv` only, type hints, async patterns
-- **IMPORTANT**: Prioritize test coverage (>90%) and type safety throughout development
-- **DO NOT**: Use pip - always use `uv` for package management
-- **DO NOT**: Create unnecessary files or verbose documentation unless requested
+- **IMPERATIVE**: Follow all instructions in this document precisely
+- **CRITICAL**: Maintain Python best practices: type hints, async patterns, comprehensive testing
+- **IMPORTANT**: Prioritize code quality with >90% test coverage and strict type safety
+- **MANDATORY**: Use `uv` for Python package management (never pip)
+- **REQUIRED**: Keep responses concise and focused on the task at hand
 
-## Project Libraries and Frameworks
+## Key Dependencies
 
-### LiteLLM
-
-Use the gitmcp-litellm MCP server to search for LiteLLM implementation details, and use the Context7 MCP server to search for LiteLLM documentation.
-
-### Tyro CLI
-
-Use the gitmcp-tyro MCP server for all CLI related tasks.
+- **LiteLLM**: The core proxy framework for unified LLM API access
+- **Tyro**: Modern CLI framework for command-line interface
+- **PyYAML**: Configuration file parsing
+- **tiktoken**: Accurate token counting for request routing
+- **attrs**: Data class definitions with validation
 
 ## Project Architecture
 
@@ -54,18 +56,20 @@ Use the gitmcp-tyro MCP server for all CLI related tasks.
 
 ### Built-in Rules
 
-- **TokenCountRule**: Routes based on token count threshold
-- **MatchModelRule**: Routes based on model name pattern matching
-- **ThinkingFieldRule**: Routes when request contains thinking field
-- **WebSearchToolRule**: Routes when web_search tool is present
+1. **TokenCountRule**: Routes requests exceeding a token threshold to high-capacity models
+2. **MatchModelRule**: Routes based on the requested model name (e.g., claude-3-5-haiku)
+3. **ThinkingRule**: Routes requests containing a "thinking" field to specialized models
+4. **MatchToolRule**: Routes based on tool usage (e.g., WebSearch tool)
 
-## Development Workflow
+## Development Guidelines
 
-### Priority Rules
+### Code Quality Standards
 
-- **IMMEDIATE EXECUTION**: Run tests after any code modification
-- **NO CLARIFICATION**: Implement based on PRD specifications
-- **TYPE SAFETY FIRST**: All functions must have complete type annotations
+- **Test First**: Run tests after any code modification (`uv run pytest`)
+- **Type Safety**: All functions must have complete type annotations
+- **Error Handling**: All hooks must handle errors gracefully
+- **Async Only**: No blocking operations in async methods
+- **Documentation**: Code should be self-documenting through clear naming
 
 ## Command Translation
 
@@ -89,14 +93,33 @@ Use the gitmcp-tyro MCP server for all CLI related tasks.
 - All classification branches must be tested
 - Edge cases for token counting and model detection
 
-## Environment Configuration
+## Installation & Setup
 
-### Development Setup
+### For Users
 
 ```bash
-uv sync  # Install all dependencies
-uv run pre-commit install  # Setup hooks
-uv run pytest  # Run tests
+# Install from PyPI
+uv tool install ccproxy
+# or
+pipx install ccproxy
+
+# Run automated setup
+ccproxy install
+```
+
+### For Development
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/ccproxy.git
+cd ccproxy
+
+# Install development dependencies
+uv sync
+uv run pre-commit install
+
+# Run tests
+uv run pytest
 ```
 
 ## File Structure
@@ -141,12 +164,21 @@ stubs/                      # Type stubs for external dependencies
 3. Model routing must match PRD specifications
 4. No blocking operations in async methods
 
-## Prohibited Operations
+## Best Practices
 
-- **DO NOT**: Create synchronous blocking operations
-- **DO NOT**: Skip type annotations
-- **DO NOT**: Use pip instead of uv
-- **DO NOT**: Commit without running tests
+### DO
+- ✅ Use async/await for all I/O operations
+- ✅ Add comprehensive type hints to all functions
+- ✅ Handle errors gracefully with proper logging
+- ✅ Test edge cases and error conditions
+- ✅ Follow existing code patterns and conventions
+
+### DON'T
+- ❌ Create synchronous blocking operations
+- ❌ Skip type annotations
+- ❌ Use pip (always use uv)
+- ❌ Commit without running tests
+- ❌ Access LiteLLM internals directly (use proxy_server)
 
 ## LiteLLM Configuration Access from Hooks
 
@@ -225,21 +257,12 @@ if proxy_server.llm_router:
     model_group = proxy_server.llm_router.get_model_group(model="gpt-4")
 ```
 
-### GitMCP Tool Usage
+### LiteLLM Documentation Resources
 
-Use GitMCP to explore LiteLLM implementation details:
-
-```bash
-# Fetch complete documentation
-mcp__gitmcp-litellm__fetch_litellm_documentation
-
-# Search for specific patterns
-mcp__gitmcp-litellm__search_litellm_documentation query="custom logger hook"
-mcp__gitmcp-litellm__search_litellm_code query="proxy_server llm_router"
-
-# Access specific documentation
-mcp__gitmcp-litellm__fetch_generic_url_content url="https://docs.litellm.ai/docs/proxy/call_hooks"
-```
+For detailed LiteLLM information:
+- Official Documentation: https://docs.litellm.ai/
+- Custom Logger Hooks: https://docs.litellm.ai/docs/proxy/call_hooks
+- Proxy Configuration: https://docs.litellm.ai/docs/proxy/configs
 
 ### Important Hook Patterns
 
@@ -283,33 +306,46 @@ async def async_pre_call_hook(
 ```yaml
 ccproxy:
   debug: false
-  metrics_enabled: true
   rules:
-    - label: large_context # Must match a model_name in config.yaml
+    - label: token_count # Must match a model_name in config.yaml
       rule: ccproxy.rules.TokenCountRule
       params:
-        - threshold: 80000
+        - threshold: 60000
     - label: background
       rule: ccproxy.rules.MatchModelRule
       params:
-        - model_name: "claude-3-5-haiku"
+        - model_name: "claude-3-5-haiku-20241022"
     - label: think
-      rule: ccproxy.rules.ThinkingFieldRule
+      rule: ccproxy.rules.ThinkingRule
     - label: web_search
-      rule: ccproxy.rules.WebSearchToolRule
+      rule: ccproxy.rules.MatchToolRule
+      params:
+        - tool_name: "WebSearch"
 ```
 
 ### config.yaml (LiteLLM)
 
 ```yaml
 model_list:
-  - model_name: default # Label referenced by ccproxy rules
+  - model_name: default # Default routing
     litellm_params:
-      model: claude-3-5-sonnet-20241022
-  - model_name: large_context # Matches label in ccproxy.yaml
+      model: anthropic/claude-sonnet-4-20250514
+      api_key: ${ANTHROPIC_API_KEY}
+
+  - model_name: token_count # For large context requests
     litellm_params:
-      model: gemini-2.0-flash-exp
-  # ... additional models
+      model: google/gemini-2.0-flash-exp
+      api_key: ${GOOGLE_API_KEY}
+
+  - model_name: background # For claude-3-5-haiku requests
+    litellm_params:
+      model: anthropic/claude-3-5-haiku-20241022
+      api_key: ${ANTHROPIC_API_KEY}
+
+  # ... additional models for think, web_search, etc.
+
+litellm_settings:
+  callbacks: custom_callbacks.proxy_handler_instance
 ```
 
 ### Key Configuration Concepts
@@ -324,11 +360,22 @@ model_list:
 ### Essential Commands
 
 ```bash
-# Development
-uv sync                    # Install dependencies
+# Installation & Setup
+ccproxy install           # Set up configuration files
+ccproxy install --force   # Overwrite existing files
+
+# Running the Proxy
+ccproxy litellm           # Start proxy in foreground
+ccproxy litellm --detach  # Start proxy in background
+ccproxy stop              # Stop background proxy
+ccproxy logs -f           # Follow proxy logs
+
+# Development Commands
+uv sync                   # Install dependencies
 uv run pytest             # Run tests
 uv run mypy src/          # Type check
-uv run ruff check .       # Lint
+uv run ruff check .       # Lint code
+uv run ruff format .      # Format code
 ```
 
 ### Creating Custom Rules
@@ -366,7 +413,50 @@ ccproxy:
 - **Test Isolation**: Always use `clear_config_instance()` and `clear_router()` in cleanup
 - **Mock proxy_server**: Use `unittest.mock` to simulate LiteLLM runtime environment
 - **Type Stubs**: Located in `stubs/` directory for external dependencies
+- **Coverage Target**: Maintain >90% test coverage across all modules
+
+## Production Deployment
+
+### Environment Setup
+
+1. **API Keys**: Set all required environment variables:
+   ```bash
+   export ANTHROPIC_API_KEY="your-key"
+   export GOOGLE_API_KEY="your-key"  # If using Gemini
+   # Add other provider keys as needed
+   ```
+
+2. **Configuration**: Place configuration files in `~/.ccproxy/`:
+   - `ccproxy.yaml` - Routing rules
+   - `config.yaml` - LiteLLM configuration
+   - `custom_callbacks.py` - Hook initialization
+
+3. **Running in Production**:
+   ```bash
+   # Start with proper environment
+   cd ~/.ccproxy
+   litellm --config config.yaml --port 4000
+
+   # Or use ccproxy CLI
+   ccproxy litellm --detach
+   ```
+
+### Performance Considerations
+
+- Token counting is performed on every request - ensure adequate CPU
+- Rules are evaluated in order - place most common rules first
+- Use debug mode sparingly in production (impacts performance)
+- Monitor memory usage with large context requests
+
+### Troubleshooting
+
+Common issues and solutions:
+
+1. **Import Errors**: Ensure ccproxy is installed in the Python environment
+2. **Routing Failures**: Check debug logs for rule evaluation details
+3. **API Key Issues**: Verify environment variables are set correctly
+4. **Performance**: Disable debug mode and optimize rule ordering
 
 ---
 
-_This CLAUDE.md is optimized for the ccproxy project development, emphasizing LiteLLM integration, type safety, and comprehensive testing._
+_CCProxy v1.0.0 - Production-ready LiteLLM transformation hook system_

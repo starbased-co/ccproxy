@@ -2,18 +2,47 @@
 
 This directory contains example custom rules and configurations to help you extend ccproxy.
 
+## Quick Start
+
+1. **Install CCProxy**:
+   ```bash
+   uv tool install ccproxy
+   # or
+   pipx install ccproxy
+   ```
+
+2. **Set up configuration**:
+   ```bash
+   ccproxy install
+   ```
+
+3. **Copy examples** (optional):
+   ```bash
+   cp examples/custom_rule.py ~/.ccproxy/
+   ```
+
 ## Files
 
 ### custom_rule.py
-A comprehensive example showing four different rule patterns:
+A comprehensive example showing four different custom rule patterns:
 
 1. **PriorityUserRule** - Routes based on user identity and message keywords
 2. **TimeBasedRule** - Routes based on time of day
 3. **ContentLengthRule** - Routes based on total message length
 4. **ModelCapabilityRule** - Routes based on required model features
 
-### example_ccproxy.yaml
-Complete configuration example showing how to use both built-in and custom rules.
+### ccproxy.yaml
+Complete configuration example showing built-in rules:
+- **TokenCountRule** - Routes large context requests (>60k tokens)
+- **MatchModelRule** - Routes specific model requests (e.g., claude-3-5-haiku)
+- **ThinkingRule** - Routes requests with thinking fields
+- **MatchToolRule** - Routes based on tool usage (e.g., WebSearch)
+
+### config.yaml
+LiteLLM configuration example with model deployments matching the rule labels.
+
+### ccproxy.py
+Custom callbacks file that creates the CCProxyHandler instance for LiteLLM.
 
 ## Creating Your Own Rules
 
@@ -56,7 +85,8 @@ Make sure you have a corresponding model in your LiteLLM `config.yaml`:
 model_list:
   - model_name: my_model_label  # Matches the label above
     litellm_params:
-      model: gpt-4
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: ${ANTHROPIC_API_KEY}
 ```
 
 ## Rule Guidelines
@@ -92,13 +122,13 @@ The `request` parameter contains the LiteLLM request data:
 
 ```python
 {
-    "model": "claude-3-5-sonnet",
+    "model": "claude-3-5-sonnet-20241022",
     "messages": [
         {"role": "user", "content": "Hello"}
     ],
     "metadata": {
         "user_email": "user@example.com",
-        # Other metadata
+        # Other metadata from LiteLLM proxy
     },
     "tools": [...],  # If using function calling
     "stream": False,

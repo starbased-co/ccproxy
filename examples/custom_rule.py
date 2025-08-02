@@ -1,21 +1,114 @@
 """Example custom rule for ccproxy.
 
+**Note**: Example code is not intended for production, for demonstration purposes ONLY
+
 This file demonstrates how to create custom classification rules for ccproxy.
 Copy this template and modify it to create your own rules.
 
-To use this rule:
-1. Copy this file to your project
-2. Add it to your ccproxy.yaml configuration:
-
+```yaml
+# ~/.ccproxy/ccproxy.yaml
 ccproxy:
+  debug: true  # Enable to see routing decisions
   rules:
+    # PriorityUserRule - Routes VIP users and urgent requests
     - label: high_priority
-      rule: myproject.rules.PriorityUserRule
+      rule: custom_rule.PriorityUserRule
       params:
         - priority_users: ["admin@example.com", "vip@example.com"]
         - priority_keywords: ["urgent", "critical", "emergency"]
 
-3. Ensure you have a model configured in config.yaml with model_name: high_priority
+    # TimeBasedRule - Routes during business hours
+    - label: business_hours
+      rule: examples.custom_rule.TimeBasedRule
+      params:
+        - start_hour: 9
+        - end_hour: 17
+        - timezone: "US/Eastern"
+
+    # ContentLengthRule - Routes long conversations
+    - label: long_content
+      rule: custom_rule.ContentLengthRule
+      params:
+        - max_length: 10000
+
+    # ModelCapabilityRule - Routes vision requests
+    - label: vision_capable
+      rule: examples.custom_rule.ModelCapabilityRule
+      params:
+        - require_vision: true
+        - require_function_calling: false
+        - require_streaming: false
+
+    # Another ModelCapabilityRule - Routes function calling
+    - label: function_calling
+      rule: custom_rule.ModelCapabilityRule
+      params:
+        - require_vision: false
+        - require_function_calling: true
+        - require_streaming: false
+
+    # Default routing (no rule needed)
+    # Falls through to 'default' if no rules match
+```
+
+## Corresponding config.yaml Model Configuration
+
+Ensure your ~/.ccproxy/config.yaml has matching model_name entries:
+
+```yaml
+# ~/.ccproxy/config.yaml
+model_list:
+  - model_name: high_priority  # Fast, high-capacity model for VIPs
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: ${ANTHROPIC_API_KEY}
+
+  - model_name: business_hours  # Standard model during work hours
+    litellm_params:
+      model: anthropic/claude-3-5-haiku-20241022
+      api_key: ${ANTHROPIC_API_KEY}
+
+  - model_name: long_content  # Large context model
+    litellm_params:
+      model: google/gemini-2.0-flash-exp
+      api_key: ${GOOGLE_API_KEY}
+
+  - model_name: vision_capable  # Model with vision support
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: ${OPENAI_API_KEY}
+
+  - model_name: function_calling  # Model optimized for tools
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: ${ANTHROPIC_API_KEY}
+
+  - model_name: default  # Fallback for unmatched requests
+    litellm_params:
+      model: anthropic/claude-3-5-haiku-20241022
+      api_key: ${ANTHROPIC_API_KEY}
+
+litellm_settings:
+  callbacks: custom_callbacks.proxy_handler_instance
+```
+
+## Usage Notes
+
+1. **Import Path**: Adjust the rule path based on where you place this file
+   - If copying to ~/myproject/rules.py, use: myproject.rules.PriorityUserRule
+   - If using from ccproxy examples: examples.custom_rule.PriorityUserRule
+
+2. **Rule Order**: Rules are evaluated in order - place specific rules first
+
+3. **Parameter Styles**: CCProxy supports multiple parameter formats:
+   - List of positional args: [value1, value2]
+   - List of kwargs: [{key1: value1}, {key2: value2}]
+   - Mixed: [value1, {key2: value2}]
+
+4. **Testing**: Run this file directly to test the example rules:
+   ```bash
+   python examples/custom_rule.py
+   ```
 """
 
 from typing import Any
