@@ -18,11 +18,17 @@ def mock_handler():
     mock_proxy_server.llm_router.model_list = [
         {
             "model_name": "default",
-            "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
+            "litellm_params": {
+                "model": "claude-3-5-sonnet-20241022",
+                "api_base": "https://api.anthropic.com",
+            },
         },
         {
             "model_name": "background",
-            "litellm_params": {"model": "claude-3-5-haiku-20241022"},
+            "litellm_params": {
+                "model": "claude-3-5-haiku-20241022",
+                "api_base": "https://api.anthropic.com",
+            },
         },
     ]
 
@@ -272,7 +278,10 @@ async def test_no_oauth_forwarding_when_routed_to_non_anthropic(mock_handler):
     mock_proxy_server.llm_router.model_list = [
         {
             "model_name": "default",
-            "litellm_params": {"model": "gemini-2.5-pro"},  # Non-Anthropic model
+            "litellm_params": {
+                "model": "gemini-2.5-pro",
+                "api_base": "https://generativelanguage.googleapis.com",
+            },
         },
     ]
 
@@ -304,3 +313,104 @@ async def test_no_oauth_forwarding_when_routed_to_non_anthropic(mock_handler):
 
         # Verify the model was routed correctly
         assert result["model"] == "gemini-2.5-pro"
+
+
+@pytest.mark.asyncio
+async def test_no_oauth_forwarding_for_anthropic_model_on_vertex():
+    """Test that OAuth tokens are NOT forwarded for Anthropic models served through Vertex AI."""
+    # Create a handler with Anthropic model served through Vertex
+    mock_proxy_server = MagicMock()
+    mock_proxy_server.llm_router = MagicMock()
+    mock_proxy_server.llm_router.model_list = [
+        {
+            "model_name": "default",
+            "litellm_params": {
+                "model": "vertex/claude-3-5-sonnet",
+                "api_base": "https://us-central1-aiplatform.googleapis.com",
+                "custom_llm_provider": "vertex",
+            },
+        },
+    ]
+
+    mock_module = MagicMock()
+    mock_module.proxy_server = mock_proxy_server
+
+    with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+        clear_router()
+        handler = CCProxyHandler()
+
+        # Test data from claude-cli
+        data = {
+            "model": "default",
+            "messages": [{"role": "user", "content": "test"}],
+            "metadata": {},
+            "provider_specific_header": {"extra_headers": {}},
+            "proxy_server_request": {"headers": {"user-agent": "claude-cli/1.0.62 (external, cli)"}},
+            "secret_fields": {"raw_headers": {"authorization": "Bearer sk-ant-oat01-test-token-123"}},
+        }
+
+        user_api_key_dict = {}
+        kwargs = {}
+
+        # Call the hook
+        result = await handler.async_pre_call_hook(data, user_api_key_dict, **kwargs)
+
+        # OAuth should NOT be forwarded since it's Vertex, not direct Anthropic
+        assert "authorization" not in result["provider_specific_header"]["extra_headers"]
+
+        # Verify the model was routed correctly
+        assert result["model"] == "vertex/claude-3-5-sonnet"
+
+    clear_config_instance()
+    clear_router()
+
+
+@pytest.mark.asyncio
+async def test_oauth_forwarding_for_anthropic_direct_api():
+    """Test that OAuth tokens ARE forwarded for models going to Anthropic's API directly."""
+    # Create a handler with Anthropic model going to Anthropic's API
+    mock_proxy_server = MagicMock()
+    mock_proxy_server.llm_router = MagicMock()
+    mock_proxy_server.llm_router.model_list = [
+        {
+            "model_name": "default",
+            "litellm_params": {
+                "model": "anthropic/claude-3-5-sonnet-20241022",
+                "api_base": "https://api.anthropic.com",
+            },
+        },
+    ]
+
+    mock_module = MagicMock()
+    mock_module.proxy_server = mock_proxy_server
+
+    with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+        clear_router()
+        handler = CCProxyHandler()
+
+        # Test data from claude-cli
+        data = {
+            "model": "default",
+            "messages": [{"role": "user", "content": "test"}],
+            "metadata": {},
+            "provider_specific_header": {"extra_headers": {}},
+            "proxy_server_request": {"headers": {"user-agent": "claude-cli/1.0.62 (external, cli)"}},
+            "secret_fields": {"raw_headers": {"authorization": "Bearer sk-ant-oat01-test-token-123"}},
+        }
+
+        user_api_key_dict = {}
+        kwargs = {}
+
+        # Call the hook
+        result = await handler.async_pre_call_hook(data, user_api_key_dict, **kwargs)
+
+        # OAuth SHOULD be forwarded since it's going to Anthropic directly
+        assert (
+            result["provider_specific_header"]["extra_headers"]["authorization"] == "Bearer sk-ant-oat01-test-token-123"
+        )
+
+        # Verify the model was routed correctly
+        assert result["model"] == "anthropic/claude-3-5-sonnet-20241022"
+
+    clear_config_instance()
+    clear_router()

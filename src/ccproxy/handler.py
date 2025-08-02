@@ -5,8 +5,8 @@ from typing import Any, TypedDict
 
 from litellm.integrations.custom_logger import CustomLogger
 
+import ccproxy.hooks as hooks
 from ccproxy.classifier import RequestClassifier
-from ccproxy.config import get_config
 from ccproxy.router import get_router
 from ccproxy.utils import calculate_duration_ms
 
@@ -23,37 +23,6 @@ class RequestData(TypedDict, total=False):
     metadata: dict[str, Any] | None
 
 
-def _determine_routed_model(
-    data: dict[str, Any],
-    label: str,
-    router: Any,
-    original_model: str | None = None,
-) -> tuple[str, dict[str, Any] | None]:
-    """Determine which model to route to based on classification label.
-
-    Args:
-        data: Request data from LiteLLM
-        label: Classification label from the classifier
-        router: The model router instance
-        original_model: Original model from request (optional)
-
-    Returns:
-        Tuple of (routed_model, model_config)
-    """
-    # Get model for label from router (includes fallback to 'default' label)
-    model_config = router.get_model_for_label(label)
-
-    if model_config is not None:
-        routed_model = str(model_config["litellm_params"]["model"])
-        return routed_model, model_config
-
-    # No model config found (not even default)
-    raise ValueError(
-        f"No model configured for label '{label}' and no 'default' model available. "
-        "Please ensure a 'default' model is configured in your config.yaml file."
-    )
-
-
 class CCProxyHandler(CustomLogger):
     """LiteLLM CustomLogger for context-aware request routing.
 
@@ -64,9 +33,9 @@ class CCProxyHandler(CustomLogger):
     def __init__(self) -> None:
         """Initialize CCProxyHandler."""
         super().__init__()
-        self.config = get_config()
         self.classifier = RequestClassifier()
         self.router = get_router()
+        self.hooks = [hooks.classify_hook, hooks.rewrite_model_hook, hooks.forward_oauth_hook]
 
     async def async_pre_call_hook(
         self,
@@ -87,80 +56,19 @@ class CCProxyHandler(CustomLogger):
         Returns:
             Modified request data
         """
-        # Store original model for logging
-        original_model = data.get("model", "unknown")
 
-        # Classify the request
-        label = self.classifier.classify(data)
-
-        # Determine the routed model using shared logic
-        routed_model, model_config = _determine_routed_model(data, label, self.router, original_model)
-
-        # Update the model in the request
-        data["model"] = routed_model
-
-        # Add metadata for tracking
-        if "metadata" not in data:
-            data["metadata"] = {}
-
-        data["metadata"]["ccproxy_label"] = label
-        data["metadata"]["ccproxy_original_model"] = original_model
-        data["metadata"]["ccproxy_routed_model"] = routed_model
-
-        # Generate request ID if not present
-        if "request_id" not in data["metadata"]:
-            import uuid
-
-            data["metadata"]["request_id"] = str(uuid.uuid4())
-
-        # Handle OAuth token forwarding for Claude CLI
-        # Check if this is a claude-cli request and routing to an Anthropic provider
-        request = data.get("proxy_server_request")
-        if request:
-            headers = request.get("headers") or {}
-            user_agent = headers.get("user-agent", "")
-
-            # Check if this is a claude-cli request and the routed model is going to Anthropic
-            # Forward OAuth token when the final destination is Anthropic provider
-            if (
-                user_agent
-                and "claude-cli" in user_agent
-                and ("anthropic/" in routed_model or routed_model.startswith("claude"))
-            ):
-                # Get the raw headers containing the OAuth token
-                secret_fields = data.get("secret_fields") or {}
-                raw_headers = secret_fields.get("raw_headers") or {}
-                auth_header = raw_headers.get("authorization", "")
-
-                # Only forward if we have an auth header
-                if auth_header:
-                    # Ensure the provider_specific_header structure exists
-                    if "provider_specific_header" not in data:
-                        data["provider_specific_header"] = {}
-                    if "extra_headers" not in data["provider_specific_header"]:
-                        data["provider_specific_header"]["extra_headers"] = {}
-
-                    # Set the authorization header
-                    data["provider_specific_header"]["extra_headers"]["authorization"] = auth_header
-
-                    # Log OAuth forwarding
-                    logger.info(
-                        "Forwarding request with Claude Code OAuth token",
-                        extra={
-                            "event": "oauth_forwarding",
-                            "user_agent": user_agent,
-                            "model": routed_model,
-                            "request_id": data["metadata"]["request_id"],
-                        },
-                    )
+        # Run all processors in sequence
+        for hook in self.hooks:
+            data = hook(data, user_api_key_dict, classifier=self.classifier, router=self.router)
 
         # Log routing decision with structured logging
+        metadata = data.get("metadata", {})
         self._log_routing_decision(
-            label=label,
-            original_model=original_model,
-            routed_model=routed_model,
-            request_id=data["metadata"]["request_id"],
-            model_config=model_config,
+            label=metadata.get("ccproxy_label", None),
+            original_model=metadata.get("ccproxy_alias_model", None),
+            routed_model=metadata.get("ccproxy_litellm_model", None),
+            request_id=metadata.get("request_id", None),
+            model_config=metadata.get("ccproxy_model_config"),
         )
 
         return data

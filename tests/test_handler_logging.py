@@ -46,16 +46,26 @@ class TestHandlerLoggingHookMethods:
     @pytest.mark.asyncio
     async def test_async_pre_call_hook_with_invalid_request(self) -> None:
         """Test async_pre_call_hook with invalid request format."""
-        handler = CCProxyHandler()
+        # Mock the router to provide a default model
+        with patch("ccproxy.handler.get_router") as mock_get_router:
+            mock_router = Mock()
+            mock_router.get_model_for_label.return_value = {
+                "model_name": "default",
+                "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
+            }
+            mock_get_router.return_value = mock_router
 
-        # Missing model field - should use default
-        data = {"messages": [{"role": "user", "content": "test"}]}
+            handler = CCProxyHandler()
 
-        # Should not raise - adds metadata and uses original model
-        result = await handler.async_pre_call_hook(data, {})
-        assert "metadata" in result
-        assert result["metadata"]["ccproxy_label"] == "default"
-        assert result["metadata"]["ccproxy_original_model"] == "unknown"
+            # Missing model field - should use default
+            data = {"messages": [{"role": "user", "content": "test"}]}
+
+            # Should not raise - adds metadata and uses default model
+            result = await handler.async_pre_call_hook(data, {})
+            assert "metadata" in result
+            assert result["metadata"]["ccproxy_label"] == "default"
+            assert result["metadata"]["ccproxy_alias_model"] == "unknown"
+            assert result["model"] == "claude-3-5-sonnet-20241022"
 
     @patch("ccproxy.handler.logger")
     def test_log_routing_decision(self, mock_logger: Mock) -> None:

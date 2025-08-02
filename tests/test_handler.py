@@ -276,8 +276,28 @@ class TestHandlerHookMethods:
 
     @pytest.fixture
     def handler(self) -> CCProxyHandler:
-        """Create a CCProxyHandler instance."""
-        return CCProxyHandler()
+        """Create a CCProxyHandler instance with mocked router."""
+        # Mock proxy server with default model
+        mock_proxy_server = MagicMock()
+        mock_proxy_server.llm_router = MagicMock()
+        mock_proxy_server.llm_router.model_list = [
+            {
+                "model_name": "default",
+                "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
+            },
+        ]
+
+        mock_module = MagicMock()
+        mock_module.proxy_server = mock_proxy_server
+
+        try:
+            with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
+                clear_router()  # Clear any existing router
+                handler = CCProxyHandler()
+                yield handler
+        finally:
+            clear_config_instance()
+            clear_router()
 
     @pytest.mark.asyncio
     async def test_log_success_hook(self, handler: CCProxyHandler) -> None:
@@ -343,11 +363,13 @@ class TestHandlerHookMethods:
             user_api_key_dict,
         )
 
-        # Should return the modified data - gpt-4 is not in our config so it passes through
+        # Should return the modified data - gpt-4 is not in our config so it routes to default
         assert isinstance(result, dict)
-        assert result["model"] == "gpt-4"  # Should pass through unchanged
-        # Even though model passes through, we still add metadata
+        assert result["model"] == "claude-3-5-sonnet-20241022"  # Should route to default
+        # Metadata should be added
         assert "metadata" in result
+        assert result["metadata"]["ccproxy_label"] == "default"
+        assert result["metadata"]["ccproxy_alias_model"] == "gpt-4"
 
     @pytest.mark.asyncio
     async def test_log_stream_event(self, handler: CCProxyHandler) -> None:
@@ -489,7 +511,7 @@ class TestCCProxyHandler:
         # Check metadata was added
         assert "metadata" in modified_data
         assert modified_data["metadata"]["ccproxy_label"] == "background"
-        assert modified_data["metadata"]["ccproxy_original_model"] == "claude-3-5-haiku-20241022"
+        assert modified_data["metadata"]["ccproxy_alias_model"] == "claude-3-5-haiku-20241022"
 
     async def test_async_pre_call_hook_preserves_existing_metadata(self, handler):
         """Test that existing metadata is preserved."""
@@ -513,7 +535,7 @@ class TestCCProxyHandler:
 
         # Check new metadata added
         assert modified_data["metadata"]["ccproxy_label"] == "default"
-        assert modified_data["metadata"]["ccproxy_original_model"] == "claude-3-5-sonnet-20241022"
+        assert modified_data["metadata"]["ccproxy_alias_model"] == "claude-3-5-sonnet-20241022"
 
     async def test_handler_uses_config_threshold(self):
         """Test that handler uses context threshold from config."""
@@ -598,7 +620,7 @@ class TestCCProxyHandler:
 
     @pytest.mark.asyncio
     async def test_no_default_model_fallback(self) -> None:
-        """Test that handler uses original model when no 'default' label is configured."""
+        """Test that handler raises error when no 'default' label is configured."""
         # Create config without a 'default' model
         ccproxy_config = CCProxyConfig(
             debug=False,
@@ -638,12 +660,12 @@ class TestCCProxyHandler:
                 }
                 user_api_key_dict = {}
 
-                # Should keep original model since no default is configured
-                result = await handler.async_pre_call_hook(request_data, user_api_key_dict)
-                assert result["model"] == "claude-3-opus-20240229"
-                assert result["metadata"]["ccproxy_label"] == "default"
-                assert result["metadata"]["ccproxy_original_model"] == "claude-3-opus-20240229"
-                assert result["metadata"]["ccproxy_routed_model"] == "claude-3-opus-20240229"
+                # Should raise ValueError since no default is configured
+                with pytest.raises(ValueError) as exc_info:
+                    await handler.async_pre_call_hook(request_data, user_api_key_dict)
+
+                assert "No model configured for label 'default'" in str(exc_info.value)
+                assert "no 'default' model available" in str(exc_info.value)
 
                 # Test with missing model field
                 request_data_no_model = {
@@ -651,10 +673,11 @@ class TestCCProxyHandler:
                     "token_count": 100,  # Below threshold
                 }
 
-                # Should use "unknown" since no model specified and no default configured
-                result = await handler.async_pre_call_hook(request_data_no_model, user_api_key_dict)
-                assert result["model"] == "unknown"
-                assert result["metadata"]["ccproxy_original_model"] == "unknown"
+                # Should also raise ValueError
+                with pytest.raises(ValueError) as exc_info:
+                    await handler.async_pre_call_hook(request_data_no_model, user_api_key_dict)
+
+                assert "No model configured for label 'default'" in str(exc_info.value)
 
         finally:
             clear_config_instance()
