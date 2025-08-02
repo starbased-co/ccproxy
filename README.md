@@ -1,14 +1,18 @@
-# `ccproxy`
+# CCProxy
 
-A LiteLLM-based transformation hook system that routes Claude Code API requests to different providers based on request properties.
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yourusername/ccproxy)
+
+A LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties.
 
 ## Installation
 
 ```bash
+# Recommended: Install as a tool
 uv tool install ccproxy
 # or
 pipx install ccproxy
-# or
+
+# Alternative: Install with pip
 pip install ccproxy
 ```
 
@@ -72,7 +76,7 @@ If you prefer to set up manually:
      callbacks: custom_callbacks.proxy_handler_instance
    ```
 
-   See [config.yaml.example](./config.yaml.example) for a complete example with all routing models.
+   See the examples directory for complete configuration examples.
 
 4. **Start the LiteLLM proxy**:
 
@@ -97,6 +101,15 @@ litellm --config config.yaml
 ```
 
 ## Routing Rules
+
+CCProxy includes built-in rules for intelligent request routing:
+
+- **TokenCountRule**: Routes requests with large token counts to high-capacity models
+- **MatchModelRule**: Routes based on the requested model name
+- **ThinkingRule**: Routes requests containing a "thinking" field
+- **MatchToolRule**: Routes based on tool usage (e.g., WebSearch)
+
+You can also create custom rules - see the examples directory for details.
 
 ## CLI Commands
 
@@ -183,12 +196,16 @@ CCProxy automatically routes requests based on these rules (in priority order):
 
 ## Configuration
 
-The `token_count_threshold` in `ccproxy_settings` controls when requests are routed to the large context model:
+CCProxy uses a `ccproxy.yaml` file to configure routing rules:
 
 ```yaml
-ccproxy_settings:
-  token_count_threshold: 60000 # Route to token_count if tokens > 60k
+ccproxy:
   debug: true # Enable debug logging to see routing decisions
+  rules:
+    - label: token_count
+      rule: ccproxy.rules.TokenCountRule
+      params:
+        - threshold: 60000  # Route to token_count if tokens > 60k
 ```
 
 ## Troubleshooting
@@ -207,4 +224,4 @@ Ensure your API keys are set as environment variables before starting LiteLLM.
 
 ### Debug Logging
 
-Set `debug: true` in `ccproxy_settings` to see detailed routing decisions in the logs.
+Set `debug: true` in the `ccproxy` section of your `ccproxy.yaml` file to see detailed routing decisions in the logs.

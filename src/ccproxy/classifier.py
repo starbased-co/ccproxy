@@ -62,7 +62,7 @@ class RequestClassifier:
             except (ImportError, TypeError, AttributeError) as e:
                 # Log error but continue loading other rules
                 if config.debug:
-                    print(f"Failed to load rule {rule_config.rule_path}: {e}")
+                    logger.debug(f"Failed to load rule {rule_config.rule_path}: {e}")
 
     def classify(self, request: Any) -> str:
         """Classify a request based on configured rules.
