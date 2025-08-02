@@ -28,7 +28,7 @@ def get_templates_dir() -> Path:
     if package_templates.exists() and (package_templates / "ccproxy.yaml").exists():
         return package_templates
 
-    raise RuntimeError("Could not find templates directory. " "Please ensure ccproxy is properly installed.")
+    raise RuntimeError("Could not find templates directory. Please ensure ccproxy is properly installed.")
 
 
 def get_template_file(filename: str) -> Path:

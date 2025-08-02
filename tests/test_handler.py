@@ -594,8 +594,9 @@ class TestCCProxyHandler:
             with patch.dict("sys.modules", {"litellm.proxy": mock_module}):
                 handler = CCProxyHandler()
 
-                # Create request with >10k tokens (10k threshold * 4 chars/token = 40k+ chars)
-                large_message = "a" * 45000  # ~11.25k tokens
+                # Create request with >10k tokens using varied text
+                base_text = "The quick brown fox jumps over the lazy dog. " * 50  # ~501 tokens
+                large_message = base_text * 21  # ~10521 tokens (above 10000 threshold)
                 request_data = {
                     "model": "claude-3-5-sonnet-20241022",
                     "messages": [{"role": "user", "content": large_message}],

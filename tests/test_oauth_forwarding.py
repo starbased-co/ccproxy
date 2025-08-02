@@ -138,9 +138,12 @@ async def test_no_oauth_forwarding_for_non_anthropic_models(mock_handler):
         handler = CCProxyHandler()
 
         # Test data with high token count to trigger routing to gemini
+        # Use varied text to get proper token count above 100 threshold
+        base_text = "The quick brown fox jumps over the lazy dog. " * 5  # ~51 tokens
+        long_message = base_text * 3  # ~153 tokens (above 100 threshold)
         data = {
             "model": "claude-3-5-sonnet-20241022",
-            "messages": [{"role": "user", "content": "a" * 500}],  # >100 tokens
+            "messages": [{"role": "user", "content": long_message}],  # >100 tokens
             "metadata": {},
             "provider_specific_header": {"extra_headers": {}},
             "proxy_server_request": {"headers": {"user-agent": "claude-cli/1.0.62 (external, cli)"}},

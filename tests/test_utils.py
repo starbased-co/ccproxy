@@ -1,11 +1,12 @@
 """Tests for ccproxy utilities."""
 
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 
-from ccproxy.utils import get_template_file, get_templates_dir
+from ccproxy.utils import calculate_duration_ms, get_template_file, get_templates_dir
 
 
 class TestGetTemplatesDir:
@@ -88,3 +89,69 @@ class TestGetTemplateFile:
             get_template_file("missing.yaml")
 
         assert "Template file not found: missing.yaml" in str(exc_info.value)
+
+
+class TestCalculateDurationMs:
+    """Test suite for calculate_duration_ms function."""
+
+    def test_calculate_duration_with_floats(self) -> None:
+        """Test duration calculation with float timestamps."""
+        start_time = 1000.0
+        end_time = 1002.5
+
+        result = calculate_duration_ms(start_time, end_time)
+
+        assert result == 2500.0  # 2.5 seconds = 2500 ms
+
+    def test_calculate_duration_with_timedelta(self) -> None:
+        """Test duration calculation with timedelta objects."""
+        start_time = timedelta(seconds=0)
+        end_time = timedelta(seconds=1, milliseconds=500)
+
+        result = calculate_duration_ms(start_time, end_time)
+
+        assert result == 1500.0  # 1.5 seconds = 1500 ms
+
+    def test_calculate_duration_with_mixed_types(self) -> None:
+        """Test that mixed types are handled gracefully."""
+        # Mixed types that don't support subtraction should return 0.0
+        start_time = 0
+        end_time = timedelta(seconds=2)
+
+        # This will fail because int - timedelta is not supported
+        result = calculate_duration_ms(start_time, end_time)
+
+        # Should return 0.0 due to TypeError
+        assert result == 0.0
+
+    def test_calculate_duration_with_invalid_types(self) -> None:
+        """Test that invalid types return 0.0."""
+        # String types should cause TypeError
+        result = calculate_duration_ms("start", "end")
+        assert result == 0.0
+
+        # None types should cause TypeError
+        result = calculate_duration_ms(None, None)
+        assert result == 0.0
+
+        # Object without subtraction support
+        result = calculate_duration_ms({"time": 1}, {"time": 2})
+        assert result == 0.0
+
+    def test_calculate_duration_rounding(self) -> None:
+        """Test that results are rounded to 2 decimal places."""
+        start_time = 1000.0
+        end_time = 1000.0012345
+
+        result = calculate_duration_ms(start_time, end_time)
+
+        assert result == 1.23  # Should be rounded to 2 decimal places
+
+    def test_calculate_duration_negative(self) -> None:
+        """Test calculation when end time is before start time."""
+        start_time = 2000.0
+        end_time = 1000.0
+
+        result = calculate_duration_ms(start_time, end_time)
+
+        assert result == -1000000.0  # Negative duration is allowed
