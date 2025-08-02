@@ -460,3 +460,7 @@ Common issues and solutions:
 ---
 
 _`ccproxy` v1.0.0 - Production-ready LiteLLM transformation hook system_
+
+## Task Master AI Instructions
+**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
+@./.taskmaster/CLAUDE.md
