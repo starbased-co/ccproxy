@@ -1,4 +1,4 @@
-# CCProxy
+# `ccproxy` - Claude Code Proxy
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/starbased-co/ccproxy)
 
