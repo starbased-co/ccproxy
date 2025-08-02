@@ -21,6 +21,7 @@ dependencies = [
   "tyro>=0.7.0",
   "rich>=13.7.1",
   "prisma>=0.15.0",
+  "tiktoken>=0.5.0",
 ]
 
 [project.scripts]

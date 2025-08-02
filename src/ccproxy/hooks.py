@@ -82,7 +82,18 @@ def forward_oauth_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], 
     custom_provider = litellm_params.get("custom_llm_provider", "")
 
     # Check if this is going to Anthropic's API directly
-    if "anthropic.com" in api_base or custom_provider == "anthropic":
+    from urllib.parse import urlparse
+
+    # Parse hostname properly to prevent subdomain attacks
+    if api_base:
+        try:
+            parsed_url = urlparse(api_base)
+            hostname = parsed_url.hostname or ""
+            # Check for exact domain match
+            is_anthropic_provider = hostname in {"api.anthropic.com", "anthropic.com"}
+        except Exception:
+            is_anthropic_provider = False
+    elif custom_provider == "anthropic":
         is_anthropic_provider = True
     elif (
         not api_base
@@ -91,6 +102,8 @@ def forward_oauth_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], 
     ):
         # Default provider for anthropic/ prefix or claude models is Anthropic
         is_anthropic_provider = True
+    else:
+        is_anthropic_provider = False
 
     if user_agent and "claude-cli" in user_agent and is_anthropic_provider:
         # Get the raw headers containing the OAuth token

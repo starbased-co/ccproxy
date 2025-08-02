@@ -7,6 +7,7 @@ from litellm.integrations.custom_logger import CustomLogger
 
 import ccproxy.hooks as hooks
 from ccproxy.classifier import RequestClassifier
+from ccproxy.config import get_config
 from ccproxy.router import get_router
 from ccproxy.utils import calculate_duration_ms
 
@@ -104,41 +105,45 @@ class CCProxyHandler(CustomLogger):
             request_id: Unique request identifier
             model_config: Model configuration from router (None if fallback)
         """
-        # Display colored routing decision
-        from rich.console import Console
-        from rich.panel import Panel
-        from rich.text import Text
+        # Get config to check debug mode
+        config = get_config()
 
-        console = Console()
+        # Only display colored routing decision when debug is enabled
+        if config.debug:
+            from rich.console import Console
+            from rich.panel import Panel
+            from rich.text import Text
 
-        # Color scheme based on routing
-        if model_config is None:
-            # Fallback - yellow
-            color = "yellow"
-            routing_type = "FALLBACK"
-        elif original_model == routed_model:
-            # No change - dim
-            color = "dim"
-            routing_type = "PASSTHROUGH"
-        else:
-            # Routed - green
-            color = "green"
-            routing_type = "ROUTED"
+            console = Console()
 
-        # Create the routing message
-        routing_text = Text()
-        routing_text.append("🚀 CCProxy Routing Decision\n", style="bold cyan")
-        routing_text.append("├─ Type: ", style="dim")
-        routing_text.append(f"{routing_type}\n", style=f"bold {color}")
-        routing_text.append("├─ Label: ", style="dim")
-        routing_text.append(f"{label}\n", style="magenta")
-        routing_text.append("├─ Original: ", style="dim")
-        routing_text.append(f"{original_model}\n", style="blue")
-        routing_text.append("└─ Routed to: ", style="dim")
-        routing_text.append(f"{routed_model}", style=f"bold {color}")
+            # Color scheme based on routing
+            if model_config is None:
+                # Fallback - yellow
+                color = "yellow"
+                routing_type = "FALLBACK"
+            elif original_model == routed_model:
+                # No change - dim
+                color = "dim"
+                routing_type = "PASSTHROUGH"
+            else:
+                # Routed - green
+                color = "green"
+                routing_type = "ROUTED"
 
-        # Print the panel
-        console.print(Panel(routing_text, border_style=color, padding=(0, 1)))
+            # Create the routing message
+            routing_text = Text()
+            routing_text.append("🚀 CCProxy Routing Decision\n", style="bold cyan")
+            routing_text.append("├─ Type: ", style="dim")
+            routing_text.append(f"{routing_type}\n", style=f"bold {color}")
+            routing_text.append("├─ Label: ", style="dim")
+            routing_text.append(f"{label}\n", style="magenta")
+            routing_text.append("├─ Original: ", style="dim")
+            routing_text.append(f"{original_model}\n", style="blue")
+            routing_text.append("└─ Routed to: ", style="dim")
+            routing_text.append(f"{routed_model}", style=f"bold {color}")
+
+            # Print the panel
+            console.print(Panel(routing_text, border_style=color, padding=(0, 1)))
 
         log_data = {
             "event": "ccproxy_routing",

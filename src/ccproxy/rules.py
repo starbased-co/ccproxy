@@ -1,7 +1,10 @@
 """Classification rules for request routing."""
 
+import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ccproxy.config import CCProxyConfig
@@ -42,6 +45,64 @@ class TokenCountRule(ClassificationRule):
             threshold: The token count threshold
         """
         self.threshold = threshold
+        self._tokenizer_cache: dict[str, Any] = {}
+
+    def _get_tokenizer(self, model: str) -> Any:
+        """Get appropriate tokenizer for the model.
+
+        Args:
+            model: Model name to get tokenizer for
+
+        Returns:
+            Tokenizer instance or None if not available
+        """
+        # Cache tokenizers to avoid repeated initialization
+        if model in self._tokenizer_cache:
+            return self._tokenizer_cache[model]
+
+        try:
+            import tiktoken
+
+            # Map model names to appropriate tiktoken encodings
+            if "gpt-4" in model or "gpt-3.5" in model:
+                encoding = tiktoken.encoding_for_model(model)
+            elif "claude" in model:
+                # Claude uses similar tokenization to cl100k_base
+                encoding = tiktoken.get_encoding("cl100k_base")
+            elif "gemini" in model:
+                # Gemini uses similar tokenization to cl100k_base
+                encoding = tiktoken.get_encoding("cl100k_base")
+            else:
+                # Default to cl100k_base for unknown models
+                encoding = tiktoken.get_encoding("cl100k_base")
+
+            self._tokenizer_cache[model] = encoding
+            return encoding
+        except Exception:
+            # If tiktoken fails, return None to fall back to estimation
+            return None
+
+    def _count_tokens(self, text: str, model: str) -> int:
+        """Count tokens in text using model-specific tokenizer.
+
+        Args:
+            text: Text to count tokens for
+            model: Model name for tokenizer selection
+
+        Returns:
+            Token count
+        """
+        tokenizer = self._get_tokenizer(model)
+        if tokenizer:
+            try:
+                return len(tokenizer.encode(text))
+            except Exception as e:
+                logger.warning(f"Token encoding failed for model {model}: {e}")
+                # Fall through to estimation
+
+        # Fallback to estimation if tokenizer not available
+        # Updated estimation: ~3 chars per token for better accuracy
+        return len(text) // 3
 
     def evaluate(self, request: dict[str, Any], config: "CCProxyConfig") -> bool:
         """Evaluate if request has high token count based on threshold.
@@ -56,20 +117,30 @@ class TokenCountRule(ClassificationRule):
         # Check various token count fields
         token_count = 0
 
+        # Get model for tokenizer selection
+        model = request.get("model", "")
+
         # Check messages token count
         messages = request.get("messages", [])
         if isinstance(messages, list):
-            # Simple estimation: ~4 chars per token
-            total_chars = 0
+            total_text = ""
             for msg in messages:
                 if isinstance(msg, dict):
                     # Handle message dict format
                     content = msg.get("content", "")
-                    total_chars += len(str(content))
+                    if isinstance(content, str):
+                        total_text += content + " "
+                    elif isinstance(content, list):
+                        # Handle multi-modal content
+                        for item in content:
+                            if isinstance(item, dict) and item.get("type") == "text":
+                                total_text += item.get("text", "") + " "
                 else:
                     # Handle simple string messages
-                    total_chars += len(str(msg))
-            token_count = total_chars // 4
+                    total_text += str(msg) + " "
+
+            if total_text:
+                token_count = self._count_tokens(total_text.strip(), model)
 
         # Check explicit token count fields
         token_count = max(

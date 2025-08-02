@@ -104,8 +104,11 @@ class TestRequestClassifierIntegration:
 
     def test_realistic_long_context_request(self, classifier: RequestClassifier) -> None:
         """Test with a realistic long context request."""
-        # Create a very long message
-        long_content = "x" * 50000  # ~12500 tokens
+        # Create a very long message that exceeds 10000 token threshold
+        # Using varied text to prevent efficient encoding of repeated characters
+        varied_text = "The quick brown fox jumps over the lazy dog. " * 500
+        # This will be ~5001 tokens, need to double for >10000
+        long_content = varied_text * 3  # ~15,003 tokens
         request = {
             "model": "claude-3-5-sonnet-20241022",
             "messages": [
@@ -189,20 +192,21 @@ class TestRequestClassifierIntegration:
 
     def test_token_estimation_from_messages(self, classifier: RequestClassifier) -> None:
         """Test accurate token estimation from message content."""
-        # Each message ~2500 tokens (10000 chars / 4)
+        # Using varied text for realistic tokenization
+        base_text = "The quick brown fox jumps over the lazy dog. " * 50  # ~501 tokens
         messages = [
-            {"role": "user", "content": "x" * 10000},
-            {"role": "assistant", "content": "y" * 10000},
-            {"role": "user", "content": "z" * 10000},
+            {"role": "user", "content": base_text * 6},  # ~3006 tokens
+            {"role": "assistant", "content": base_text * 6},  # ~3006 tokens
+            {"role": "user", "content": base_text * 3},  # ~1503 tokens
         ]
         request = {"messages": messages}
 
-        # Total ~7500 tokens, below 10000 threshold
+        # Total ~7515 tokens, below 10000 threshold
         assert classifier.classify(request) == "default"
 
-        # Add one more large message to go well over threshold
-        messages.append({"role": "assistant", "content": "a" * 15000})
+        # Add one more message to go over threshold
+        messages.append({"role": "assistant", "content": base_text * 6})  # ~3006 tokens
         request = {"messages": messages}
 
-        # Total ~11250 tokens, should trigger large context
+        # Total ~10521 tokens, should trigger large context
         assert classifier.classify(request) == "large_context"

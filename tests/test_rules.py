@@ -46,13 +46,15 @@ class TestTokenCountRule:
 
     def test_messages_estimation(self, rule: TokenCountRule, config: CCProxyConfig) -> None:
         """Test token estimation from messages."""
-        # Create messages with ~4000 characters (estimated ~1000 tokens)
-        long_message = "x" * 4000
-        request = {"messages": [{"content": long_message}]}
+        # Create messages with realistic text that tokenizes properly
+        # ~800 tokens (below threshold of 1000)
+        base_text = "The quick brown fox jumps over the lazy dog. " * 10
+        short_message = base_text * 8  # ~800 tokens
+        request = {"messages": [{"content": short_message}]}
         assert rule.evaluate(request, config) is False
 
-        # Create messages with >4000 characters (estimated >1000 tokens)
-        longer_message = "x" * 5000
+        # Create messages with >1000 tokens
+        longer_message = base_text * 15  # ~1501 tokens
         request = {"messages": [{"content": longer_message}]}
         assert rule.evaluate(request, config) is True
 
