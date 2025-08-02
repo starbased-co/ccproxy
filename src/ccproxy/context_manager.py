@@ -1,5 +1,6 @@
 """Context manager orchestrator for combining Claude Code conversations with provider metadata."""
 
+import asyncio
 import logging
 from functools import lru_cache
 from pathlib import Path
@@ -95,7 +96,8 @@ class ContextManager:
 
             # Step 3: Use the latest session file
             latest_session = session_files[-1]
-            mtime = latest_session.stat().st_mtime
+            loop = asyncio.get_event_loop()
+            mtime = await loop.run_in_executor(None, lambda: latest_session.stat().st_mtime)
 
             # Step 4: Read conversation (cached)
             messages, session_id = self._cached_read_session(str(latest_session), mtime)

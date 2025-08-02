@@ -2,7 +2,7 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +38,8 @@ class ClassificationRule(ABC):
 class TokenCountRule(ClassificationRule):
     """Rule for classifying requests based on token count."""
 
+    _tokenizer_cache: ClassVar[dict[str, Any]] = {}
+
     def __init__(self, threshold: int) -> None:
         """Initialize the rule with a threshold.
 
@@ -45,7 +47,6 @@ class TokenCountRule(ClassificationRule):
             threshold: The token count threshold
         """
         self.threshold = threshold
-        self._tokenizer_cache: dict[str, Any] = {}
 
     def _get_tokenizer(self, model: str) -> Any:
         """Get appropriate tokenizer for the model.
@@ -57,8 +58,8 @@ class TokenCountRule(ClassificationRule):
             Tokenizer instance or None if not available
         """
         # Cache tokenizers to avoid repeated initialization
-        if model in self._tokenizer_cache:
-            return self._tokenizer_cache[model]
+        if model in TokenCountRule._tokenizer_cache:
+            return TokenCountRule._tokenizer_cache[model]
 
         try:
             import tiktoken
@@ -76,7 +77,7 @@ class TokenCountRule(ClassificationRule):
                 # Default to cl100k_base for unknown models
                 encoding = tiktoken.get_encoding("cl100k_base")
 
-            self._tokenizer_cache[model] = encoding
+            TokenCountRule._tokenizer_cache[model] = encoding
             return encoding
         except Exception:
             # If tiktoken fails, return None to fall back to estimation
