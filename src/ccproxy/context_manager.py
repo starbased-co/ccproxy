@@ -64,13 +64,13 @@ class ContextManager:
             logger.error(f"Failed to read session {session_file}: {e}")
             return [], ""
 
-    async def get_context(self, cwd: Path, chat_id: str | None = None) -> list[Message]:
+    async def get_context(self, cwd: Path, chat_id: str | None = None, session_id: str | None = None) -> list[Message]:
         """
-        Get conversation context for the current working directory.
+        Get conversation context for the current working directory or session ID.
 
         This method:
-        1. Finds the Claude Code project from the working directory
-        2. Locates the latest session file
+        1. Finds the Claude Code project from the working directory or session ID
+        2. Locates the appropriate session file
         3. Reads the conversation (with caching)
         4. Enriches with provider routing history
         5. Returns the message list
@@ -78,11 +78,25 @@ class ContextManager:
         Args:
             cwd: Current working directory
             chat_id: Optional chat ID for future session mapping
+            session_id: Optional session ID to find specific JSONL file
 
         Returns:
             List of conversation messages, empty list if none found
         """
         try:
+            # If session_id is provided, try to find the session file directly
+            if session_id:
+                session_file = await self._find_session_by_id(session_id)
+                if session_file:
+                    loop = asyncio.get_event_loop()
+                    mtime = await loop.run_in_executor(None, lambda: session_file.stat().st_mtime)
+                    messages, _ = self._cached_read_session(str(session_file), mtime)
+
+                    if messages:
+                        await self._log_provider_history(session_id)
+                        return messages  # type: ignore[no-any-return]
+
+            # Fallback to directory-based discovery
             # Step 1: Find Claude Code project
             project_path = self.locator.find_project_path(cwd)
 
@@ -100,13 +114,13 @@ class ContextManager:
             mtime = await loop.run_in_executor(None, lambda: latest_session.stat().st_mtime)
 
             # Step 4: Read conversation (cached)
-            messages, session_id = self._cached_read_session(str(latest_session), mtime)
+            messages, found_session_id = self._cached_read_session(str(latest_session), mtime)
 
             if not messages:
                 return []
 
             # Step 5: Enrich with provider history (async)
-            await self._log_provider_history(session_id)
+            await self._log_provider_history(found_session_id)
 
             # TODO: Implement context window truncation based on model limits
             # For now, return all messages as-is
@@ -118,6 +132,36 @@ class ContextManager:
         except Exception as e:
             logger.error(f"Error getting context from {cwd}: {e}", exc_info=True)
             return []
+
+    async def _find_session_by_id(self, session_id: str) -> Path | None:
+        """
+        Find a session file by its ID across all Claude Code projects.
+
+        Args:
+            session_id: The session ID to search for
+
+        Returns:
+            Path to the session file if found, None otherwise
+        """
+        try:
+            # Search in all project directories
+            if not self.locator.projects_dir.exists():
+                return None
+
+            # Look for a file named {session_id}.jsonl in any project
+            for project_dir in self.locator.projects_dir.iterdir():
+                if project_dir.is_dir():
+                    session_file = project_dir / f"{session_id}.jsonl"
+                    if session_file.exists():
+                        logger.debug(f"Found session file by ID: {session_file}")
+                        return session_file
+
+            logger.debug(f"No session file found for ID: {session_id}")
+            return None
+
+        except Exception as e:
+            logger.error(f"Error finding session by ID {session_id}: {e}")
+            return None
 
     async def _log_provider_history(self, session_id: str) -> None:
         """
@@ -133,9 +177,7 @@ class ContextManager:
                 logger.info(f"Session {session_id}: {len(provider_history)} routing decisions")
                 # Log recent routing decisions for debugging
                 for entry in provider_history[-3:]:
-                    logger.debug(
-                        f"  → {entry.get('provider')}/{entry.get('model')} " f"at {entry.get('ts', 'unknown')}"
-                    )
+                    logger.debug(f"  → {entry.get('provider')}/{entry.get('model')} at {entry.get('ts', 'unknown')}")
         except Exception as e:
             logger.warning(f"Failed to get provider history: {e}")
 
@@ -173,7 +215,7 @@ class ContextManager:
         )
 
         logger.info(
-            f"Recording: {provider}/{model} for session {session_id[:8]}... " f"(rule: {selected_by_rule or 'default'})"
+            f"Recording: {provider}/{model} for session {session_id[:8]}... (rule: {selected_by_rule or 'default'})"
         )
 
         try:

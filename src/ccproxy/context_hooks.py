@@ -86,8 +86,22 @@ async def context_injection_hook(
             if cwd_str:
                 cwd = Path(cwd_str)
 
+        # Extract session ID from metadata.user_id if available
+        # Claude Code embeds session ID in the format:
+        # user_<hash>_account_<uuid>_session_<session-id>
+        session_id = None
+        metadata = data.get("metadata", {})
+        user_id = metadata.get("user_id", "")
+        if user_id and "_session_" in user_id:
+            # Extract session ID from the user_id string
+            parts = user_id.split("_session_")
+            if len(parts) == 2:
+                session_id = parts[1]
+                logger.debug(f"Extracted session ID from metadata: {session_id}")
+
         # Get conversation context
-        context_messages = await context_manager.get_context(cwd, chat_id)
+        # Pass session_id if extracted from metadata
+        context_messages = await context_manager.get_context(cwd, chat_id, session_id)
 
         if context_messages:
             # Convert Message objects to dict format expected by LiteLLM
@@ -111,7 +125,7 @@ async def context_injection_hook(
                     data["metadata"] = {}
                 data["metadata"]["claude_session_id"] = context_messages[0].session_id
 
-            logger.info(f"Injected {len(context_dicts)} context messages " f"(total messages: {len(data['messages'])})")
+            logger.info(f"Injected {len(context_dicts)} context messages (total messages: {len(data['messages'])})")
 
     except Exception as e:
         logger.error(f"Error in context injection hook: {e}", exc_info=True)
@@ -189,8 +203,7 @@ async def context_recording_hook(data: dict[str, Any], response_obj: Any, **kwar
         )
 
         logger.debug(
-            f"Recorded routing decision for session {session_id[:8]}...: "
-            f"{provider}/{model} (rule: {selected_by_rule})"
+            f"Recorded routing decision for session {session_id[:8]}...: {provider}/{model} (rule: {selected_by_rule})"
         )
 
     except Exception as e:
