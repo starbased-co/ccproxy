@@ -44,7 +44,7 @@ class RequestClassifier:
         Each rule configuration specifies the label and rule class to use.
         """
         # Clear any existing rules
-        self.clear_rules()
+        self._clear_rules()
 
         # Get configuration
         config = get_config()
@@ -103,10 +103,6 @@ class RequestClassifier:
         """
         self._rules.append((label, rule))
 
-    def clear_rules(self) -> None:
+    def _clear_rules(self) -> None:
         """Clear all classification rules."""
         self._rules.clear()
-
-    def reset_rules(self) -> None:
-        """Reset rules to the configuration from ccproxy.yaml."""
-        self._setup_rules()

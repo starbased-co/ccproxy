@@ -108,7 +108,6 @@ src/ccproxy/
 ├── router.py       # Dynamic rule-based routing engine
 ├── config.py       # Configuration management (singleton)
 ├── rules.py        # Classification rule implementations
-├── types.py        # Type definitions (currently unused)
 └── cli.py          # Command-line interface
 
 tests/

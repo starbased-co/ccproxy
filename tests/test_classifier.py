@@ -117,7 +117,7 @@ class TestRequestClassifier:
     def test_clear_rules(self, classifier: RequestClassifier) -> None:
         """Test clearing all rules."""
         # Clear existing rules first
-        classifier.clear_rules()
+        classifier._clear_rules()
         assert len(classifier._rules) == 0
 
         # Add some rules
@@ -128,21 +128,21 @@ class TestRequestClassifier:
         assert len(classifier._rules) == 2
 
         # Clear rules
-        classifier.clear_rules()
+        classifier._clear_rules()
         assert len(classifier._rules) == 0
 
-    def test_reset_rules(self, classifier: RequestClassifier) -> None:
-        """Test resetting rules to default."""
+    def test_setup_rules(self, classifier: RequestClassifier) -> None:
+        """Test setting up rules from config."""
         # Clear existing rules
-        classifier.clear_rules()
+        classifier._clear_rules()
 
         # Add a custom rule
         mock_rule = mock.Mock(spec=ClassificationRule)
         classifier.add_rule("custom", mock_rule)
         assert len(classifier._rules) == 1
 
-        # Reset rules
-        classifier.reset_rules()
+        # Setup rules from config
+        classifier._setup_rules()
 
         # Should have cleared custom rules and set up defaults
         assert len(classifier._rules) == 4  # Back to 4 default rules

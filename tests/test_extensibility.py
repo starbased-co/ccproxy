@@ -64,7 +64,7 @@ class TestClassifierExtensibility:
         classifier = RequestClassifier()
 
         # Clear default rules and add custom rules
-        classifier.clear_rules()
+        classifier._clear_rules()
         classifier.add_rule("background", CustomHeaderRule())  # Maps to background
         classifier.add_rule("think", CustomUserAgentRule())  # Maps to think
 
@@ -81,7 +81,7 @@ class TestClassifierExtensibility:
         assert label == "background"
 
         # Now reverse the order
-        classifier.clear_rules()
+        classifier._clear_rules()
         classifier.add_rule("think", CustomUserAgentRule())
         classifier.add_rule("background", CustomHeaderRule())
 
@@ -109,7 +109,7 @@ class TestClassifierExtensibility:
         classifier = RequestClassifier()
 
         # Clear all default rules
-        classifier.clear_rules()
+        classifier._clear_rules()
 
         # Add only custom rules
         classifier.add_rule("background", CustomHeaderRule())
@@ -152,7 +152,7 @@ class TestClassifierExtensibility:
             classifier.add_rule("background", CustomHeaderRule())
 
             # Clear and add only custom
-            classifier.clear_rules()
+            classifier._clear_rules()
             classifier.add_rule("background", CustomHeaderRule())
 
             # Verify default rules don't work
@@ -161,7 +161,7 @@ class TestClassifierExtensibility:
             assert label == "default"
 
             # Reset to defaults
-            classifier.reset_rules()
+            classifier._setup_rules()
 
             # Now default rules work again
             label = classifier.classify(request)

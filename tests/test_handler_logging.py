@@ -48,7 +48,9 @@ class TestHandlerLoggingHookMethods:
         """Test async_pre_call_hook with invalid request format."""
         # Mock the router to provide a default model
         with patch("ccproxy.handler.get_router") as mock_get_router:
-            mock_router = Mock()
+            from ccproxy.router import ModelRouter
+
+            mock_router = Mock(spec=ModelRouter)
             mock_router.get_model_for_label.return_value = {
                 "model_name": "default",
                 "litellm_params": {"model": "claude-3-5-sonnet-20241022"},
@@ -64,7 +66,7 @@ class TestHandlerLoggingHookMethods:
             result = await handler.async_pre_call_hook(data, {})
             assert "metadata" in result
             assert result["metadata"]["ccproxy_label"] == "default"
-            assert result["metadata"]["ccproxy_alias_model"] == "unknown"
+            assert result["metadata"]["ccproxy_alias_model"] is None
             assert result["model"] == "claude-3-5-sonnet-20241022"
 
     @patch("ccproxy.handler.logger")

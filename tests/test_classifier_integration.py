@@ -173,16 +173,16 @@ class TestRequestClassifierIntegration:
         assert classifier.classify(request) == "default"
 
     def test_custom_rules_after_reset(self, classifier: RequestClassifier) -> None:
-        """Test that reset_rules restores default behavior."""
+        """Test that _setup_rules restores default behavior."""
         # Clear all rules
-        classifier.clear_rules()
+        classifier._clear_rules()
 
         # Should return default (no rules)
         request = {"thinking": True}
         assert classifier.classify(request) == "default"
 
         # Reset to defaults
-        classifier.reset_rules()
+        classifier._setup_rules()
 
         # Should now match thinking rule
         assert classifier.classify(request) == "think"
