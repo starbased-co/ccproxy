@@ -1,0 +1,101 @@
+{
+	"meta": {
+		"generatedAt": "2025-08-02T07:17:45.548Z",
+		"tasksAnalyzed": 11,
+		"totalTasks": 22,
+		"analysisCount": 11,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": false
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 7,
+			"taskTitle": "Implement Caching & Performance Optimizations",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Decompose caching & performance optimizations into: (1) memoize project path discovery, (2) conversation cache with TTL or mtime invalidation, (3) async file I/O refactor with aiofiles, (4) cache warm-up routine on startup, (5) benchmarking & profiling suite with success criteria.",
+			"reasoning": "Moderate complexity: touches multiple layers (IO, caching, benchmarking) but each concern is isolated and can be implemented independently. About five focused subtasks cover all deliverables without excessive granularity."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Comprehensive Integration & Load Testing",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Break down integration & load testing into: (1) docker-compose environment with mock providers, (2) pytest integration tests for context continuity, (3) latency & memory metric collectors, (4) stress/load test harness for parallel requests, (5) CI GitHub Actions workflow, (6) coverage reporting & quality gates.",
+			"reasoning": "Higher complexity due to orchestration of external services, concurrency testing, and CI automation. Six subtasks provide clear ownership of environment, tests, metrics, and pipeline integration."
+		},
+		{
+			"taskId": 14,
+			"taskTitle": "Implement Provider Metadata Storage System",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Split provider metadata storage into: (1) DB schema & migration scripts, (2) aiosqlite/SQLAlchemy async engine setup, (3) CRUD API (record & fetch), (4) cleanup/retention job, (5) unit & load tests.",
+			"reasoning": "Requires database design and async access but uses lightweight SQLite; complexity is moderate. Five subtasks map cleanly to schema, implementation, cleanup, and tests."
+		},
+		{
+			"taskId": 15,
+			"taskTitle": "Build Context Manager Orchestration Layer",
+			"complexityScore": 8,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Divide orchestration layer into: (1) singleton scaffolding & configuration hooks, (2) LRU caching layer with tunables, (3) integration with ProjectLocator & CodeReader, (4) provider metadata linkage, (5) format transformation utilities, (6) resilience features (locks, circuit breaker) plus testing.",
+			"reasoning": "Core component coordinating multiple services, concurrency control, caching, and error handling. High coupling merits higher complexity score and at least six well-defined subtasks."
+		},
+		{
+			"taskId": 16,
+			"taskTitle": "Implement File System Monitoring with Watchdog",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Organize monitoring work into: (1) watchdog observer setup, (2) custom event handler with debounce logic, (3) cache invalidation hooks in ContextManager, (4) startup/shutdown lifecycle management, (5) integration & performance tests.",
+			"reasoning": "Requires async coordination and resource management but uses established library. Five subtasks adequately isolate observer, handler, cache tie-in, lifecycle, and testing."
+		},
+		{
+			"taskId": 17,
+			"taskTitle": "Create LiteLLM Hook Integration System",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Segment LiteLLM hook integration into: (1) request project identification logic, (2) async_pre_call_hook context injection, (3) async_log_success_event routing recorder, (4) non-blocking IO support with aiofiles, (5) performance benchmarking & limits, (6) error handling paths.",
+			"reasoning": "Interacts with external SDK hooks, demands performance guarantees and robust fallbacks. Six subtasks capture the separate hook methods, IO, performance, and error strategy."
+		},
+		{
+			"taskId": 18,
+			"taskTitle": "Implement Async File I/O with Performance Optimization",
+			"complexityScore": 6,
+			"recommendedSubtasks": 5,
+			"expansionPrompt": "Split async file I/O work into: (1) refactor ClaudeCodeReader to async API, (2) streaming JSONL parser implementation, (3) concurrency safeguards (Semaphore) & backpressure, (4) memory optimization/chunking utilities, (5) performance & concurrency tests.",
+			"reasoning": "Technical but bounded to file parsing and async patterns; moderate difficulty. Five subtasks cover refactor, streaming, concurrency, memory, and testing."
+		},
+		{
+			"taskId": 19,
+			"taskTitle": "Build Comprehensive Error Handling and Recovery",
+			"complexityScore": 8,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Break error handling into: (1) define custom exception classes, (2) global error handling middleware, (3) circuit breaker with tenacity, (4) graceful degradation logic, (5) structured logging with correlation IDs, (6) metrics collection for failures, (7) exhaustive unit & integration tests.",
+			"reasoning": "Cross-cutting concern spanning all components, introducing resilience patterns and observability; high scope. Seven subtasks mirror the multiple layers involved."
+		},
+		{
+			"taskId": 20,
+			"taskTitle": "Create Configuration System for Context Preservation",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Decompose configuration system into: (1) YAML schema design & pydantic models, (2) env-var override & validation logic, (3) hot-reloading implementation, (4) unit/integration tests for various scenarios.",
+			"reasoning": "Well-scoped task leveraging pydantic; moderate effort mostly in validation and reload mechanics. Four subtasks suffice."
+		},
+		{
+			"taskId": 21,
+			"taskTitle": "Build Integration Test Suite with Real-World Scenarios",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Organize integration suite into: (1) pyfakefs project scaffolding, (2) end-to-end context tests across providers, (3) performance benchmarks & regression thresholds, (4) edge-case tests (corruption, permissions, large files), (5) load/concurrency tests, (6) golden master compatibility tests.",
+			"reasoning": "Requires realistic data, concurrency, and performance validation; interacts with many system parts. Six subtasks cover distinct testing dimensions."
+		},
+		{
+			"taskId": 22,
+			"taskTitle": "Implement Production Monitoring and Deployment",
+			"complexityScore": 7,
+			"recommendedSubtasks": 6,
+			"expansionPrompt": "Split monitoring & deployment into: (1) Prometheus metrics instrumentation, (2) health check endpoint creation, (3) alerting rules & dashboard, (4) Docker/K8s deployment artifacts & docs, (5) feature flag rollout mechanism, (6) performance profiling hooks & runbook.",
+			"reasoning": "Combines observability, deployment, and documentation. Broad but uses established tooling, giving high-moderate complexity and six logical subtasks."
+		}
+	]
+}

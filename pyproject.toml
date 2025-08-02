@@ -50,6 +50,7 @@ dev = [
   "coverage[toml]>=7.0.0",
   "types-pyyaml>=6.0.0",
   "types-requests>=2.31.0",
+  "types-attrs>=19.1.0",
 ]
 
 [build-system]
@@ -148,6 +149,7 @@ dev = [
   "pytest-cov>=6.2.1",
   "ruff>=0.12.6",
   "setuptools>=80.9.0",
+  "types-attrs>=19.1.0",
   "types-psutil>=7.0.0.20250601",
   "types-pyyaml>=6.0.12.20250516",
   "types-requests>=2.32.4.20250611",

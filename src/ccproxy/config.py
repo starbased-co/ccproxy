@@ -122,6 +122,9 @@ class CCProxyConfig(BaseSettings):
     # Rule configurations
     rules: list[RuleConfig] = Field(default_factory=list)
 
+    # Context preservation settings
+    context: dict[str, Any] = Field(default_factory=lambda: {"enabled": False})
+
     # Path to ccproxy config
     ccproxy_config_path: Path = Field(default_factory=lambda: Path("./ccproxy.yaml"))
 
@@ -172,6 +175,8 @@ class CCProxyConfig(BaseSettings):
                     instance.debug = ccproxy_data["debug"]
                 if "metrics_enabled" in ccproxy_data:
                     instance.metrics_enabled = ccproxy_data["metrics_enabled"]
+                if "context" in ccproxy_data:
+                    instance.context = ccproxy_data["context"]
 
                 # Load rules
                 rules_data = ccproxy_data.get("rules", [])

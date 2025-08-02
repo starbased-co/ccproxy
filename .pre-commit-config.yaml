@@ -25,6 +25,8 @@ repos:
         additional_dependencies:
           - types-pyyaml
           - types-requests
+          - types-attrs
           - pydantic
+          - attrs
         args: [--strict]
         files: ^src/

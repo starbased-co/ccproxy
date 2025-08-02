@@ -8,6 +8,7 @@ from litellm.integrations.custom_logger import CustomLogger
 import ccproxy.hooks as hooks
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import get_config
+from ccproxy.context_hooks import context_injection_hook, context_recording_hook
 from ccproxy.router import get_router
 from ccproxy.utils import calculate_duration_ms
 
@@ -57,6 +58,9 @@ class CCProxyHandler(CustomLogger):
         Returns:
             Modified request data
         """
+
+        # First, inject context if enabled (before classification)
+        data = await context_injection_hook(data, user_api_key_dict, **kwargs)
 
         # Run all processors in sequence with error handling
         for hook in self.hooks:
@@ -208,6 +212,9 @@ class CCProxyHandler(CustomLogger):
             }
 
         logger.info("CCProxy request completed", extra=log_data)
+
+        # Record routing decision for context preservation
+        await context_recording_hook(kwargs, response_obj)
 
     async def async_log_failure_event(
         self,

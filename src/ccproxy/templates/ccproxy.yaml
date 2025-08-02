@@ -7,6 +7,8 @@ litellm:
 
 ccproxy:
   debug: true
+  context:
+    enabled: false  # Enable to inject Claude Code conversation context
   rules:
     - label: token_count
       rule: ccproxy.rules.TokenCountRule
