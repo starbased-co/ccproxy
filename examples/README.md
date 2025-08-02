@@ -6,9 +6,9 @@ This directory contains example custom rules and configurations to help you exte
 
 1. **Install CCProxy**:
    ```bash
-   uv tool install ccproxy
+   uv tool install git+https://github.com/starbased-co/ccproxy.git
    # or
-   pipx install ccproxy
+   pipx install git+https://github.com/starbased-co/ccproxy.git
    ```
 
 2. **Set up configuration**:

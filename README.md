@@ -1,6 +1,6 @@
 # CCProxy
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yourusername/ccproxy)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/starbased-co/ccproxy)
 
 A LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties.
 
@@ -8,12 +8,12 @@ A LiteLLM-based transformation hook system that intelligently routes Claude Code
 
 ```bash
 # Recommended: Install as a tool
-uv tool install ccproxy
+uv tool install git+https://github.com/starbased-co/ccproxy.git
 # or
-pipx install ccproxy
+pipx install git+https://github.com/starbased-co/ccproxy.git
 
 # Alternative: Install with pip
-pip install ccproxy
+pip install git+https://github.com/starbased-co/ccproxy.git
 ```
 
 ## Quick Setup
@@ -120,7 +120,7 @@ CCProxy provides several commands for managing the proxy server:
 ccproxy install [--force]
 
 # Start the LiteLLM proxy server
-ccproxy litellm [--detach]
+ccproxy start [--detach]
 
 # Stop the background proxy server
 ccproxy stop

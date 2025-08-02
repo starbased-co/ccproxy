@@ -365,8 +365,8 @@ ccproxy install           # Set up configuration files
 ccproxy install --force   # Overwrite existing files
 
 # Running the Proxy
-ccproxy litellm           # Start proxy in foreground
-ccproxy litellm --detach  # Start proxy in background
+ccproxy start           # Start proxy in foreground
+ccproxy start --detach  # Start proxy in background
 ccproxy stop              # Stop background proxy
 ccproxy logs -f           # Follow proxy logs
 
@@ -438,7 +438,7 @@ ccproxy:
    litellm --config config.yaml --port 4000
 
    # Or use ccproxy CLI
-   ccproxy litellm --detach
+   ccproxy start --detach
    ```
 
 ### Performance Considerations

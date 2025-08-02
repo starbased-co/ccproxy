@@ -18,8 +18,8 @@ from ccproxy.utils import get_templates_dir
 
 # Subcommand definitions using dataclasses
 @dataclass
-class Litellm:
-    """Run the LiteLLM proxy server with ccproxy configuration."""
+class Start:
+    """Start the LiteLLM proxy server with ccproxy configuration."""
 
     args: Annotated[list[str] | None, tyro.conf.Positional] = None
     """Additional arguments to pass to litellm command."""
@@ -72,7 +72,7 @@ class ShellIntegration:
 
 
 # Type alias for all subcommands
-Command = Litellm | Install | Run | Stop | Logs | ShellIntegration
+Command = Start | Install | Run | Stop | Logs | ShellIntegration
 
 
 def install_config(config_dir: Path, force: bool = False) -> None:
@@ -124,7 +124,7 @@ def install_config(config_dir: Path, force: bool = False) -> None:
     print("\nNext steps:")
     print(f"  1. Edit {config_dir}/ccproxy.yaml to configure routing rules")
     print(f"  2. Edit {config_dir}/config.yaml to configure LiteLLM models")
-    print("  3. Start the proxy with: ccproxy litellm")
+    print("  3. Start the proxy with: ccproxy start")
 
 
 def run_with_proxy(config_dir: Path, command: list[str]) -> None:
@@ -175,8 +175,8 @@ def run_with_proxy(config_dir: Path, command: list[str]) -> None:
         sys.exit(130)  # Standard exit code for Ctrl+C
 
 
-def litellm_with_config(config_dir: Path, args: list[str] | None = None, detach: bool = False) -> None:
-    """Run the LiteLLM proxy server with ccproxy configuration.
+def start_proxy(config_dir: Path, args: list[str] | None = None, detach: bool = False) -> None:
+    """Start the LiteLLM proxy server with ccproxy configuration.
 
     Args:
         config_dir: Configuration directory containing config files
@@ -505,8 +505,8 @@ def main(
         config_dir = Path.home() / ".ccproxy"
 
     # Handle each command type
-    if isinstance(cmd, Litellm):
-        litellm_with_config(config_dir, args=cmd.args, detach=cmd.detach)
+    if isinstance(cmd, Start):
+        start_proxy(config_dir, args=cmd.args, detach=cmd.detach)
 
     elif isinstance(cmd, Install):
         install_config(config_dir, force=cmd.force)
