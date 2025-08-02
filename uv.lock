@@ -289,6 +289,7 @@ dev = [
     { name = "coverage", extra = ["toml"] },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "pyfakefs" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -304,6 +305,7 @@ dev = [
     { name = "coverage" },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "pyfakefs" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -330,6 +332,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=5.9.0" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
+    { name = "pyfakefs", marker = "extra == 'dev'", specifier = ">=5.3.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
@@ -354,6 +357,7 @@ dev = [
     { name = "coverage", specifier = ">=7.10.1" },
     { name = "mypy", specifier = ">=1.17.0" },
     { name = "pre-commit", specifier = ">=4.2.0" },
+    { name = "pyfakefs", specifier = ">=5.3.0" },
     { name = "pytest", specifier = ">=8.4.1" },
     { name = "pytest-asyncio", specifier = ">=1.1.0" },
     { name = "pytest-cov", specifier = ">=6.2.1" },
@@ -1734,6 +1738,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/68/85/1ea668bbab3c50071ca613c6ab30047fb36ab0da1b92fa8f17bbc38fd36c/pydantic_settings-2.10.1.tar.gz", hash = "sha256:06f0062169818d0f5524420a360d632d5857b83cffd4d42fe29597807a1614ee", size = 172583, upload-time = "2025-06-24T13:26:46.841Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/58/f0/427018098906416f580e3cf1366d3b1abfb408a0652e9f31600c24a1903c/pydantic_settings-2.10.1-py3-none-any.whl", hash = "sha256:a60952460b99cf661dc25c29c0ef171721f98bfcb52ef8d9ea4c943d7c8cc796", size = 45235, upload-time = "2025-06-24T13:26:45.485Z" },
+]
+
+[[package]]
+name = "pyfakefs"
+version = "5.9.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/d2/24e3f3de43478eaed10171a67711c36c0975b698db2b500a9614f752e6f9/pyfakefs-5.9.2.tar.gz", hash = "sha256:66c5c6ccd4097b484f8782f9a5078fee0533d465e0d9caf594c9157d54382553", size = 231068, upload-time = "2025-07-30T19:19:48.538Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/42/88175921a5b138427237c1cdfaafd67a58b53538578604d2661e2d6ef2b3/pyfakefs-5.9.2-py3-none-any.whl", hash = "sha256:8fcea36051d5b8827d49f5e2d242e91a51c5af6b78eeffa8e7adb899a6763e99", size = 245398, upload-time = "2025-07-30T19:19:46.763Z" },
 ]
 
 [[package]]

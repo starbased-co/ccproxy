@@ -100,8 +100,8 @@ class TestContextInjectionHook:
 
             result = await context_injection_hook(data, {})
 
-            # Verify get_context was called
-            mock_context_manager.get_context.assert_called_once_with(Path("/test/project"), "chat-123")
+            # Verify get_context was called with session_id as None (no metadata.user_id)
+            mock_context_manager.get_context.assert_called_once_with(Path("/test/project"), "chat-123", None)
 
             # Should have 3 messages total (2 context + 1 current)
             assert len(result["messages"]) == 3
@@ -132,8 +132,8 @@ class TestContextInjectionHook:
 
             result = await context_injection_hook(data, {})
 
-            # Should call get_context with current directory
-            mock_context_manager.get_context.assert_called_once_with(Path("/current/dir"), None)
+            # Should call get_context with current directory and None for session_id
+            mock_context_manager.get_context.assert_called_once_with(Path("/current/dir"), None, None)
 
             # Should have injected context
             assert len(result["messages"]) == 3

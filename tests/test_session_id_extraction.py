@@ -1,6 +1,5 @@
 """Test session ID extraction from Claude Code metadata."""
 
-from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -123,7 +122,32 @@ async def test_context_manager_find_session_by_id():
 
     # Create mock components
     mock_locator = Mock(spec=ClaudeProjectLocator)
-    mock_locator.projects_dir = Path("/home/test/.claude/projects")
+
+    # Create a mock projects_dir that behaves like a Path
+    mock_projects_dir = Mock()
+    mock_projects_dir.exists.return_value = True
+
+    # Create mock project directories
+    mock_project1 = Mock()
+    mock_project1.is_dir.return_value = True
+    # Mock session file that doesn't exist
+    mock_session1 = Mock()
+    mock_session1.exists.return_value = False
+    mock_project1.__truediv__ = Mock(return_value=mock_session1)
+
+    mock_project2 = Mock()
+    mock_project2.is_dir.return_value = True
+    # Mock session file that exists
+    mock_session2 = Mock()
+    mock_session2.exists.return_value = True
+    mock_session2.__str__ = Mock(
+        return_value="/home/test/.claude/projects/project2/2978ad57-d800-4a88-85fb-490d108ed665.jsonl"
+    )
+    mock_project2.__truediv__ = Mock(return_value=mock_session2)
+
+    # Set up iterdir to return our mock projects
+    mock_projects_dir.iterdir.return_value = [mock_project1, mock_project2]
+    mock_locator.projects_dir = mock_projects_dir
 
     mock_reader = Mock(spec=ClaudeCodeReader)
     mock_store = Mock(spec=ProviderMetadataStore)
@@ -131,29 +155,13 @@ async def test_context_manager_find_session_by_id():
     # Create context manager
     context_manager = ContextManager(locator=mock_locator, reader=mock_reader, store=mock_store)
 
-    # Mock the file system operations properly
-    mock_project1 = Mock(spec=Path)
-    mock_project1.is_dir.return_value = True
-    mock_project1.__truediv__ = lambda self, other: Path(f"/home/test/.claude/projects/project1/{other}")
+    # Test finding a session
+    result = await context_manager._find_session_by_id("2978ad57-d800-4a88-85fb-490d108ed665")
 
-    mock_project2 = Mock(spec=Path)
-    mock_project2.is_dir.return_value = True
-    mock_project2.__truediv__ = lambda self, other: Path(f"/home/test/.claude/projects/project2/{other}")
+    # The method should return the mock_session2 object
+    assert result is mock_session2
+    assert str(result) == "/home/test/.claude/projects/project2/2978ad57-d800-4a88-85fb-490d108ed665.jsonl"
 
-    # Patch the specific methods we need
-    with patch.object(Path, "exists") as mock_exists, patch.object(Path, "iterdir") as mock_iterdir:
-        # Set up the mocks
-        def exists_side_effect(self):
-            path_str = str(self)
-            if path_str == "/home/test/.claude/projects":
-                return True
-            # Session file exists in project2
-            return path_str == "/home/test/.claude/projects/project2/2978ad57-d800-4a88-85fb-490d108ed665.jsonl"
-
-        mock_exists.side_effect = exists_side_effect
-        mock_iterdir.return_value = [mock_project1, mock_project2]
-
-        # Test finding a session
-        result = await context_manager._find_session_by_id("2978ad57-d800-4a88-85fb-490d108ed665")
-        assert result is not None
-        assert str(result) == "/home/test/.claude/projects/project2/2978ad57-d800-4a88-85fb-490d108ed665.jsonl"
+    # Verify the division was called with the correct filename
+    mock_project1.__truediv__.assert_called_once_with("2978ad57-d800-4a88-85fb-490d108ed665.jsonl")
+    mock_project2.__truediv__.assert_called_once_with("2978ad57-d800-4a88-85fb-490d108ed665.jsonl")
