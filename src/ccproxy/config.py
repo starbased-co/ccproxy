@@ -1,6 +1,42 @@
-"""Configuration management for ccproxy."""
+"""Configuration management for ccproxy.
+
+Configuration Discovery Precedence (Highest to Lowest Priority):
+===============================================================
+
+1. **CCPROXY_CONFIG_DIR Environment Variable** (Highest Priority)
+   - Set by CLI or manually: `export CCPROXY_CONFIG_DIR=/path/to/config`
+   - Looks for: `${CCPROXY_CONFIG_DIR}/ccproxy.yaml`
+   - Use case: Development, testing, custom deployments
+
+2. **LiteLLM Proxy Server Runtime Directory**
+   - Automatically detected from proxy_server.config_path
+   - Looks for: `{proxy_runtime_dir}/ccproxy.yaml`
+   - Use case: Production deployments with LiteLLM proxy
+
+3. **~/.ccproxy Directory** (Fallback)
+   - User's home directory default location
+   - Looks for: `~/.ccproxy/ccproxy.yaml`
+   - Use case: Default user installations
+
+The first existing `ccproxy.yaml` found in this order is used.
+If no `ccproxy.yaml` is found, default configuration is applied.
+
+Examples:
+--------
+# Override with environment variable (highest priority)
+export CCPROXY_CONFIG_DIR=/custom/path
+litellm --config /custom/path/config.yaml
+
+# Use proxy runtime directory (automatic detection)
+litellm --config /etc/litellm/config.yaml
+# Will look for /etc/litellm/ccproxy.yaml
+
+# Fallback to user directory
+# Will look for ~/.ccproxy/ccproxy.yaml
+"""
 
 import importlib
+import logging
 import threading
 from pathlib import Path
 from typing import Any
@@ -8,6 +44,8 @@ from typing import Any
 import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 # Import proxy_server to access runtime configuration
 try:
@@ -163,43 +201,60 @@ def get_config() -> CCProxyConfig:
         with _config_lock:
             # Double-check locking pattern
             if _config_instance is None:
-                # Try to get config path from environment variable set by CLI
-                config_path = None
+                # Configuration discovery precedence:
+                # 1. CCPROXY_CONFIG_DIR environment variable (highest priority)
+                # 2. LiteLLM proxy server runtime directory
+                # 3. ~/.ccproxy directory (fallback)
+
                 import os
 
-                env_config_dir = os.environ.get("CCPROXY_CONFIG_DIR")
+                config_path = None
+                config_source = None
 
+                # Priority 1: Environment variable
+                env_config_dir = os.environ.get("CCPROXY_CONFIG_DIR")
                 if env_config_dir:
                     config_path = Path(env_config_dir)
+                    config_source = f"ENV:CCPROXY_CONFIG_DIR={env_config_dir}"
+                    logger.info(f"Using config directory from environment: {config_path}")
                 else:
-                    # Try to get config path from LiteLLM proxy_server runtime
+                    # Priority 2: LiteLLM proxy server runtime directory
                     try:
                         from litellm.proxy import proxy_server
 
                         if proxy_server and hasattr(proxy_server, "config_path") and proxy_server.config_path:
                             config_path = Path(proxy_server.config_path).parent
+                            config_source = f"PROXY_RUNTIME:{config_path}"
+                            logger.info(f"Using config directory from proxy runtime: {config_path}")
                     except ImportError:
-                        pass
+                        logger.debug("LiteLLM proxy server not available for config discovery")
 
-                # If we found the runtime config path, look for ccproxy.yaml there
                 if config_path:
+                    # Try to load ccproxy.yaml from discovered path
                     ccproxy_yaml_path = config_path / "ccproxy.yaml"
                     if ccproxy_yaml_path.exists():
+                        logger.info(f"Loading ccproxy config from: {ccproxy_yaml_path} (source: {config_source})")
                         _config_instance = CCProxyConfig.from_yaml(ccproxy_yaml_path)
                         _config_instance.litellm_config_path = config_path / "config.yaml"
                     else:
+                        logger.info(
+                            f"ccproxy.yaml not found at {ccproxy_yaml_path}, using default config "
+                            f"(source: {config_source})"
+                        )
                         # Create default config with proper paths
                         _config_instance = CCProxyConfig(
                             litellm_config_path=config_path / "config.yaml", ccproxy_config_path=ccproxy_yaml_path
                         )
                 else:
-                    # Fallback: Try to load from ~/.ccproxy directory
+                    # Priority 3: Fallback to ~/.ccproxy directory
                     fallback_config_dir = Path.home() / ".ccproxy"
                     ccproxy_path = fallback_config_dir / "ccproxy.yaml"
                     if ccproxy_path.exists():
+                        logger.info(f"Using fallback config directory: {fallback_config_dir}")
                         _config_instance = CCProxyConfig.from_yaml(ccproxy_path)
                         _config_instance.litellm_config_path = fallback_config_dir / "config.yaml"
                     else:
+                        logger.info("No ccproxy.yaml found in any location, using proxy runtime defaults")
                         # Use from_proxy_runtime which will look for ccproxy.yaml
                         # in the same directory as config.yaml
                         _config_instance = CCProxyConfig.from_proxy_runtime()
