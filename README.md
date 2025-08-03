@@ -6,7 +6,7 @@ A LiteLLM-based transformation hook system that intelligently routes Claude Code
 
 ## Key Features
 
-**Claude MAX Plan Integration**: CCProxy detects and forwards Claude Code OAuth tokens, enabling MAX (and pro) subscribers to use their unlimited Claude access through the API rather than Console API keys with separate quotas. MAX plan users can access their subscription benefits in Claude Code while routing other requests to alternative providers. This integration includes all LiteLLM proxy features such as load balancing, fallbacks, spend tracking, and rate limiting.
+**Claude MAX Plan Integration**: `ccproxy` detects and forwards Claude Code OAuth tokens, enabling MAX (and pro) subscribers to use their unlimited Claude access through the API rather than Console API keys with separate quotas. MAX plan users can access their subscription benefits in Claude Code while routing other requests to alternative providers. This integration includes all LiteLLM proxy features such as load balancing, fallbacks, spend tracking, and rate limiting.
 
 > ⚠️ **Note**: This is a newly released project ready for public use and feedback. While core functionality is complete, real-world testing and community input are welcomed. Please [open an issue](https://github.com/starbased-co/ccproxy/issues) to share your experience, report bugs, or suggest improvements.
 >
@@ -46,7 +46,7 @@ ccproxy install --force
 
 If you prefer to set up manually:
 
-1. **Create the CCProxy configuration directory**:
+1. **Create the `ccproxy` configuration directory**:
 
    ```bash
    mkdir -p ~/.ccproxy
@@ -97,7 +97,7 @@ If you prefer to set up manually:
 
 ## Routing Rules
 
-CCProxy includes built-in rules for intelligent request routing:
+`ccproxy` includes built-in rules for intelligent request routing:
 
 - **TokenCountRule**: Routes requests with large token counts to high-capacity models
 - **MatchModelRule**: Routes based on the requested model name
@@ -108,7 +108,7 @@ You can also create custom rules - see the examples directory for details.
 
 ## CLI Commands
 
-CCProxy provides several commands for managing the proxy server:
+`ccproxy` provides several commands for managing the proxy server:
 
 ```bash
 # Install configuration files
@@ -152,7 +152,7 @@ The `ccproxy run` command sets up the following environment variables:
 
 ## How It Works
 
-CCProxy automatically routes requests based on these rules (in priority order):
+`ccproxy` automatically routes requests based on these rules (in priority order):
 
 1. **Long context** (>60k tokens, configurable) → `token_count` model
 2. **Background requests** (model is `claude-3-5-haiku`) → `background` model
@@ -162,7 +162,7 @@ CCProxy automatically routes requests based on these rules (in priority order):
 
 ## Configuration
 
-CCProxy uses a `ccproxy.yaml` file to configure routing rules:
+`ccproxy` uses a `ccproxy.yaml` file to configure routing rules:
 
 ```yaml
 ccproxy:

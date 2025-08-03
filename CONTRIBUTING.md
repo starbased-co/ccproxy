@@ -1,6 +1,6 @@
-# Contributing to CCProxy
+# Contributing to `ccproxy`
 
-Thank you for your interest in contributing to CCProxy! As a brand new project, I welcome all forms of contributions.
+Thank you for your interest in contributing to `ccproxy`! As a brand new project, I welcome all forms of contributions.
 
 ## How to Contribute
 
@@ -40,9 +40,9 @@ uv run pre-commit install
 uv run pytest
 ```
 
-### Running CCProxy During Development
+### Running `ccproxy` During Development
 
-**Important**: When developing CCProxy, you must use `uv run` to ensure the local development version is used instead of any globally installed version:
+**Important**: When developing `ccproxy`, you must use `uv run` to ensure the local development version is used instead of any globally installed version:
 
 ```bash
 # Run ccproxy commands with uv run

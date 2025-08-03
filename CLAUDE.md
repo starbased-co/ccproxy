@@ -1,8 +1,8 @@
-# CCProxy Assistant Instructions
+# `ccproxy` Assistant Instructions
 
 ## Project Overview
 
-**CCProxy** is a LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties. This document contains instructions for AI assistants working with the CCProxy codebase.
+**`ccproxy`** is a LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties. This document contains instructions for AI assistants working with the `ccproxy` codebase.
 
 ## Version
 
@@ -459,4 +459,4 @@ Common issues and solutions:
 
 ---
 
-_CCProxy v1.0.0 - Production-ready LiteLLM transformation hook system_
+_`ccproxy` v1.0.0 - Production-ready LiteLLM transformation hook system_
