@@ -91,19 +91,6 @@ If you prefer to set up manually:
 
    The proxy will start on `http://localhost:4000` by default.
 
-## Environment Variables
-
-Set your API keys before starting the proxy:
-
-```bash
-export ANTHROPIC_API_KEY="your-anthropic-key"
-export GOOGLE_API_KEY="your-google-key"  # For Gemini models
-# Add other API keys as needed
-
-cd ~/.ccproxy
-litellm --config config.yaml
-```
-
 ## Routing Rules
 
 CCProxy includes built-in rules for intelligent request routing:
@@ -135,8 +122,6 @@ ccproxy logs [-f] [-n LINES]
 # Run any command with proxy environment variables
 ccproxy run <command> [args...]
 
-# Set up shell integration for automatic aliasing
-ccproxy shell-integration [--shell=bash|zsh|auto] [--install]
 ```
 
 ## Usage
@@ -152,35 +137,8 @@ ccproxy run claude -p "Explain quantum computing"
 ccproxy run curl http://localhost:4000/health
 ccproxy run python my_script.py
 
-# Or set up automatic aliasing with shell integration:
-ccproxy shell-integration --install
-source ~/.zshrc  # or ~/.bashrc for bash
-
-# Now when LiteLLM proxy is running, 'claude' is automatically aliased
-claude -p "Hello world"
 ```
 
-### Shell Integration
-
-CCProxy can automatically set up a `claude` alias when the LiteLLM proxy is running:
-
-```bash
-# Install shell integration (auto-detects your shell)
-ccproxy shell-integration --install
-
-# Or specify shell explicitly
-ccproxy shell-integration --shell=zsh --install
-ccproxy shell-integration --shell=bash --install
-
-# View the integration script without installing
-ccproxy shell-integration --shell=zsh
-```
-
-Once installed:
-- The `claude` alias is automatically available when LiteLLM proxy is running
-- The alias is removed when the proxy is stopped
-- Works with both bash and zsh
-- Checks proxy status before each prompt (zsh) or command (bash)
 
 The `ccproxy run` command sets up the following environment variables:
 - `OPENAI_API_BASE` / `OPENAI_BASE_URL` - For OpenAI SDK compatibility
