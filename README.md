@@ -4,6 +4,10 @@
 
 A LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties.
 
+## 🌟 Key Features
+
+**Claude MAX Plan Integration**: CCProxy automatically detects and forwards your Claude Code OAuth tokens, allowing Claude MAX subscribers to leverage their unlimited Claude usage through the official API instead of being restricted to Console API keys with separate quotas. This means you can use your Claude MAX subscription benefits directly in Claude Code while still routing other requests to alternative providers for cost optimization.
+
 > ⚠️ **Note**: This is a newly released project ready for public use and feedback. While core functionality is complete, real-world testing and community input are welcomed. Please [open an issue](https://github.com/starbased-co/ccproxy/issues) to share your experience, report bugs, or suggest improvements.
 >
 > **Known Issue**: Context preservation between providers is not yet implemented. When routing requests to different models/providers, conversation history may be lost. This is the next major feature being worked on.
