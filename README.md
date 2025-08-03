@@ -4,7 +4,7 @@
 
 A LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties.
 
-> ⚠️ **Note**: This is a brand new, untested project. Please [open an issue](https://github.com/starbased-co/ccproxy/issues) for any questions, discussions, or problems you encounter.
+> ⚠️ **Note**: This is a newly released project ready for public use and feedback. While core functionality is complete, real-world testing and community input are welcomed. Please [open an issue](https://github.com/starbased-co/ccproxy/issues) to share your experience, report bugs, or suggest improvements.
 >
 > **Known Issue**: Context preservation between providers is not yet implemented. When routing requests to different models/providers, conversation history may be lost. This is the next major feature being worked on.
 
