@@ -202,3 +202,7 @@ Since this is a new project, I especially appreciate:
 - Documentation improvements
 - Test coverage additions
 - Feature suggestions
+
+## Acknowledgments
+
+Inspired in part by [claude-code-router](https://github.com/musistudio/claude-code-router).
