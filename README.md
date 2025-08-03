@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/starbased-co/ccproxy)
 
-A LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties.
+A proxy server (using LiteLLM) that intelligently routes Claude Code API requests to different AI providers based on request properties and conversation context.
 
 ## Key Features
 
