@@ -4,6 +4,10 @@
 
 A LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties.
 
+> ⚠️ **Note**: This is a brand new, untested project. Please [open an issue](https://github.com/starbased-co/ccproxy/issues) for any questions, discussions, or problems you encounter.
+>
+> **Known Issue**: Context preservation between providers is not yet implemented. When routing requests to different models/providers, conversation history may be lost. This is the next major feature being worked on.
+
 ## Installation
 
 ```bash
@@ -225,3 +229,18 @@ Ensure your API keys are set as environment variables before starting LiteLLM.
 ### Debug Logging
 
 Set `debug: true` in the `ccproxy` section of your `ccproxy.yaml` file to see detailed routing decisions in the logs.
+
+## Contributing
+
+I welcome contributions! Please see the [Contributing Guide](CONTRIBUTING.md) for details on:
+
+- Reporting issues and asking questions
+- Setting up development environment
+- Code style and testing requirements
+- Submitting pull requests
+
+Since this is a new project, I especially appreciate:
+- Bug reports and feedback
+- Documentation improvements
+- Test coverage additions
+- Feature suggestions
