@@ -4,9 +4,9 @@
 
 A LiteLLM-based transformation hook system that intelligently routes Claude Code API requests to different AI providers based on request properties.
 
-## 🌟 Key Features
+## Key Features
 
-**Claude MAX Plan Integration**: CCProxy automatically detects and forwards your Claude Code OAuth tokens, allowing Claude MAX subscribers to leverage their unlimited Claude usage through the official API instead of being restricted to Console API keys with separate quotas. This means you can use your Claude MAX subscription benefits directly in Claude Code while still routing other requests to alternative providers for cost optimization.
+**Claude MAX Plan Integration**: CCProxy detects and forwards Claude Code OAuth tokens, enabling MAX (and pro) subscribers to use their unlimited Claude access through the API rather than Console API keys with separate quotas. MAX plan users can access their subscription benefits in Claude Code while routing other requests to alternative providers. This integration includes all LiteLLM proxy features such as load balancing, fallbacks, spend tracking, and rate limiting.
 
 > ⚠️ **Note**: This is a newly released project ready for public use and feedback. While core functionality is complete, real-world testing and community input are welcomed. Please [open an issue](https://github.com/starbased-co/ccproxy/issues) to share your experience, report bugs, or suggest improvements.
 >
@@ -143,8 +143,8 @@ ccproxy run python my_script.py
 
 ```
 
-
 The `ccproxy run` command sets up the following environment variables:
+
 - `OPENAI_API_BASE` / `OPENAI_BASE_URL` - For OpenAI SDK compatibility
 - `ANTHROPIC_BASE_URL` - For Anthropic SDK compatibility
 - `LITELLM_PROXY_BASE_URL` / `LITELLM_PROXY_API_BASE` - For LiteLLM proxy
@@ -171,7 +171,7 @@ ccproxy:
     - label: token_count
       rule: ccproxy.rules.TokenCountRule
       params:
-        - threshold: 60000  # Route to token_count if tokens > 60k
+        - threshold: 60000 # Route to token_count if tokens > 60k
 ```
 
 ## Troubleshooting
@@ -202,6 +202,7 @@ I welcome contributions! Please see the [Contributing Guide](CONTRIBUTING.md) fo
 - Submitting pull requests
 
 Since this is a new project, I especially appreciate:
+
 - Bug reports and feedback
 - Documentation improvements
 - Test coverage additions
