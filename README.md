@@ -6,7 +6,7 @@ A LiteLLM-based transformation hook system that intelligently routes Claude Code
 
 ## Key Features
 
-**Claude MAX Plan Integration**: `ccproxy` detects and forwards Claude Code OAuth tokens, enabling MAX (and pro) subscribers to use their unlimited Claude access through the API rather than Console API keys with separate quotas. MAX plan users can access their subscription benefits in Claude Code while routing other requests to alternative providers. This integration includes all LiteLLM proxy features such as load balancing, fallbacks, spend tracking, and rate limiting.
+**Claude MAX Plan Integration**: `ccproxy` detects and forwards Claude Code OAuth tokens, enabling MAX (and Pro) subscribers to use their unlimited Claude access through the API rather than Console API keys with separate quotas. MAX plan users can access their subscription benefits in Claude Code while routing other requests to alternative providers. This integration includes all LiteLLM proxy features such as load balancing, fallbacks, spend tracking, and rate limiting.
 
 > ⚠️ **Note**: This is a newly released project ready for public use and feedback. While core functionality is complete, real-world testing and community input are welcomed. Please [open an issue](https://github.com/starbased-co/ccproxy/issues) to share your experience, report bugs, or suggest improvements.
 >
