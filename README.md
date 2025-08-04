@@ -162,7 +162,7 @@ The `ccproxy run` command sets up the following environment variables:
 
 ## Configuration
 
-`ccproxy` uses a `ccproxy.yaml` file to configure routing rules:
+`ccproxy` uses a `ccproxy.yaml` file to configure routing rules and advanced features:
 
 ```yaml
 ccproxy:
@@ -172,7 +172,53 @@ ccproxy:
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 60000 # Route to token_count if tokens > 60k
+  
+  # Anthropic prompt caching configuration
+  cache_control:
+    enabled: false  # Enable Anthropic prompt caching
+    duration: ephemeral  # Options: "ephemeral" (~5 min) or "1_hour" (1 hour cache)
+    roles:  # Which message roles to cache
+      - system
 ```
+
+### Cache Control (Anthropic Prompt Caching)
+
+`ccproxy` supports Anthropic's [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) feature, which can significantly reduce costs and latency for repetitive prompts. This feature automatically injects cache control directives into messages sent to Anthropic models.
+
+#### Configuration Options
+
+```yaml
+ccproxy:
+  cache_control:
+    enabled: true        # Enable/disable cache control injection
+    duration: 1_hour     # Cache duration setting
+    roles:               # Message roles to apply caching to
+      - system
+      - user
+```
+
+- **`enabled`**: Set to `true` to enable automatic cache control injection for Anthropic models
+- **`duration`**: Choose cache duration:
+  - `"ephemeral"` (default): ~5 minute cache duration
+  - `"1_hour"`: Extended 1-hour cache duration (see [Anthropic docs](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#1-hour-cache-duration))
+- **`roles`**: List of message roles to apply caching to (typically `system` messages contain repetitive content)
+
+#### How It Works
+
+When enabled, `ccproxy` automatically adds cache control directives to specified message roles when routing to Anthropic models:
+
+```python
+# Original message
+{"role": "system", "content": "You are a helpful assistant."}
+
+# With cache control (ephemeral)
+{"role": "system", "content": "You are a helpful assistant.", "cache_control": {"type": "ephemeral"}}
+
+# With cache control (1 hour)
+{"role": "system", "content": "You are a helpful assistant.", "cache_control": {"type": "ephemeral", "ttl": 3600}}
+```
+
+This feature only applies to requests routed to Anthropic models (those starting with `anthropic/` or `claude`, or explicitly configured as Anthropic providers).
 
 ## Troubleshooting
 

@@ -125,6 +125,15 @@ class CCProxyConfig(BaseSettings):
     # Context preservation settings
     context: dict[str, Any] = Field(default_factory=lambda: {"enabled": False})
 
+    # Cache control settings
+    cache_control: dict[str, Any] = Field(default_factory=lambda: {
+        "enabled": False,
+        "duration": "ephemeral",
+        "roles": ["system"]
+    })
+
+    # User-defined posthooks
+    posthooks: list[str] = Field(default_factory=list)
     # Path to ccproxy config
     ccproxy_config_path: Path = Field(default_factory=lambda: Path("./ccproxy.yaml"))
 
@@ -177,6 +186,10 @@ class CCProxyConfig(BaseSettings):
                     instance.metrics_enabled = ccproxy_data["metrics_enabled"]
                 if "context" in ccproxy_data:
                     instance.context = ccproxy_data["context"]
+                if "cache_control" in ccproxy_data:
+                    instance.cache_control = ccproxy_data["cache_control"]
+                if "posthooks" in ccproxy_data:
+                    instance.posthooks = ccproxy_data["posthooks"]
 
                 # Load rules
                 rules_data = ccproxy_data.get("rules", [])
