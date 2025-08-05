@@ -22,7 +22,7 @@ def classify_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], **kwa
     data["metadata"]["ccproxy_alias_model"] = data.get("model")
 
     # Classify the request
-    data["metadata"]["ccproxy_label"] = classifier.classify(data)
+    data["metadata"]["ccproxy_model_name"] = classifier.classify(data)
     return data
 
 
@@ -32,27 +32,27 @@ def rewrite_model_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], 
         logger.warning("Router not found or invalid type in rewrite_model_hook")
         return data
 
-    # Get label with safe default
-    label = data.get("metadata", {}).get("ccproxy_label", "default")
-    if not label:
-        logger.warning("No ccproxy_label found, using default")
-        label = "default"
+    # Get model_name with safe default
+    model_name = data.get("metadata", {}).get("ccproxy_model_name", "default")
+    if not model_name:
+        logger.warning("No ccproxy_model_name found, using default")
+        model_name = "default"
 
-    # Get model for label from router (includes fallback to 'default' label)
-    model_config = router.get_model_for_label(label)
+    # Get model for model_name from router (includes fallback to 'default' model_name)
+    model_config = router.get_model_for_label(model_name)
 
     if model_config is not None:
         routed_model = model_config.get("litellm_params", {}).get("model")
         if routed_model:
             data["model"] = routed_model
         else:
-            logger.warning(f"No model found in config for label: {label}")
+            logger.warning(f"No model found in config for model_name: {model_name}")
         data["metadata"]["ccproxy_litellm_model"] = routed_model
         data["metadata"]["ccproxy_model_config"] = model_config
     else:
         # No model config found (not even default)
         # This should only happen if no 'default' model is configured
-        raise ValueError(f"No model configured for label '{label}' and no 'default' model available as fallback")
+        raise ValueError(f"No model configured for model_name '{model_name}' and no 'default' model available as fallback")
 
     # Generate request ID if not present
     if "request_id" not in data["metadata"]:

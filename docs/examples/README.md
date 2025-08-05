@@ -39,7 +39,7 @@ Complete configuration example showing built-in rules:
 - **MatchToolRule** - Routes based on tool usage (e.g., WebSearch)
 
 ### config.yaml
-LiteLLM configuration example with model deployments matching the rule labels.
+LiteLLM configuration example with model deployments matching the rule names.
 
 ### ccproxy.py
 Custom callbacks file that creates the CCProxyHandler instance for LiteLLM.
@@ -61,7 +61,7 @@ class MyCustomRule(ClassificationRule):
 
     def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> bool:
         # Your logic here
-        return True  # Return True to use this rule's label
+        return True  # Return True to use this rule's model_name
 ```
 
 ### Step 2: Configure in ccproxy.yaml
@@ -71,7 +71,7 @@ Add your rule to the ccproxy configuration:
 ```yaml
 ccproxy:
   rules:
-    - label: my_model_label  # Must match a model_name in config.yaml
+    - name: my_model_label  # Must match a model_name in config.yaml
       rule: myproject.MyCustomRule  # Python import path
       params:
         - my_param: "value"
@@ -83,7 +83,7 @@ Make sure you have a corresponding model in your LiteLLM `config.yaml`:
 
 ```yaml
 model_list:
-  - model_name: my_model_label  # Matches the label above
+  - model_name: my_model_label  # Matches the name above
     litellm_params:
       model: anthropic/claude-3-5-sonnet-20241022
       api_key: ${ANTHROPIC_API_KEY}

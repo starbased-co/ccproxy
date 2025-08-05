@@ -74,7 +74,7 @@ class TestRequestClassifier:
         mock_rule = mock.Mock(spec=ClassificationRule)
         mock_rule.evaluate.return_value = True
 
-        # Add the rule with label
+        # Add the rule with model_name
         classifier.add_rule("think", mock_rule)
         assert len(classifier._rules) == initial_count + 1
 
@@ -97,7 +97,7 @@ class TestRequestClassifier:
         rule3 = mock.Mock(spec=ClassificationRule)
         rule3.evaluate.return_value = True  # Also matches but shouldn't be reached
 
-        # Add rules in order with labels
+        # Add rules in order with model_names
         classifier.add_rule("token_count", rule1)
         classifier.add_rule("background", rule2)
         classifier.add_rule("think", rule3)

@@ -58,15 +58,15 @@ except ImportError:
 class RuleConfig:
     """Configuration for a single classification rule."""
 
-    def __init__(self, label: str, rule_path: str, params: list[Any] | None = None) -> None:
+    def __init__(self, name: str, rule_path: str, params: list[Any] | None = None) -> None:
         """Initialize a rule configuration.
 
         Args:
-            label: The routing label for this rule
+            name: The name for this rule (maps to model_name in LiteLLM config)
             rule_path: Python import path to the rule class
             params: Optional parameters to pass to the rule constructor
         """
-        self.label = label
+        self.model_name = name
         self.rule_path = rule_path
         self.params = params or []
 
@@ -196,11 +196,11 @@ class CCProxyConfig(BaseSettings):
                 instance.rules = []
                 for rule_data in rules_data:
                     if isinstance(rule_data, dict):
-                        label = rule_data.get("label", "")
+                        name = rule_data.get("name", "")
                         rule_path = rule_data.get("rule", "")
                         params = rule_data.get("params", [])
-                        if label and rule_path:
-                            rule_config = RuleConfig(label, rule_path, params)
+                        if name and rule_path:
+                            rule_config = RuleConfig(name, rule_path, params)
                             instance.rules.append(rule_config)
 
         return instance

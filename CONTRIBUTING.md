@@ -57,7 +57,7 @@ uv run -m litellm --config config.yaml
 uv run litellm --config ~/.ccproxy/config.yaml
 ```
 
-Without `uv run`, you may encounter import errors like "Could not import proxy_handler_instance" because Python will try to use a globally installed version instead of your development code.
+Without `uv run`, you may encounter import errors like "Could not import handler" because Python will try to use a globally installed version instead of your development code.
 
 ### Code Style
 

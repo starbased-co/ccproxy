@@ -83,7 +83,7 @@ class CCProxyHandler(CustomLogger):
         # Log routing decision with structured logging
         metadata = data.get("metadata", {})
         self._log_routing_decision(
-            label=metadata.get("ccproxy_label", None),
+            model_name=metadata.get("ccproxy_model_name", None),
             original_model=metadata.get("ccproxy_alias_model", None),
             routed_model=metadata.get("ccproxy_litellm_model", None),
             request_id=metadata.get("request_id", None),
@@ -94,7 +94,7 @@ class CCProxyHandler(CustomLogger):
 
     def _log_routing_decision(
         self,
-        label: str,
+        model_name: str,
         original_model: str,
         routed_model: str,
         request_id: str,
@@ -103,7 +103,7 @@ class CCProxyHandler(CustomLogger):
         """Log routing decision with structured logging.
 
         Args:
-            label: Classification label
+            model_name: Classification model_name
             original_model: Original model requested
             routed_model: Model after routing
             request_id: Unique request identifier
@@ -139,8 +139,8 @@ class CCProxyHandler(CustomLogger):
             routing_text.append("🚀 CCProxy Routing Decision\n", style="bold cyan")
             routing_text.append("├─ Type: ", style="dim")
             routing_text.append(f"{routing_type}\n", style=f"bold {color}")
-            routing_text.append("├─ Label: ", style="dim")
-            routing_text.append(f"{label}\n", style="magenta")
+            routing_text.append("├─ Model Name: ", style="dim")
+            routing_text.append(f"{model_name}\n", style="magenta")
             routing_text.append("├─ Original: ", style="dim")
             routing_text.append(f"{original_model}\n", style="blue")
             routing_text.append("└─ Routed to: ", style="dim")
@@ -151,7 +151,7 @@ class CCProxyHandler(CustomLogger):
 
         log_data = {
             "event": "ccproxy_routing",
-            "label": label,
+            "model_name": model_name,
             "original_model": original_model,
             "routed_model": routed_model,
             "request_id": request_id,
@@ -189,7 +189,7 @@ class CCProxyHandler(CustomLogger):
         """
         metadata = kwargs.get("metadata", {})
         request_id = metadata.get("request_id", "unknown")
-        label = metadata.get("ccproxy_label", "unknown")
+        model_name = metadata.get("ccproxy_model_name", "unknown")
 
         # Calculate duration using utility function
         duration_ms = calculate_duration_ms(start_time, end_time)
@@ -197,7 +197,7 @@ class CCProxyHandler(CustomLogger):
         log_data = {
             "event": "ccproxy_success",
             "request_id": request_id,
-            "label": label,
+            "model_name": model_name,
             "duration_ms": round(duration_ms, 2),
             "model": kwargs.get("model", "unknown"),
         }
@@ -233,7 +233,7 @@ class CCProxyHandler(CustomLogger):
         """
         metadata = kwargs.get("metadata", {})
         request_id = metadata.get("request_id", "unknown")
-        label = metadata.get("ccproxy_label", "unknown")
+        model_name = metadata.get("ccproxy_model_name", "unknown")
 
         # Calculate duration using utility function
         duration_ms = calculate_duration_ms(start_time, end_time)
@@ -241,7 +241,7 @@ class CCProxyHandler(CustomLogger):
         log_data = {
             "event": "ccproxy_failure",
             "request_id": request_id,
-            "label": label,
+            "model_name": model_name,
             "duration_ms": round(duration_ms, 2),
             "model": kwargs.get("model", "unknown"),
             "error_type": type(response_obj).__name__,
@@ -271,7 +271,7 @@ class CCProxyHandler(CustomLogger):
         """
         metadata = kwargs.get("metadata", {})
         request_id = metadata.get("request_id", "unknown")
-        label = metadata.get("ccproxy_label", "unknown")
+        model_name = metadata.get("ccproxy_model_name", "unknown")
 
         # Calculate duration using utility function
         duration_ms = calculate_duration_ms(start_time, end_time)
@@ -279,7 +279,7 @@ class CCProxyHandler(CustomLogger):
         log_data = {
             "event": "ccproxy_stream_complete",
             "request_id": request_id,
-            "label": label,
+            "model_name": model_name,
             "duration_ms": round(duration_ms, 2),
             "model": kwargs.get("model", "unknown"),
             "streaming": True,

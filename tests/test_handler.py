@@ -77,22 +77,22 @@ class TestCCProxyRouting:
                 "debug": False,
                 "rules": [
                     {
-                        "label": "token_count",
+                        "name": "token_count",
                         "rule": "ccproxy.rules.TokenCountRule",
                         "params": [{"threshold": 60000}],
                     },
                     {
-                        "label": "background",
+                        "name": "background",
                         "rule": "ccproxy.rules.MatchModelRule",
                         "params": [{"model_name": "claude-3-5-haiku-20241022"}],
                     },
                     {
-                        "label": "think",
+                        "name": "think",
                         "rule": "ccproxy.rules.ThinkingRule",
                         "params": [],
                     },
                     {
-                        "label": "web_search",
+                        "name": "web_search",
                         "rule": "ccproxy.rules.MatchToolRule",
                         "params": [{"tool_name": "web_search"}],
                     },
@@ -252,7 +252,7 @@ class TestHandlerHookMethods:
                 "debug": False,
                 "rules": [
                     {
-                        "label": "background",
+                        "name": "background",
                         "rule": "ccproxy.rules.MatchModelRule",
                         "params": [{"model_name": "claude-3-5-haiku-20241022"}],
                     },
@@ -368,7 +368,7 @@ class TestHandlerHookMethods:
         assert result["model"] == "claude-3-5-sonnet-20241022"  # Should route to default
         # Metadata should be added
         assert "metadata" in result
-        assert result["metadata"]["ccproxy_label"] == "default"
+        assert result["metadata"]["ccproxy_model_name"] == "default"
         assert result["metadata"]["ccproxy_alias_model"] == "gpt-4"
 
     @pytest.mark.asyncio
@@ -469,7 +469,7 @@ class TestCCProxyHandler:
                 "debug": False,
                 "rules": [
                     {
-                        "label": "background",
+                        "name": "background",
                         "rule": "ccproxy.rules.MatchModelRule",
                         "params": [{"model_name": "claude-3-5-haiku-20241022"}],
                     },
@@ -510,7 +510,7 @@ class TestCCProxyHandler:
 
         # Check metadata was added
         assert "metadata" in modified_data
-        assert modified_data["metadata"]["ccproxy_label"] == "background"
+        assert modified_data["metadata"]["ccproxy_model_name"] == "background"
         assert modified_data["metadata"]["ccproxy_alias_model"] == "claude-3-5-haiku-20241022"
 
     async def test_async_pre_call_hook_preserves_existing_metadata(self, handler):
@@ -534,7 +534,7 @@ class TestCCProxyHandler:
         assert modified_data["metadata"]["existing_key"] == "existing_value"
 
         # Check new metadata added
-        assert modified_data["metadata"]["ccproxy_label"] == "default"
+        assert modified_data["metadata"]["ccproxy_model_name"] == "default"
         assert modified_data["metadata"]["ccproxy_alias_model"] == "claude-3-5-sonnet-20241022"
 
     async def test_handler_uses_config_threshold(self):
@@ -545,7 +545,7 @@ class TestCCProxyHandler:
                 "debug": False,
                 "rules": [
                     {
-                        "label": "token_count",
+                        "name": "token_count",
                         "rule": "ccproxy.rules.TokenCountRule",
                         "params": [{"threshold": 10000}],  # Lower threshold
                     },
@@ -611,7 +611,7 @@ class TestCCProxyHandler:
 
                 # Should route to token_count
                 assert modified_data["model"] == "gemini-2.5-pro"
-                assert modified_data["metadata"]["ccproxy_label"] == "token_count"
+                assert modified_data["metadata"]["ccproxy_model_name"] == "token_count"
 
         finally:
             ccproxy_path.unlink()
@@ -627,7 +627,7 @@ class TestCCProxyHandler:
             debug=False,
             rules=[
                 RuleConfig(
-                    label="token_count",
+                    name="token_count",
                     rule_path="ccproxy.rules.TokenCountRule",
                     params=[{"threshold": 60000}],
                 ),

@@ -37,7 +37,7 @@ class TestStartProxy:
 
     @patch("subprocess.run")
     def test_start_proxy_success(self, mock_run: Mock, tmp_path: Path) -> None:
-        """Test successful proxy start."""
+        """Test successful litellm execution."""
         config_file = tmp_path / "config.yaml"
         config_file.write_text("litellm: config")
 

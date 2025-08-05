@@ -91,18 +91,18 @@ class ModelRouter:
                             self._model_group_alias[underlying_model] = []
                         self._model_group_alias[underlying_model].append(model_name)
 
-    def get_model_for_label(self, label: str) -> dict[str, Any] | None:
-        """Get model configuration for a given classification label.
+    def get_model_for_label(self, model_name: str) -> dict[str, Any] | None:
+        """Get model configuration for a given classification model_name.
 
         Args:
-            label: The routing label to map to a model
+            model_name: The model_name to map to a model
 
         Returns:
             Model configuration dict with keys:
                 - model_name: The model alias name
                 - litellm_params: Parameters for litellm.completion()
                 - model_info: Optional metadata (if present)
-            Returns None if no model is mapped to the label.
+            Returns None if no model is mapped to the model_name.
 
         Example:
             >>> router = ModelRouter()
@@ -110,15 +110,15 @@ class ModelRouter:
             >>> print(model["model_name"])  # "background"
             >>> print(model["litellm_params"]["model"])  # "claude-3-5-haiku-20241022"
         """
-        label_str = label
+        model_name_str = model_name
 
         with self._lock:
             # Try to get the direct mapping first
-            model = self._model_map.get(label_str)
+            model = self._model_map.get(model_name_str)
             if model is not None:
                 return model
 
-            # Fallback to 'default' model if label not found
+            # Fallback to 'default' model if model_name not found
             return self._model_map.get("default")
 
     def get_model_list(self) -> list[dict[str, Any]]:

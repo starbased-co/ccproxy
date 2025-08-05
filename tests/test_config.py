@@ -35,8 +35,8 @@ class TestCCProxyConfig:
     def test_rule_config(self) -> None:
         """Test rule configuration."""
         # Create a rule config
-        rule = RuleConfig("test_label", "ccproxy.rules.TokenCountRule", [{"threshold": 5000}])
-        assert rule.label == "test_label"
+        rule = RuleConfig("test_name", "ccproxy.rules.TokenCountRule", [{"threshold": 5000}])
+        assert rule.model_name == "test_name"
         assert rule.rule_path == "ccproxy.rules.TokenCountRule"
         assert rule.params == [{"threshold": 5000}]
 
@@ -53,11 +53,11 @@ ccproxy:
   debug: true
   metrics_enabled: false
   rules:
-    - label: token_count
+    - name: token_count
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 80000
-    - label: background
+    - name: background
       rule: ccproxy.rules.MatchModelRule
       params:
         - model_name: claude-3-5-haiku
@@ -95,8 +95,8 @@ model_list:
             assert config.debug is True
             assert config.metrics_enabled is False
             assert len(config.rules) == 2
-            assert config.rules[0].label == "token_count"
-            assert config.rules[1].label == "background"
+            assert config.rules[0].model_name == "token_count"
+            assert config.rules[1].model_name == "background"
 
             # Model lookup functionality has been moved to router.py
 
@@ -133,7 +133,7 @@ ccproxy:
   debug: true
   metrics_enabled: false
   rules:
-    - label: custom_rule
+    - name: custom_rule
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 70000
@@ -148,7 +148,7 @@ ccproxy:
             assert config.debug is True
             assert config.metrics_enabled is False
             assert len(config.rules) == 1
-            assert config.rules[0].label == "custom_rule"
+            assert config.rules[0].model_name == "custom_rule"
             assert config.rules[0].params == [{"threshold": 70000}]
 
         finally:
@@ -240,7 +240,7 @@ ccproxy:
   debug: true
   metrics_enabled: false
   rules:
-    - label: test
+    - name: test
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 75000
@@ -254,7 +254,7 @@ ccproxy:
                 assert config.debug is True
                 assert config.metrics_enabled is False
                 assert len(config.rules) == 1
-                assert config.rules[0].label == "test"
+                assert config.rules[0].model_name == "test"
 
     def test_from_proxy_runtime_without_ccproxy_yaml(self) -> None:
         """Test loading config when ccproxy.yaml doesn't exist."""
@@ -335,7 +335,7 @@ ccproxy:
 ccproxy:
   debug: true
   rules:
-    - label: runtime_test
+    - name: runtime_test
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 90000
@@ -391,7 +391,7 @@ class TestThreadSafety:
 ccproxy:
   debug: true
   rules:
-    - label: concurrent_test
+    - name: concurrent_test
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 50000
