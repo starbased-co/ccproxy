@@ -39,7 +39,7 @@
 - **ccproxy.yaml**: Contains ccproxy-specific settings and rule definitions
 - **config.yaml**: LiteLLM proxy configuration with model deployments
 - Rules are dynamically loaded using Python import paths
-- Labels in ccproxy rules must match model_name entries in LiteLLM's model_list
+- Names in ccproxy rules must match model_name entries in LiteLLM's model_list
 - `~/.ccproxy` is the project's default `config_dir`
 - The files in `./src/ccproxy/templates/{ccproxy.py,ccproxy.yaml,config.yaml}` are symlinked to `~/.ccproxy/{ccproxy.py,ccproxy.yaml,config.yaml}`
 
@@ -48,9 +48,9 @@
 ```python
 # Dynamic rule evaluation:
 1. Rules are loaded from ccproxy.yaml with parameters
-2. Each rule returns boolean (True = use this label's model)
-3. First matching rule determines the routing label
-4. Label is mapped to model via LiteLLM's model_list
+2. Each rule returns boolean (True = use this rule's model_name)
+3. First matching rule determines the routing model_name
+4. Model name is mapped to model via LiteLLM's model_list
 5. Default model used if no rules match
 ```
 
@@ -307,17 +307,17 @@ async def async_pre_call_hook(
 ccproxy:
   debug: false
   rules:
-    - label: token_count # Must match a model_name in config.yaml
+    - name: token_count # Must match a model_name in config.yaml
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 60000
-    - label: background
+    - name: background
       rule: ccproxy.rules.MatchModelRule
       params:
         - model_name: "claude-3-5-haiku-20241022"
-    - label: think
+    - name: think
       rule: ccproxy.rules.ThinkingRule
-    - label: web_search
+    - name: web_search
       rule: ccproxy.rules.MatchToolRule
       params:
         - tool_name: "WebSearch"
@@ -350,7 +350,7 @@ litellm_settings:
 
 ### Key Configuration Concepts
 
-- **Label Matching**: Labels in ccproxy.yaml rules MUST have corresponding model_name entries in config.yaml
+- **Name Matching**: Names in ccproxy.yaml rules MUST have corresponding model_name entries in config.yaml
 - **Dynamic Loading**: Rules are loaded at runtime using Python import paths
 - **Parameter Flexibility**: Rules can accept positional args, keyword args, or mixed parameters
 - **Singleton Pattern**: Configuration is loaded once and shared across the application
@@ -392,7 +392,7 @@ class MyCustomRule(ClassificationRule):
         self.my_param = my_param
 
     def evaluate(self, request: dict[str, Any], config: CCProxyConfig) -> bool:
-        """Return True to use this rule's label."""
+        """Return True to use this rule's model_name."""
         # Your custom logic here
         return "my_condition" in request
 ```
@@ -402,7 +402,7 @@ Then add to ccproxy.yaml:
 ```yaml
 ccproxy:
   rules:
-    - label: my_custom_label
+    - name: my_custom_label
       rule: mymodule.MyCustomRule
       params:
         - my_param: "value"

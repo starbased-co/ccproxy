@@ -8,17 +8,17 @@ litellm:
 ccproxy:
   debug: true
   rules:
-    - label: token_count
+    - name: token_count
       rule: ccproxy.rules.TokenCountRule
       params:
         - threshold: 60000
-    - label: background
+    - name: background
       rule: ccproxy.rules.MatchModelRule
       params:
         - model_name: claude-3-5-haiku-20241022
-    - label: think
+    - name: think
       rule: ccproxy.rules.ThinkingRule
-    - label: web_search
+    - name: web_search
       rule: ccproxy.rules.MatchToolRule
       params:
         - tool_name: WebSearch

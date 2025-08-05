@@ -11,14 +11,14 @@ ccproxy:
   debug: true  # Enable to see routing decisions
   rules:
     # PriorityUserRule - Routes VIP users and urgent requests
-    - label: high_priority
+    - name: high_priority
       rule: custom_rule.PriorityUserRule
       params:
         - priority_users: ["admin@example.com", "vip@example.com"]
         - priority_keywords: ["urgent", "critical", "emergency"]
 
     # TimeBasedRule - Routes during business hours
-    - label: business_hours
+    - name: business_hours
       rule: examples.custom_rule.TimeBasedRule
       params:
         - start_hour: 9
@@ -26,13 +26,13 @@ ccproxy:
         - timezone: "US/Eastern"
 
     # ContentLengthRule - Routes long conversations
-    - label: long_content
+    - name: long_content
       rule: custom_rule.ContentLengthRule
       params:
         - max_length: 10000
 
     # ModelCapabilityRule - Routes vision requests
-    - label: vision_capable
+    - name: vision_capable
       rule: examples.custom_rule.ModelCapabilityRule
       params:
         - require_vision: true
@@ -40,7 +40,7 @@ ccproxy:
         - require_streaming: false
 
     # Another ModelCapabilityRule - Routes function calling
-    - label: function_calling
+    - name: function_calling
       rule: custom_rule.ModelCapabilityRule
       params:
         - require_vision: false

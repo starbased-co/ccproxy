@@ -239,18 +239,18 @@ litellm:
 ccproxy:
   debug: true
   rules:
-    - label: token_count                         # ┌─ 1st priority
+    - name: token_count                          # ┌─ 1st priority
       rule: ccproxy.rules.TokenCountRule         # │
       params:                                    # │
         - threshold: 60000 # tokens              # ▼
-    - label: background                          # ┌─ 2nd priority
+    - name: background                           # ┌─ 2nd priority
       rule: ccproxy.rules.MatchModelRule         # │
       params:                                    # │
         - model_name: claude-3-5-haiku-20241022  # ▼
-    - label: think                               # ┌─ 3rd priority
+    - name: think                                # ┌─ 3rd priority
       rule: ccproxy.rules.ThinkingRule           # │
                                                  # ▼
-    - label: web_search                          # ┌─ 4th priority
+    - name: web_search                           # ┌─ 4th priority
       rule: ccproxy.rules.MatchToolRule          # │
       params:                                    # │
         - tool_name: WebSearch                   # ▼

@@ -9,12 +9,12 @@ import pytest
 
 from ccproxy.cli import (
     Install,
-    Litellm,
+    Start,
     Logs,
     Run,
     Stop,
     install_config,
-    litellm_with_config,
+    start_proxy,
     main,
     run_with_proxy,
     stop_litellm,
@@ -22,13 +22,13 @@ from ccproxy.cli import (
 )
 
 
-class TestLiteLLMWithConfig:
-    """Test suite for litellm_with_config function."""
+class TestStartProxy:
+    """Test suite for start_proxy function."""
 
     def test_litellm_no_config(self, tmp_path: Path, capsys) -> None:
         """Test litellm when config doesn't exist."""
         with pytest.raises(SystemExit) as exc_info:
-            litellm_with_config(tmp_path)
+            start_proxy(tmp_path)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
@@ -36,7 +36,7 @@ class TestLiteLLMWithConfig:
         assert "Run 'ccproxy install' first" in captured.err
 
     @patch("subprocess.run")
-    def test_litellm_with_config_success(self, mock_run: Mock, tmp_path: Path) -> None:
+    def test_start_proxy_success(self, mock_run: Mock, tmp_path: Path) -> None:
         """Test successful litellm execution."""
         config_file = tmp_path / "config.yaml"
         config_file.write_text("litellm: config")
@@ -44,7 +44,7 @@ class TestLiteLLMWithConfig:
         mock_run.return_value = Mock(returncode=0)
 
         with pytest.raises(SystemExit) as exc_info:
-            litellm_with_config(tmp_path)
+            start_proxy(tmp_path)
 
         assert exc_info.value.code == 0
         mock_run.assert_called_once_with(["litellm", "--config", str(config_file)], env=ANY)
@@ -58,7 +58,7 @@ class TestLiteLLMWithConfig:
         mock_run.return_value = Mock(returncode=0)
 
         with pytest.raises(SystemExit) as exc_info:
-            litellm_with_config(tmp_path, args=["--debug", "--port", "8080"])
+            start_proxy(tmp_path, args=["--debug", "--port", "8080"])
 
         assert exc_info.value.code == 0
         mock_run.assert_called_once_with(
@@ -74,7 +74,7 @@ class TestLiteLLMWithConfig:
         mock_run.side_effect = FileNotFoundError()
 
         with pytest.raises(SystemExit) as exc_info:
-            litellm_with_config(tmp_path)
+            start_proxy(tmp_path)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
@@ -90,7 +90,7 @@ class TestLiteLLMWithConfig:
         mock_run.side_effect = KeyboardInterrupt()
 
         with pytest.raises(SystemExit) as exc_info:
-            litellm_with_config(tmp_path)
+            start_proxy(tmp_path)
 
         assert exc_info.value.code == 130
 
@@ -105,7 +105,7 @@ class TestLiteLLMWithConfig:
         mock_popen.return_value = mock_process
 
         with pytest.raises(SystemExit) as exc_info:
-            litellm_with_config(tmp_path, detach=True)
+            start_proxy(tmp_path, detach=True)
 
         assert exc_info.value.code == 0
 
@@ -134,7 +134,7 @@ class TestLiteLLMWithConfig:
         mock_kill.return_value = None
 
         with pytest.raises(SystemExit) as exc_info:
-            litellm_with_config(tmp_path, detach=True)
+            start_proxy(tmp_path, detach=True)
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
@@ -159,7 +159,7 @@ class TestLiteLLMWithConfig:
         mock_popen.return_value = mock_process
 
         with pytest.raises(SystemExit) as exc_info:
-            litellm_with_config(tmp_path, detach=True)
+            start_proxy(tmp_path, detach=True)
 
         assert exc_info.value.code == 0
 
@@ -544,26 +544,26 @@ class TestViewLogs:
 class TestMainFunction:
     """Test suite for main CLI function using Tyro."""
 
-    @patch("ccproxy.cli.litellm_with_config")
+    @patch("ccproxy.cli.start_proxy")
     def test_main_litellm_command(self, mock_litellm: Mock, tmp_path: Path) -> None:
         """Test main with litellm command."""
-        cmd = Litellm(args=["--debug", "--port", "8080"])
+        cmd = Start(args=["--debug", "--port", "8080"])
         main(cmd, config_dir=tmp_path)
 
         mock_litellm.assert_called_once_with(tmp_path, args=["--debug", "--port", "8080"], detach=False)
 
-    @patch("ccproxy.cli.litellm_with_config")
+    @patch("ccproxy.cli.start_proxy")
     def test_main_litellm_no_args(self, mock_litellm: Mock, tmp_path: Path) -> None:
         """Test main with litellm command without args."""
-        cmd = Litellm()
+        cmd = Start()
         main(cmd, config_dir=tmp_path)
 
         mock_litellm.assert_called_once_with(tmp_path, args=None, detach=False)
 
-    @patch("ccproxy.cli.litellm_with_config")
+    @patch("ccproxy.cli.start_proxy")
     def test_main_litellm_detach(self, mock_litellm: Mock, tmp_path: Path) -> None:
         """Test main with litellm command in detach mode."""
-        cmd = Litellm(detach=True)
+        cmd = Start(detach=True)
         main(cmd, config_dir=tmp_path)
 
         mock_litellm.assert_called_once_with(tmp_path, args=None, detach=True)
@@ -600,9 +600,9 @@ class TestMainFunction:
         """Test main uses default config directory when not specified."""
         with (
             patch.object(Path, "home", return_value=tmp_path),
-            patch("ccproxy.cli.litellm_with_config") as mock_litellm,
+            patch("ccproxy.cli.start_proxy") as mock_litellm,
         ):
-            cmd = Litellm()
+            cmd = Start()
             main(cmd)
 
             # Check that litellm was called with the default config dir

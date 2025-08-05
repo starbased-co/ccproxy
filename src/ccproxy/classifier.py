@@ -14,22 +14,22 @@ class RequestClassifier:
 
     The classifier uses a rule-based system where rules are evaluated in
     the order they are configured. The first matching rule determines the
-    routing label.
+    routing model_name.
 
     The rules are loaded from the CCProxyConfig which reads from ccproxy.yaml.
     Each rule in the configuration specifies:
-    - label: The routing label to use if the rule matches
+    - name: The name for this rule (maps to model_name in LiteLLM config)
     - rule: The Python import path to the rule class
     - params: Optional parameters to pass to the rule constructor
 
     Example configuration in ccproxy.yaml:
         ccproxy:
           rules:
-            - label: token_count
+            - name: token_count
               rule: ccproxy.rules.TokenCountRule
               params:
                 - threshold: 60000
-            - label: background
+            - name: background
               rule: ccproxy.rules.MatchModelRule
               params:
                 - model_name: claude-3-5-haiku-20241022
@@ -44,7 +44,7 @@ class RequestClassifier:
         """Set up classification rules from configuration.
 
         Rules are loaded from the ccproxy.yaml configuration file.
-        Each rule configuration specifies the label and rule class to use.
+        Each rule configuration specifies the name and rule class to use.
         """
         # Clear any existing rules
         self._clear_rules()
@@ -57,8 +57,8 @@ class RequestClassifier:
             try:
                 # Create rule instance
                 rule_instance = rule_config.create_instance()
-                # Add rule with its label
-                self.add_rule(rule_config.label, rule_instance)
+                # Add rule with its model_name
+                self.add_rule(rule_config.model_name, rule_instance)
             except (ImportError, TypeError, AttributeError) as e:
                 # Log error but continue loading other rules
                 if config.debug:
@@ -72,11 +72,11 @@ class RequestClassifier:
                      pydantic models via dict conversion.
 
         Returns:
-            The routing label for the request
+            The routing model_name for the request
 
         Note:
             Rules are evaluated in the order they are configured. The first matching rule
-            determines the routing label. If no rules match, "default" is returned.
+            determines the routing model_name. If no rules match, "default" is returned.
         """
         # Convert pydantic model to dict if needed
         try:
@@ -93,18 +93,18 @@ class RequestClassifier:
         config = get_config()
 
         # Evaluate rules in order
-        for label, rule in self._rules:
+        for model_name, rule in self._rules:
             if rule.evaluate(request, config):
-                return label
+                return model_name
 
         # Default if no rules match
         return "default"
 
-    def add_rule(self, label: str, rule: ClassificationRule) -> None:
-        """Add a classification rule with its associated label.
+    def add_rule(self, model_name: str, rule: ClassificationRule) -> None:
+        """Add a classification rule with its associated model_name.
 
         Args:
-            label: The routing label to use if this rule matches
+            model_name: The model_name to use if this rule matches (matches model_name in LiteLLM config)
             rule: The rule to add
 
         Note:
@@ -112,7 +112,7 @@ class RequestClassifier:
             For proper priority, use _setup_rules() to configure
             the standard rule set from ccproxy.yaml.
         """
-        self._rules.append((label, rule))
+        self._rules.append((model_name, rule))
 
     def _clear_rules(self) -> None:
         """Clear all classification rules."""

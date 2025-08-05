@@ -46,7 +46,7 @@ class TestClassifierExtensibility:
         classifier = RequestClassifier()
         custom_rule = CustomHeaderRule()
 
-        # Add custom rule with label
+        # Add custom rule with model_name
         classifier.add_rule("background", custom_rule)
 
         # Test that custom rule works
@@ -56,8 +56,8 @@ class TestClassifierExtensibility:
             "headers": {"X-Priority": "low"},
         }
 
-        label = classifier.classify(request)
-        assert label == "background"
+        model_name = classifier.classify(request)
+        assert model_name == "background"
 
     def test_custom_rule_priority(self) -> None:
         """Test that custom rules respect order of addition."""
@@ -77,8 +77,8 @@ class TestClassifierExtensibility:
         }
 
         # Should match first rule (CustomHeaderRule)
-        label = classifier.classify(request)
-        assert label == "background"
+        model_name = classifier.classify(request)
+        assert model_name == "background"
 
         # Now reverse the order
         classifier._clear_rules()
@@ -86,8 +86,8 @@ class TestClassifierExtensibility:
         classifier.add_rule("background", CustomHeaderRule())
 
         # Same request should now return think (first matching rule)
-        label = classifier.classify(request)
-        assert label == "think"
+        model_name = classifier.classify(request)
+        assert model_name == "think"
 
     def test_custom_rule_with_config(self) -> None:
         """Test custom rule that uses configuration."""
@@ -101,8 +101,8 @@ class TestClassifierExtensibility:
             "metadata": {"environment": "staging"},
         }
 
-        label = classifier.classify(request)
-        assert label == "think"
+        model_name = classifier.classify(request)
+        assert model_name == "think"
 
     def test_replace_all_rules(self) -> None:
         """Test completely replacing default rules with custom ones."""
@@ -122,13 +122,13 @@ class TestClassifierExtensibility:
             "token_count": 100000,  # Would trigger token_count normally
         }
 
-        label = classifier.classify(request)
-        assert label == "default"  # No rules match
+        model_name = classifier.classify(request)
+        assert model_name == "default"  # No rules match
 
         # But custom rules still work
         request["headers"] = {"X-Priority": "low"}
-        label = classifier.classify(request)
-        assert label == "background"
+        model_name = classifier.classify(request)
+        assert model_name == "background"
 
     def test_reset_to_default_rules(self) -> None:
         """Test resetting to default rules after customization."""
@@ -138,7 +138,7 @@ class TestClassifierExtensibility:
         # Create test config with token_count rule
         test_config = CCProxyConfig()
         test_config.rules = [
-            RuleConfig(label="token_count", rule_path="ccproxy.rules.TokenCountRule", params=[{"threshold": 60000}])
+            RuleConfig(name="token_count", rule_path="ccproxy.rules.TokenCountRule", params=[{"threshold": 60000}])
         ]
 
         # Set the test config
@@ -157,15 +157,15 @@ class TestClassifierExtensibility:
 
             # Verify default rules don't work
             request = {"token_count": 100000}
-            label = classifier.classify(request)
-            assert label == "default"
+            model_name = classifier.classify(request)
+            assert model_name == "default"
 
             # Reset to defaults
             classifier._setup_rules()
 
             # Now default rules work again
-            label = classifier.classify(request)
-            assert label == "token_count"
+            model_name = classifier.classify(request)
+            assert model_name == "token_count"
         finally:
             clear_config_instance()
 
@@ -176,7 +176,7 @@ class TestClassifierExtensibility:
         # Create test config with token_count rule
         test_config = CCProxyConfig()
         test_config.rules = [
-            RuleConfig(label="token_count", rule_path="ccproxy.rules.TokenCountRule", params=[{"threshold": 60000}])
+            RuleConfig(name="token_count", rule_path="ccproxy.rules.TokenCountRule", params=[{"threshold": 60000}])
         ]
 
         # Set the test config
@@ -191,16 +191,16 @@ class TestClassifierExtensibility:
 
             # Test default rule (token count)
             request = {"token_count": 100000}
-            label = classifier.classify(request)
-            assert label == "token_count"
+            model_name = classifier.classify(request)
+            assert model_name == "token_count"
 
             # Test custom rule
             request = {
                 "model": "claude-3-5-sonnet",
                 "metadata": {"environment": "production"},
             }
-            label = classifier.classify(request)
-            assert label == "production"
+            model_name = classifier.classify(request)
+            assert model_name == "production"
         finally:
             clear_config_instance()
 
@@ -227,13 +227,13 @@ class TestClassifierExtensibility:
 
         # Test never-matching rule
         request = {"model": "any"}
-        label = classifier.classify(request)
-        assert label == "default"
+        model_name = classifier.classify(request)
+        assert model_name == "default"
 
         # Test nested data rule
         request = {"data": {"nested": {"value": "special"}}}
-        label = classifier.classify(request)
-        assert label == "web_search"
+        model_name = classifier.classify(request)
+        assert model_name == "web_search"
 
     def test_stateful_custom_rule(self) -> None:
         """Test custom rule with internal state."""
@@ -255,13 +255,13 @@ class TestClassifierExtensibility:
         request = {"model": "claude"}
 
         # First call - no match (count=1)
-        label = classifier.classify(request)
-        assert label == "default"
+        model_name = classifier.classify(request)
+        assert model_name == "default"
 
         # Second call - match (count=2)
-        label = classifier.classify(request)
-        assert label == "background"
+        model_name = classifier.classify(request)
+        assert model_name == "background"
 
         # Third call - no match (count=3)
-        label = classifier.classify(request)
-        assert label == "default"
+        model_name = classifier.classify(request)
+        assert model_name == "default"

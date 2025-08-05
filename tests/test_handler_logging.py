@@ -15,7 +15,7 @@ class TestHandlerLoggingHookMethods:
     async def test_log_success_event(self) -> None:
         """Test async_log_success_event method."""
         handler = CCProxyHandler()
-        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_label": "default"}, "model": "test-model"}
+        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_model_name": "default"}, "model": "test-model"}
         response_obj = Mock(model="test-model", usage=Mock(prompt_tokens=20, completion_tokens=10, total_tokens=30))
 
         # Should not raise any exceptions
@@ -25,7 +25,7 @@ class TestHandlerLoggingHookMethods:
     async def test_log_failure_event(self) -> None:
         """Test async_log_failure_event method."""
         handler = CCProxyHandler()
-        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_label": "default"}, "model": "test-model"}
+        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_model_name": "default"}, "model": "test-model"}
         response_obj = Exception("Test error")
 
         # Should not raise any exceptions
@@ -35,7 +35,7 @@ class TestHandlerLoggingHookMethods:
     async def test_async_log_stream_event(self) -> None:
         """Test async_log_stream_event method."""
         handler = CCProxyHandler()
-        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_label": "default"}, "model": "test-model"}
+        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_model_name": "default"}, "model": "test-model"}
         response_obj = Mock()
         start_time = 1234567890
         end_time = 1234567900
@@ -65,7 +65,7 @@ class TestHandlerLoggingHookMethods:
             # Should not raise - adds metadata and uses default model
             result = await handler.async_pre_call_hook(data, {})
             assert "metadata" in result
-            assert result["metadata"]["ccproxy_label"] == "default"
+            assert result["metadata"]["ccproxy_model_name"] == "default"
             assert result["metadata"]["ccproxy_alias_model"] is None
             assert result["model"] == "claude-3-5-sonnet-20241022"
 
@@ -84,7 +84,7 @@ class TestHandlerLoggingHookMethods:
         }
 
         handler._log_routing_decision(
-            label="token_count",
+            model_name="token_count",
             original_model="claude-3-5-sonnet",
             routed_model="gemini-2.0-flash-exp",
             request_id="test-123",
@@ -99,7 +99,7 @@ class TestHandlerLoggingHookMethods:
         # Check extra data
         extra = call_args[1]["extra"]
         assert extra["event"] == "ccproxy_routing"
-        assert extra["label"] == "token_count"
+        assert extra["model_name"] == "token_count"
         assert extra["original_model"] == "claude-3-5-sonnet"
         assert extra["routed_model"] == "gemini-2.0-flash-exp"
         assert extra["request_id"] == "test-123"
@@ -114,7 +114,7 @@ class TestHandlerLoggingHookMethods:
     async def test_timedelta_duration_handling(self) -> None:
         """Test that handler correctly handles timedelta objects for timestamps."""
         handler = CCProxyHandler()
-        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_label": "default"}, "model": "test-model"}
+        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_model_name": "default"}, "model": "test-model"}
         response_obj = Mock()
 
         # Test with timedelta objects (simulating LiteLLM's behavior)
@@ -134,7 +134,7 @@ class TestHandlerLoggingHookMethods:
     async def test_mixed_timestamp_types_handling(self) -> None:
         """Test that handler correctly handles mixed float/timedelta timestamp types."""
         handler = CCProxyHandler()
-        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_label": "default"}, "model": "test-model"}
+        kwargs = {"metadata": {"request_id": "test-123", "ccproxy_model_name": "default"}, "model": "test-model"}
         response_obj = Mock()
 
         # Test with mixed types (float start, timedelta end)

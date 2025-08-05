@@ -125,7 +125,7 @@ async def test_no_oauth_forwarding_for_non_anthropic_models(mock_handler):
         debug=False,
         rules=[
             RuleConfig(
-                label="token_count",
+                name="token_count",
                 rule_path="ccproxy.rules.TokenCountRule",
                 params=[{"threshold": 100}],  # Low threshold to trigger
             ),
