@@ -345,7 +345,7 @@ model_list:
   # ... additional models for think, web_search, etc.
 
 litellm_settings:
-  callbacks: custom_callbacks.proxy_handler_instance
+  callbacks: ccproxy.handler
 ```
 
 ### Key Configuration Concepts
@@ -429,7 +429,7 @@ ccproxy:
 2. **Configuration**: Place configuration files in `~/.ccproxy/`:
    - `ccproxy.yaml` - Routing rules
    - `config.yaml` - LiteLLM configuration
-   - `custom_callbacks.py` - Hook initialization
+   - `ccproxy.py` - Hook initialization
 
 3. **Running in Production**:
    ```bash

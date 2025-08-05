@@ -89,7 +89,7 @@ model_list:
       api_key: ${ANTHROPIC_API_KEY}
 
 litellm_settings:
-  callbacks: custom_callbacks.proxy_handler_instance
+  callbacks: ccproxy.handler
 ```
 
 ## Usage Notes
