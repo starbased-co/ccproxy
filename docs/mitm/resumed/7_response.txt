@@ -1,0 +1,56 @@
+HTTP/1.1 200 OK
+Date: Sat, 02 Aug 2025 20:27:23 GMT
+Content-Type: text/event-stream; charset=utf-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+Cache-Control: no-cache
+anthropic-ratelimit-unified-status: allowed
+anthropic-ratelimit-unified-representative-claim: five_hour
+anthropic-ratelimit-unified-fallback-percentage: 0.5
+anthropic-ratelimit-unified-reset: 1754179200
+request-id: req_011CRjWhMqKjJW6zrSd9VhV2
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+anthropic-organization-id: 411f8cc6-c7b8-4a23-b579-da0dbdd68d9b
+via: 1.1 google
+cf-cache-status: DYNAMIC
+X-Robots-Tag: none
+Server: cloudflare
+CF-RAY: 969050bf981bfabe-SJC
+
+6bb
+event: message_start
+data: {"type":"message_start","message":{"id":"msg_01349huGBwvpRErAqH12tBQz","type":"message","role":"assistant","model":"claude-opus-4-20250514","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":7,"cache_creation_input_tokens":137,"cache_read_input_tokens":70817,"output_tokens":24,"service_tier":"standard"}}    }
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_01X5iRcu3iRdPhLfirqQbxz1","name":"Bash","input":{}}      }
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":""}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"command\": \"jq -r '. | tostring' docs/mitm/resume-request.json | grep -i \\\""}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"cache\\\" | head -5"}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\", \"description\": \"Text search for any cache mentions in the entire JSON"}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\"}"}          }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0   }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null},"usage":{"output_tokens":108}      }
+
+event: message_stop
+data: {"type":"message_stop"         }
+
+
+0
+
