@@ -155,4 +155,5 @@ dev = [
   "types-pyyaml>=6.0.12.20250516",
   "types-requests>=2.32.4.20250611",
   "pyfakefs>=5.3.0",
+  "mitmproxy>=11.0.2",
 ]
