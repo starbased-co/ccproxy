@@ -5,6 +5,7 @@ mitmproxy addon script to save Anthropic API requests and responses to JSON file
 
 import json
 import os
+import time
 from pathlib import Path
 
 from mitmproxy import http
@@ -13,7 +14,8 @@ from mitmproxy import http
 class SaveAnthropicRequests:
     def __init__(self):
         self.request_counter = 0
-        self.output_dir = os.environ.get("CAPTURE_DIR", None) or Path.cwd()
+        self.output_dir = Path().home() / "tmp" / "claude-mitm" / f"{time.ctime()}"
+        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
         # Map flow objects to their request data
         self.flow_data = {}
 
@@ -72,7 +74,7 @@ class SaveAnthropicRequests:
 
         # Save combined data to JSON file
         output_file = self.output_dir / f"flow_{flow_info['counter']}.json"
-        with open(output_file, "w") as f:
+        with Path.open(output_file, "w") as f:
             # Remove the counter from the output, keep only request/response
             output_data = {"request": flow_info["request"], "response": flow_info["response"]}
             json.dump(output_data, f, indent=2)

@@ -2,7 +2,8 @@
 
 # Get the directory of this script
 SCRIPT_DIR="${0:A:h}"
-export CAPTURE_DIR="${SCRIPT_DIR:h}/docs/mitm/captures/convo-$(date +%s)"
+
+export CAPTURE_DIR="~/tmp/claude-mitm/convo-$(date +%s)"
 
 # Start mitmweb in background with output redirected and filter
 export NODE_EXTRA_CA_CERTS="$HOME/.mitmproxy/mitmproxy-ca-cert.pem"
@@ -17,7 +18,8 @@ MITMWEB_PID=$!
 sleep 2
 
 # Export proxy variables for claude
-export ANTHROPIC_BASE_URL="http://127.0.0.1:58888"
+export HTTP_PROXY="http://127.0.0.1:58888"
+export HTTPS_PROXY="http://127.0.0.1:58888"
 
 # Function to cleanup on exit
 cleanup() {
