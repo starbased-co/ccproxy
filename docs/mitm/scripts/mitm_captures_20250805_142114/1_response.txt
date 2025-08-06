@@ -1,0 +1,20 @@
+HTTP/1.1 200 OK
+Date: Tue, 05 Aug 2025 21:20:45 GMT
+Content-Type: application/json
+Transfer-Encoding: chunked
+Connection: keep-alive
+anthropic-ratelimit-unified-status: allowed
+anthropic-ratelimit-unified-representative-claim: five_hour
+anthropic-ratelimit-unified-fallback-percentage: 0.5
+anthropic-ratelimit-unified-reset: 1754434800
+request-id: req_011CRqGCHA7tEUT4yXoWb5oq
+strict-transport-security: max-age=31536000; includeSubDomains; preload
+anthropic-organization-id: 411f8cc6-c7b8-4a23-b579-da0dbdd68d9b
+via: 1.1 google
+cf-cache-status: DYNAMIC
+X-Robots-Tag: none
+Server: cloudflare
+CF-RAY: 96a95718487c67ee-SJC
+Content-Encoding: gzip
+
+{"id":"msg_01R2L4mG8JuCFZGd8Djo5noL","type":"message","role":"assistant","model":"claude-3-5-haiku-20241022","content":[{"type":"text","text":"Here"}],"stop_reason":"max_tokens","stop_sequence":null,"usage":{"input_tokens":8,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"service_tier":"standard"}}

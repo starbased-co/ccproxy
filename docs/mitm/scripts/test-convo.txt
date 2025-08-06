@@ -1,0 +1,3 @@
+What files are in the current directory?
+Can you show me what's in the README.md file?
+What version of Python does this project use?
