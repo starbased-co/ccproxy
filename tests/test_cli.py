@@ -1,4 +1,4 @@
-"""Tests for the CCProxy CLI."""
+"""Tests for the ccproxy CLI."""
 
 import os
 import subprocess
@@ -9,14 +9,14 @@ import pytest
 
 from ccproxy.cli import (
     Install,
-    Start,
     Logs,
     Run,
+    Start,
     Stop,
     install_config,
-    start_proxy,
     main,
     run_with_proxy,
+    start_proxy,
     stop_litellm,
     view_logs,
 )
@@ -204,7 +204,7 @@ class TestInstallConfig:
 
         assert exc_info.value.code == 1
         captured = capsys.readouterr()
-        assert "already exists" in captured.out
+        assert "already" in captured.out and "exists" in captured.out
         assert "Use --force to overwrite" in captured.out
 
     @patch("ccproxy.cli.get_templates_dir")

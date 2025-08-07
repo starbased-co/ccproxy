@@ -1,4 +1,4 @@
-"""Tests for CCProxyHandler and routing function."""
+"""Tests for ccproxy handler and routing function."""
 
 import tempfile
 from pathlib import Path
@@ -13,7 +13,7 @@ from ccproxy.router import ModelRouter, clear_router
 
 
 class TestCCProxyRouting:
-    """Tests for CCProxyHandler routing logic."""
+    """Tests for ccproxy handler routing logic."""
 
     def _create_router_with_models(self, model_list: list) -> ModelRouter:
         """Helper to create a router with mocked models."""
@@ -276,7 +276,7 @@ class TestHandlerHookMethods:
 
     @pytest.fixture
     def handler(self) -> CCProxyHandler:
-        """Create a CCProxyHandler instance with mocked router."""
+        """Create a ccproxy handler instance with mocked router."""
         # Mock proxy server with default model
         mock_proxy_server = MagicMock()
         mock_proxy_server.llm_router = MagicMock()
@@ -395,7 +395,7 @@ class TestHandlerHookMethods:
 
 
 class TestCCProxyHandler:
-    """Tests for CCProxyHandler class."""
+    """Tests for ccproxy handler class."""
 
     @pytest.fixture
     def handler(self, config_files):

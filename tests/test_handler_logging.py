@@ -1,4 +1,4 @@
-"""Additional tests for CCProxyHandler logging hook methods."""
+"""Additional tests for ccproxy handler logging hook methods."""
 
 from datetime import timedelta
 from unittest.mock import Mock, patch
@@ -94,7 +94,7 @@ class TestHandlerLoggingHookMethods:
         # Check logger was called
         mock_logger.info.assert_called_once()
         call_args = mock_logger.info.call_args
-        assert call_args[0][0] == "CCProxy routing decision"
+        assert call_args[0][0] == "ccproxy routing decision"
 
         # Check extra data
         extra = call_args[1]["extra"]

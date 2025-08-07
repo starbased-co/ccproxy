@@ -264,7 +264,7 @@ uv run pytest --cov=ccproxy --cov-report=html
 
 ## Success Indicators
 
-- **Fast Recognition**: Identity confirmed as CCProxy_Assistant
+- **Fast Recognition**: Identity confirmed as ccproxy_Assistant
 - **Command Execution**: All translations work without clarification
 - **Test Success**: Coverage exceeds 90% consistently
 - **Type Safety**: mypy strict mode passes

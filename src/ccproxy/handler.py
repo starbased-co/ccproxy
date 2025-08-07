@@ -1,4 +1,4 @@
-"""CCProxyHandler - Main LiteLLM CustomLogger implementation."""
+"""ccproxy handler - Main LiteLLM CustomLogger implementation."""
 
 import logging
 from typing import Any, TypedDict
@@ -132,7 +132,7 @@ class CCProxyHandler(CustomLogger):
 
             # Create the routing message
             routing_text = Text()
-            routing_text.append("🚀 CCProxy Routing Decision\n", style="bold cyan")
+            routing_text.append("🚀 ccproxy Routing Decision\n", style="bold cyan")
             routing_text.append("├─ Type: ", style="dim")
             routing_text.append(f"{routing_type}\n", style=f"bold {color}")
             routing_text.append("├─ Model Name: ", style="dim")
@@ -166,7 +166,7 @@ class CCProxyHandler(CustomLogger):
             if safe_info:
                 log_data["model_info"] = safe_info
 
-        logger.info("CCProxy routing decision", extra=log_data)
+        logger.info("ccproxy routing decision", extra=log_data)
 
     async def async_log_success_event(
         self,
@@ -207,7 +207,7 @@ class CCProxyHandler(CustomLogger):
                 "total_tokens": getattr(usage, "total_tokens", 0),
             }
 
-        logger.info("CCProxy request completed", extra=log_data)
+        logger.info("ccproxy request completed", extra=log_data)
 
     async def async_log_failure_event(
         self,
@@ -245,7 +245,7 @@ class CCProxyHandler(CustomLogger):
             error_message = str(response_obj.message)
             log_data["error_message"] = error_message[:500]  # Truncate long messages
 
-        logger.error("CCProxy request failed", extra=log_data)
+        logger.error("ccproxy request failed", extra=log_data)
 
     async def async_log_stream_event(
         self,
@@ -278,4 +278,4 @@ class CCProxyHandler(CustomLogger):
             "streaming": True,
         }
 
-        logger.info("CCProxy streaming request completed", extra=log_data)
+        logger.info("ccproxy streaming request completed", extra=log_data)

@@ -13,7 +13,7 @@ from ccproxy.config import (
 
 
 class TestCCProxyConfig:
-    """Tests for main CCProxyConfig."""
+    """Tests for main config class."""
 
     def test_default_config(self) -> None:
         """Test default configuration values."""

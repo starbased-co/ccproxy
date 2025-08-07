@@ -16,7 +16,7 @@ class RequestClassifier:
     the order they are configured. The first matching rule determines the
     routing model_name.
 
-    The rules are loaded from the CCProxyConfig which reads from ccproxy.yaml.
+    The rules are loaded from the config which reads from ccproxy.yaml.
     Each rule in the configuration specifies:
     - name: The name for this rule (maps to model_name in LiteLLM config)
     - rule: The Python import path to the rule class

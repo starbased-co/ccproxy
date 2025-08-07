@@ -1,10 +1,10 @@
-# CCProxy Examples
+# ccproxy Examples
 
 This directory contains example custom rules and configurations to help you extend ccproxy.
 
 ## Quick Start
 
-1. **Install CCProxy**:
+1. **Install ccproxy**:
    ```bash
    uv tool install git+https://github.com/starbased-co/ccproxy.git
    # or
@@ -42,7 +42,7 @@ Complete configuration example showing built-in rules:
 LiteLLM configuration example with model deployments matching the rule names.
 
 ### ccproxy.py
-Custom callbacks file that creates the CCProxyHandler instance for LiteLLM.
+Custom callbacks file that creates the ccproxy handler instance for LiteLLM.
 
 ## Creating Your Own Rules
 

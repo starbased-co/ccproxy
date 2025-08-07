@@ -52,7 +52,9 @@ def rewrite_model_hook(data: dict[str, Any], user_api_key_dict: dict[str, Any], 
     else:
         # No model config found (not even default)
         # This should only happen if no 'default' model is configured
-        raise ValueError(f"No model configured for model_name '{model_name}' and no 'default' model available as fallback")
+        raise ValueError(
+            f"No model configured for model_name '{model_name}' and no 'default' model available as fallback"
+        )
 
     # Generate request ID if not present
     if "request_id" not in data["metadata"]:

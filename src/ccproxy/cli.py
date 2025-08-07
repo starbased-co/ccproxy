@@ -1,4 +1,4 @@
-"""CCProxy CLI for managing the LiteLLM proxy server - Tyro implementation."""
+"""ccproxy CLI for managing the LiteLLM proxy server - Tyro implementation."""
 
 import os
 import shutil
@@ -30,7 +30,7 @@ class Start:
 
 @dataclass
 class Install:
-    """Install CCProxy configuration files."""
+    """Install ccproxy configuration files."""
 
     force: bool = False
     """Overwrite existing configuration."""
@@ -76,7 +76,7 @@ Command = Start | Install | Run | Stop | Logs | ShellIntegration
 
 
 def install_config(config_dir: Path, force: bool = False) -> None:
-    """Install CCProxy configuration files.
+    """Install ccproxy configuration files.
 
     Args:
         config_dir: Directory to install configuration files to
@@ -336,7 +336,7 @@ def generate_shell_integration(config_dir: Path, shell: str = "auto", install: b
         sys.exit(1)
 
     # Generate the integration script
-    integration_script = f"""# CCProxy shell integration
+    integration_script = f"""# ccproxy shell integration
 # This enables the 'claude' alias when LiteLLM proxy is running
 
 # Function to check if LiteLLM proxy is running
@@ -404,11 +404,11 @@ fi
             shell_config.touch()
 
         # Check if already installed
-        marker = "# CCProxy shell integration"
+        marker = "# ccproxy shell integration"
         existing_content = shell_config.read_text()
 
         if marker in existing_content:
-            print(f"CCProxy integration already installed in {shell_config}")
+            print(f"ccproxy integration already installed in {shell_config}")
             print("To update, remove the existing integration first.")
             sys.exit(0)
 
@@ -418,7 +418,7 @@ fi
             f.write(integration_script)
             f.write("\n")
 
-        print(f"✓ CCProxy shell integration installed to {shell_config}")
+        print(f"✓ ccproxy shell integration installed to {shell_config}")
         print("\nTo activate now, run:")
         print(f"  source {shell_config}")
         print(f"\nOr start a new {shell} session.")
@@ -496,7 +496,7 @@ def main(
     *,
     config_dir: Annotated[Path | None, tyro.conf.arg(help="Configuration directory")] = None,
 ) -> None:
-    """CCProxy - LiteLLM Transformation Hook System.
+    """ccproxy - LiteLLM Transformation Hook System.
 
     A powerful routing system for LiteLLM that dynamically routes requests
     to different models based on configurable rules.

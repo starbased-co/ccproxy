@@ -14,7 +14,7 @@ def test_generate_shell_integration_auto_detect_zsh(tmp_path: Path, capsys):
         generate_shell_integration(tmp_path, shell="auto", install=False)  # noqa: S604
 
     captured = capsys.readouterr()
-    assert "# CCProxy shell integration" in captured.out
+    assert "# ccproxy shell integration" in captured.out
     assert "ccproxy_check_running()" in captured.out
     assert "alias claude='ccproxy run claude'" in captured.out
     assert "precmd_functions" in captured.out  # zsh-specific
@@ -27,7 +27,7 @@ def test_generate_shell_integration_auto_detect_bash(tmp_path: Path, capsys):
         generate_shell_integration(tmp_path, shell="auto", install=False)  # noqa: S604
 
     captured = capsys.readouterr()
-    assert "# CCProxy shell integration" in captured.out
+    assert "# ccproxy shell integration" in captured.out
     assert "ccproxy_check_running()" in captured.out
     assert "alias claude='ccproxy run claude'" in captured.out
     assert "PROMPT_COMMAND" in captured.out  # bash-specific
@@ -47,13 +47,13 @@ def test_generate_shell_integration_explicit_shell(tmp_path: Path, capsys):
     generate_shell_integration(tmp_path, shell="zsh", install=False)  # noqa: S604
 
     captured = capsys.readouterr()
-    assert "# CCProxy shell integration" in captured.out
+    assert "# ccproxy shell integration" in captured.out
     # Check the path components separately to handle line breaks
     assert str(tmp_path) in captured.out
     # Check for lock file by looking for the pattern split across lines
     assert "local" in captured.out
     assert "pid_file=" in captured.out
-    assert "itellm.lock" in captured.out  # Part of "litellm.lock" after line break
+    assert "litellm.lock" in captured.out.replace("\n", "")  # Handle line breaks
 
 
 def test_generate_shell_integration_unsupported_shell(tmp_path: Path):
@@ -74,13 +74,13 @@ def test_generate_shell_integration_install_zsh(tmp_path: Path, capsys):
 
     # Check installation
     content = zshrc.read_text()
-    assert "# CCProxy shell integration" in content
+    assert "# ccproxy shell integration" in content
     assert "ccproxy_check_running()" in content
     assert "precmd_functions" in content
 
     # Check output
     captured = capsys.readouterr()
-    assert "✓ CCProxy shell integration installed" in captured.out
+    assert "✓ ccproxy shell integration installed" in captured.out
     assert str(zshrc) in captured.out
 
 
@@ -95,13 +95,13 @@ def test_generate_shell_integration_install_bash(tmp_path: Path, capsys):
 
     # Check installation
     content = bashrc.read_text()
-    assert "# CCProxy shell integration" in content
+    assert "# ccproxy shell integration" in content
     assert "ccproxy_check_running()" in content
     assert "PROMPT_COMMAND" in content
 
     # Check output
     captured = capsys.readouterr()
-    assert "✓ CCProxy shell integration installed" in captured.out
+    assert "✓ ccproxy shell integration installed" in captured.out
     assert str(bashrc) in captured.out
 
 
@@ -109,7 +109,7 @@ def test_generate_shell_integration_already_installed(tmp_path: Path):
     """Test handling of already installed integration."""
     # Create a fake .zshrc with existing integration
     zshrc = tmp_path / ".zshrc"
-    zshrc.write_text("# Existing config\n# CCProxy shell integration\n# Already installed\n")
+    zshrc.write_text("# Existing config\n# ccproxy shell integration\n# Already installed\n")
 
     with patch("pathlib.Path.home", return_value=tmp_path):
         with pytest.raises(SystemExit) as exc_info:
@@ -125,7 +125,7 @@ def test_generate_shell_integration_creates_config_if_missing(tmp_path: Path):
     # Check that .zshrc was created
     zshrc = tmp_path / ".zshrc"
     assert zshrc.exists()
-    assert "# CCProxy shell integration" in zshrc.read_text()
+    assert "# ccproxy shell integration" in zshrc.read_text()
 
 
 def test_shell_integration_script_content(tmp_path: Path, capsys):
@@ -136,7 +136,7 @@ def test_shell_integration_script_content(tmp_path: Path, capsys):
 
     # Check key components
     assert str(tmp_path) in captured.out  # Path is included
-    assert "itellm.lock" in captured.out  # Lock file name (partial after line break)
+    assert "litellm.lock" in captured.out.replace("\n", "")  # Handle line breaks
     assert 'kill -0 "$pid"' in captured.out  # Process check
     assert "alias claude='ccproxy run claude'" in captured.out
     assert "unalias claude 2>/dev/null || true" in captured.out

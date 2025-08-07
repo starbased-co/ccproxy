@@ -11,7 +11,7 @@ from ccproxy.router import clear_router
 
 @pytest.fixture
 def mock_handler():
-    """Create a CCProxyHandler with mocked router that provides a default model."""
+    """Create a ccproxy handler with mocked router that provides a default model."""
     # Mock proxy server with default model
     mock_proxy_server = MagicMock()
     mock_proxy_server.llm_router = MagicMock()
