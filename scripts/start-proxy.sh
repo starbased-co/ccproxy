@@ -55,7 +55,21 @@ echo -e "${GREEN}Starting reverse proxy with cache analysis...${NC}"
 echo "Press Ctrl+C to stop"
 echo
 
+# Open cache analyzer dashboard in background
+echo -e "${BLUE}Opening cache analyzer dashboard...${NC}"
+if command -v xdg-open &> /dev/null; then
+    # Linux
+    (sleep 3 && xdg-open "http://localhost:5555") &
+elif command -v open &> /dev/null; then
+    # macOS  
+    (sleep 3 && open "http://localhost:5555") &
+elif command -v start &> /dev/null; then
+    # Windows
+    (sleep 3 && start "http://localhost:5555") &
+fi
+
 # Run mitmweb in reverse proxy mode with our unified analyzer
+# This will also open the mitmweb dashboard automatically
 mitmweb \
     --listen-port $PROXY_PORT \
     --web-port 8081 \

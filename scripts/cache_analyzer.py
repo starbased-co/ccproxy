@@ -252,35 +252,54 @@ class CacheAnalyzer:
                     ctx.log.debug(f"First line: {repr(lines[0][:100])}")
                     ctx.log.debug(f"Last line: {repr(lines[-1][:100])}")
                 
-                # Look for JSON data in various SSE formats
-                for line in reversed(lines):
-                    # Handle "data: {...}" format
-                    if line.startswith("data: ") and line != "data: [DONE]":
-                        try:
-                            data = json.loads(line[6:])  # Skip "data: " prefix
-                            # Look for usage in the streaming events
-                            if "usage" in data:
-                                response_data = data
-                                break
-                            elif data.get("type") == "message_stop":
-                                # message_stop event might contain usage
-                                response_data = data
-                                break
-                        except json.JSONDecodeError:
-                            continue
+                # Look for message_start event which contains usage for streaming
+                # According to docs: cache metrics come in message_start event for streaming
+                for i, line in enumerate(lines):
+                    # Handle "event: message_start" followed by "data: {...}"
+                    if line.startswith("event: message_start"):
+                        # Find the next data line
+                        if i + 1 < len(lines):
+                            next_line = lines[i + 1]
+                            if next_line.startswith("data: "):
+                                try:
+                                    data = json.loads(next_line[6:])
+                                    if "message" in data and "usage" in data["message"]:
+                                        response_data = {"usage": data["message"]["usage"]}
+                                        ctx.log.info(f"Found usage in message_start event for {request_id}")
+                                        break
+                                except json.JSONDecodeError as e:
+                                    ctx.log.debug(f"Failed to parse message_start data: {e}")
                     
-                    # Handle lines that might just be JSON without "data:" prefix
-                    elif line.strip().startswith('{'):
+                    # Also check data lines for different event types
+                    elif line.startswith("data: ") and line != "data: [DONE]":
                         try:
-                            data = json.loads(line.strip())
-                            if "usage" in data or data.get("type") == "message_stop":
+                            data = json.loads(line[6:])
+                            
+                            # Check for message_start type
+                            if data.get("type") == "message_start":
+                                if "message" in data and "usage" in data["message"]:
+                                    response_data = {"usage": data["message"]["usage"]}
+                                    ctx.log.info(f"Found usage in message_start data for {request_id}")
+                                    break
+                            
+                            # Check for direct usage (non-streaming format mixed in)
+                            elif "usage" in data:
                                 response_data = data
+                                ctx.log.info(f"Found direct usage in data for {request_id}")
                                 break
+                            
+                            # Check for message_stop with usage
+                            elif data.get("type") == "message_stop":
+                                if "usage" in data:
+                                    response_data = data
+                                    ctx.log.info(f"Found usage in message_stop for {request_id}")
+                                    break
                         except json.JSONDecodeError:
                             continue
                 
                 if not response_data:
-                    ctx.log.info(f"No usage metrics in streaming response for {request_id} - this is normal for streaming")
+                    ctx.log.warn(f"No usage metrics found in streaming response for {request_id}")
+                    ctx.log.debug(f"First 5 lines of response: {lines[:5] if len(lines) > 5 else lines}")
                     del self.current_requests[request_id]
                     return
             else:
