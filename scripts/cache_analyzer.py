@@ -183,32 +183,147 @@ class CacheAnalyzer:
         try:
             request_info = self.current_requests[request_id]
             
-            # Skip streaming responses (they use Server-Sent Events format, not JSON)
-            if request_info.get("is_streaming", False):
-                ctx.log.info(f"Skipping streaming response analysis for {request_id}")
-                del self.current_requests[request_id]
-                return
-
-            # Check if response exists and has content
-            if not flow.response or not flow.response.content:
-                ctx.log.warn(f"Empty response for request {request_id}")
+            # Check if response exists
+            if not flow.response:
+                ctx.log.warn(f"No response object for request {request_id}")
                 del self.current_requests[request_id]
                 return
 
             # Check response status
             if flow.response.status_code >= 400:
                 ctx.log.warn(f"Error response {flow.response.status_code} for request {request_id}")
+                ctx.log.debug(f"Error content: {flow.response.text[:500] if flow.response.text else 'None'}")
                 del self.current_requests[request_id]
                 return
 
-            # Try to parse JSON
+            # Get response content - try multiple methods
+            content = None
+            
+            # First try the text property (handles decompression)
             try:
-                response_data = json.loads(flow.response.content)
-            except json.JSONDecodeError as e:
-                ctx.log.error(f"Failed to parse JSON response for {request_id}: {e}")
-                ctx.log.debug(f"Response content preview: {flow.response.content[:200]}")
+                content = flow.response.text
+            except Exception as e:
+                ctx.log.debug(f"Failed to get response.text: {e}")
+                
+            # If text failed or is empty, try get_text()
+            if not content:
+                try:
+                    content = flow.response.get_text()
+                except Exception as e:
+                    ctx.log.debug(f"Failed to get_text(): {e}")
+            
+            # If still no content, try raw content with decoding
+            if not content:
+                try:
+                    raw_content = flow.response.content
+                    if raw_content:
+                        content = raw_content.decode('utf-8', errors='ignore')
+                        ctx.log.debug(f"Using raw content decoding for {request_id}")
+                except Exception as e:
+                    ctx.log.debug(f"Failed to decode raw content: {e}")
+            
+            # Log content details for debugging
+            if not content:
+                ctx.log.warn(f"Empty response content for request {request_id}")
+                ctx.log.debug(f"Response headers: {dict(flow.response.headers)}")
+                ctx.log.debug(f"Response content length: {len(flow.response.content) if flow.response.content else 0}")
                 del self.current_requests[request_id]
                 return
+            
+            # Log content type and first characters for debugging
+            ctx.log.debug(f"Response for {request_id}: content_type={flow.response.headers.get('content-type', 'unknown')}, len={len(content)}, preview={repr(content[:100])}")
+
+            # Handle streaming responses (Server-Sent Events format)
+            # Check if this looks like SSE format (can start with "event:" or "data:")
+            is_streaming = request_info.get("is_streaming", False)
+            if is_streaming or content.startswith(("data:", "event:")):
+                ctx.log.info(f"Processing SSE/streaming response for {request_id}")
+                # Extract JSON from SSE stream
+                lines = content.strip().split('\n')
+                response_data = None
+                
+                # Debug: show what we're dealing with
+                ctx.log.debug(f"SSE response has {len(lines)} lines")
+                if lines:
+                    ctx.log.debug(f"First line: {repr(lines[0][:100])}")
+                    ctx.log.debug(f"Last line: {repr(lines[-1][:100])}")
+                
+                # Look for JSON data in various SSE formats
+                for line in reversed(lines):
+                    # Handle "data: {...}" format
+                    if line.startswith("data: ") and line != "data: [DONE]":
+                        try:
+                            data = json.loads(line[6:])  # Skip "data: " prefix
+                            # Look for usage in the streaming events
+                            if "usage" in data:
+                                response_data = data
+                                break
+                            elif data.get("type") == "message_stop":
+                                # message_stop event might contain usage
+                                response_data = data
+                                break
+                        except json.JSONDecodeError:
+                            continue
+                    
+                    # Handle lines that might just be JSON without "data:" prefix
+                    elif line.strip().startswith('{'):
+                        try:
+                            data = json.loads(line.strip())
+                            if "usage" in data or data.get("type") == "message_stop":
+                                response_data = data
+                                break
+                        except json.JSONDecodeError:
+                            continue
+                
+                if not response_data:
+                    ctx.log.info(f"No usage metrics in streaming response for {request_id} - this is normal for streaming")
+                    del self.current_requests[request_id]
+                    return
+            else:
+                # Try to parse as regular JSON
+                try:
+                    # First check if content looks like JSON
+                    content_stripped = content.strip()
+                    if not content_stripped:
+                        ctx.log.error(f"Response content is empty after stripping for {request_id}")
+                        del self.current_requests[request_id]
+                        return
+                    
+                    # Check if it starts with expected JSON characters
+                    if not content_stripped[0] in '{[':
+                        # Maybe it's SSE that we didn't catch earlier
+                        if content_stripped.startswith(("event:", "data:", "id:")):
+                            ctx.log.info(f"Detected SSE format for non-streaming request {request_id}, processing as SSE")
+                            # Process as SSE
+                            lines = content_stripped.split('\n')
+                            response_data = None
+                            for line in lines:
+                                if line.startswith("data: ") and line != "data: [DONE]":
+                                    try:
+                                        response_data = json.loads(line[6:])
+                                        if "usage" in response_data:
+                                            break
+                                    except json.JSONDecodeError:
+                                        continue
+                            
+                            if not response_data:
+                                ctx.log.warn(f"Could not extract data from SSE response for {request_id}")
+                                del self.current_requests[request_id]
+                                return
+                        else:
+                            ctx.log.error(f"Response doesn't look like JSON for {request_id}. First char: {repr(content_stripped[0])}")
+                            ctx.log.debug(f"Full content preview: {repr(content_stripped[:200])}")
+                            del self.current_requests[request_id]
+                            return
+                    
+                    response_data = json.loads(content_stripped)
+                except json.JSONDecodeError as e:
+                    ctx.log.error(f"Failed to parse JSON response for {request_id}: {e}")
+                    ctx.log.debug(f"Response content preview: {repr(content[:200])}")
+                    ctx.log.debug(f"Content-Type: {flow.response.headers.get('content-type', 'unknown')}")
+                    ctx.log.debug(f"Content-Encoding: {flow.response.headers.get('content-encoding', 'none')}")
+                    del self.current_requests[request_id]
+                    return
 
             turn = request_info["turn"]
 
