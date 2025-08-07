@@ -128,6 +128,9 @@ class CacheAnalyzer:
             request_data = json.loads(flow.request.content)
             request_id = request_data.get("id", f"{int(time.time() * 1000)}")
 
+            # Check if this is a streaming request
+            is_streaming = request_data.get("stream", False)
+
             # Create conversation turn
             turn = ConversationTurn(
                 request_id=request_id,
@@ -159,7 +162,12 @@ class CacheAnalyzer:
                 turn.system_prompt_hash = hashlib.md5(system_str.encode()).hexdigest()
 
             # Store request for correlation with response
-            self.current_requests[request_id] = {"turn": turn, "flow_id": flow.id, "start_time": time.time()}
+            self.current_requests[request_id] = {
+                "turn": turn, 
+                "flow_id": flow.id, 
+                "start_time": time.time(),
+                "is_streaming": is_streaming
+            }
 
             return request_id
 
@@ -173,8 +181,35 @@ class CacheAnalyzer:
             return
 
         try:
-            response_data = json.loads(flow.response.content)
             request_info = self.current_requests[request_id]
+            
+            # Skip streaming responses (they use Server-Sent Events format, not JSON)
+            if request_info.get("is_streaming", False):
+                ctx.log.info(f"Skipping streaming response analysis for {request_id}")
+                del self.current_requests[request_id]
+                return
+
+            # Check if response exists and has content
+            if not flow.response or not flow.response.content:
+                ctx.log.warn(f"Empty response for request {request_id}")
+                del self.current_requests[request_id]
+                return
+
+            # Check response status
+            if flow.response.status_code >= 400:
+                ctx.log.warn(f"Error response {flow.response.status_code} for request {request_id}")
+                del self.current_requests[request_id]
+                return
+
+            # Try to parse JSON
+            try:
+                response_data = json.loads(flow.response.content)
+            except json.JSONDecodeError as e:
+                ctx.log.error(f"Failed to parse JSON response for {request_id}: {e}")
+                ctx.log.debug(f"Response content preview: {flow.response.content[:200]}")
+                del self.current_requests[request_id]
+                return
+
             turn = request_info["turn"]
 
             # Update response timing
