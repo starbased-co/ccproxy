@@ -32,10 +32,12 @@ python3 -c "import flask, flask_cors" 2>/dev/null || {
 # Port configuration
 PROXY_PORT=${PROXY_PORT:-4000}
 DASHBOARD_PORT=5555
+WEB_PORT=8081
 
 echo "Configuration:"
 echo "  Proxy: http://localhost:$PROXY_PORT"
-echo "  Dashboard: http://localhost:$DASHBOARD_PORT"
+echo "  Cache Dashboard: http://localhost:$DASHBOARD_PORT"
+echo "  Mitmweb Dashboard: http://localhost:$WEB_PORT"
 echo
 
 echo -e "${YELLOW}To use with Claude Code:${NC}"
@@ -53,9 +55,11 @@ echo -e "${GREEN}Starting reverse proxy with cache analysis...${NC}"
 echo "Press Ctrl+C to stop"
 echo
 
-# Run mitmdump in reverse proxy mode with our unified analyzer
-mitmdump \
+# Run mitmweb in reverse proxy mode with our unified analyzer
+mitmweb \
     --listen-port $PROXY_PORT \
+    --web-port 8081 \
+    --web-open-browser \
     --mode "reverse:https://api.anthropic.com" \
     --ssl-insecure \
     -s "$SCRIPT_DIR/cache_analyzer.py" \
