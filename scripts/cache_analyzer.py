@@ -108,8 +108,12 @@ class Conversation:
         if turn.usage.cache_read_input_tokens > 0:
             self.total_cache_hits += 1
             self.total_tokens_saved += turn.usage.cache_read_input_tokens
+            print(f"DEBUG: Cache HIT detected! Read tokens: {turn.usage.cache_read_input_tokens}")
         elif turn.usage.cache_creation_input_tokens > 0:
             self.total_cache_misses += 1
+            print(f"DEBUG: Cache creation detected! Creation tokens: {turn.usage.cache_creation_input_tokens}")
+        else:
+            print(f"DEBUG: No cache activity - creation: {turn.usage.cache_creation_input_tokens}, read: {turn.usage.cache_read_input_tokens}")
 
         self.turns.append(turn)
 
@@ -333,6 +337,10 @@ class CacheAnalyzer:
             # Extract usage metrics
             if "usage" in response_data:
                 usage = response_data["usage"]
+                
+                # Debug: Log complete usage structure
+                ctx.log.info(f"Complete usage data for {request_id}: {json.dumps(usage, indent=2)}")
+                
                 turn.usage = UsageMetrics(
                     input_tokens=usage.get("input_tokens", 0),
                     output_tokens=usage.get("output_tokens", 0),
@@ -341,6 +349,16 @@ class CacheAnalyzer:
                     total_tokens=usage.get("total_tokens", 0),
                 )
                 turn.usage.calculate_efficiency()
+                
+                # Debug: Log cache metrics
+                ctx.log.info(f"Cache metrics for {request_id}: "
+                           f"creation={usage.get('cache_creation_input_tokens', 0)}, "
+                           f"read={usage.get('cache_read_input_tokens', 0)}, "
+                           f"total_input={usage.get('input_tokens', 0)}")
+            else:
+                ctx.log.warn(f"No usage data found in response for {request_id}")
+                # Debug: Log what keys are available
+                ctx.log.info(f"Response keys for {request_id}: {list(response_data.keys()) if response_data else 'None'}")
 
             # Determine conversation ID
             conversation_id = self._get_conversation_id(flow)
