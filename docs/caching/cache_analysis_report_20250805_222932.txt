@@ -1,0 +1,69 @@
+Claude Code API Cache Breakpoint Analysis Report
+============================================================
+Generated: 2025-08-05 22:29:32
+Flows Analyzed: 31
+
+
+📊 Timeline Visualization
+============================================================
+
+[START] ─────────────────────────────────────> [TIME]
+
+
+│ SYSTEM PHASE
+├─🔄 [0ms] System: You are Claude Code, Anthropic's official CLI for ... (57B)
+├─🔄 [1ms] System: 
+You are an interactive CLI tool that helps users ... (14.1KB)
+
+│ USER PHASE
+├─── [12ms] User: System Reminder: Todo list status...... (19.9KB)
+├─── [22ms] User: When using neovim, How do I detect which terminal ... (82B)
+├─── [32ms] User: System Reminder: Todo list status...... (360B)
+
+│ ASSISTANT PHASE
+├─── [82ms] Assistant: I'll help you detect which terminal buffers are ru... (145B)
+├─── [312ms] Assistant: To detect which terminal buffers are running Claud... (2.3KB)
+├─── [362ms] Assistant: I'll help you solve the terminal reflow issue in N... (103B)
+├─── [652ms] Assistant: Here are several solutions to fix the terminal ref... (87B)
+
+└─── [END]
+
+
+🎯 Cache Efficiency Report
+============================================================
+
+Total Cache Breakpoints: 118
+Flows Analyzed: 31
+Average Caches per Flow: 3.8
+
+📊 Cache Distribution:
+  system               █████████████████████████  60 (50.8%)
+  user_message         ████████████               30 (25.4%)
+  assistant_message    ███████████                28 (23.7%)
+
+📏 Content Size Analysis:
+  system               Avg: 6.9KB    Min: 57B      Max: 14.2KB  
+  user_text            Avg: 1.1KB    Min: 57B      Max: 4.9KB   
+  assistant_text       Avg: 1019B    Min: 22B      Max: 5.0KB   
+
+💰 Cost Impact Analysis:
+  Total Cached Tokens: ~121,268
+  Cache Write Cost: $0.455
+  Cache Read Cost (per hit): $0.036
+  Regular Cost (no cache): $0.364
+  Break-even after: 2 uses
+
+💡 Optimization Recommendations:
+  1. System messages show 100% cache usage - excellent!
+  2. Consider caching more assistant tool results
+  3. User message caching is selective - good for freshness
+  4. Monitor cache hit rates in production
+
+🔍 Cache Pattern Analysis
+============================================================
+
+📋 Pattern Frequency:
+  System Always Cached                      30 (96.8%)
+  Tool Results Cached                        0 (0.0%)
+  System Reminders Cached                    2 (6.5%)
+  User Content Never Cached                 25 (80.6%)

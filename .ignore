@@ -5,4 +5,4 @@
 stubs
 uv.lock
 tests
-!docs/mitm/scripts
+docs/caching/captured*

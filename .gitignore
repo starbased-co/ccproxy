@@ -86,3 +86,6 @@ node_modules/
 # Task files
 tasks.json
 tasks/
+
+# Context Forge API keys
+.context-forge-api
