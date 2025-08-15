@@ -9,14 +9,14 @@ import json
 import threading
 import time
 from collections import defaultdict
-from dataclasses import asdict, dataclass, field
 
+import attrs
 from flask import Flask, jsonify, redirect, render_template_string, url_for
 from flask_cors import CORS
 from mitmproxy import ctx, http
 
 
-@dataclass
+@attrs.define
 class CacheControl:
     """Represents a cache control block"""
 
@@ -27,7 +27,7 @@ class CacheControl:
     content_preview: str = ""
 
 
-@dataclass
+@attrs.define
 class UsageMetrics:
     """Token usage metrics from response"""
 
@@ -44,7 +44,7 @@ class UsageMetrics:
             self.cache_efficiency = (self.cache_read_input_tokens / total_input) * 100
 
 
-@dataclass
+@attrs.define
 class ConversationTurn:
     """Represents a single API call in a conversation"""
 
@@ -54,10 +54,10 @@ class ConversationTurn:
     method: str  # 'messages' or 'completions'
 
     # Cache control locations
-    cache_controls: dict[str, list[CacheControl]] = field(default_factory=dict)
+    cache_controls: dict[str, list[CacheControl]] = attrs.field(factory=dict)
 
     # Token usage
-    usage: UsageMetrics = field(default_factory=UsageMetrics)
+    usage: UsageMetrics = attrs.field(factory=UsageMetrics)
 
     # Timing
     time_since_last: float | None = None
@@ -76,13 +76,13 @@ class ConversationTurn:
     error_message: str | None = None
 
 
-@dataclass
+@attrs.define
 class Conversation:
     """Tracks a full conversation session"""
 
     conversation_id: str
     start_time: float
-    turns: list[ConversationTurn] = field(default_factory=list)
+    turns: list[ConversationTurn] = attrs.field(factory=list)
 
     # Aggregate metrics
     total_cache_hits: int = 0
@@ -113,7 +113,9 @@ class Conversation:
             self.total_cache_misses += 1
             print(f"DEBUG: Cache creation detected! Creation tokens: {turn.usage.cache_creation_input_tokens}")
         else:
-            print(f"DEBUG: No cache activity - creation: {turn.usage.cache_creation_input_tokens}, read: {turn.usage.cache_read_input_tokens}")
+            print(
+                f"DEBUG: No cache activity - creation: {turn.usage.cache_creation_input_tokens}, read: {turn.usage.cache_read_input_tokens}"
+            )
 
         self.turns.append(turn)
 
@@ -167,10 +169,10 @@ class CacheAnalyzer:
 
             # Store request for correlation with response
             self.current_requests[request_id] = {
-                "turn": turn, 
-                "flow_id": flow.id, 
+                "turn": turn,
+                "flow_id": flow.id,
                 "start_time": time.time(),
-                "is_streaming": is_streaming
+                "is_streaming": is_streaming,
             }
 
             return request_id
@@ -186,7 +188,7 @@ class CacheAnalyzer:
 
         try:
             request_info = self.current_requests[request_id]
-            
+
             # Check if response exists
             if not flow.response:
                 ctx.log.warn(f"No response object for request {request_id}")
@@ -202,30 +204,30 @@ class CacheAnalyzer:
 
             # Get response content - try multiple methods
             content = None
-            
+
             # First try the text property (handles decompression)
             try:
                 content = flow.response.text
             except Exception as e:
                 ctx.log.debug(f"Failed to get response.text: {e}")
-                
+
             # If text failed or is empty, try get_text()
             if not content:
                 try:
                     content = flow.response.get_text()
                 except Exception as e:
                     ctx.log.debug(f"Failed to get_text(): {e}")
-            
+
             # If still no content, try raw content with decoding
             if not content:
                 try:
                     raw_content = flow.response.content
                     if raw_content:
-                        content = raw_content.decode('utf-8', errors='ignore')
+                        content = raw_content.decode("utf-8", errors="ignore")
                         ctx.log.debug(f"Using raw content decoding for {request_id}")
                 except Exception as e:
                     ctx.log.debug(f"Failed to decode raw content: {e}")
-            
+
             # Log content details for debugging
             if not content:
                 ctx.log.warn(f"Empty response content for request {request_id}")
@@ -233,9 +235,11 @@ class CacheAnalyzer:
                 ctx.log.debug(f"Response content length: {len(flow.response.content) if flow.response.content else 0}")
                 del self.current_requests[request_id]
                 return
-            
+
             # Log content type and first characters for debugging
-            ctx.log.debug(f"Response for {request_id}: content_type={flow.response.headers.get('content-type', 'unknown')}, len={len(content)}, preview={repr(content[:100])}")
+            ctx.log.debug(
+                f"Response for {request_id}: content_type={flow.response.headers.get('content-type', 'unknown')}, len={len(content)}, preview={repr(content[:100])}"
+            )
 
             # Handle streaming responses (Server-Sent Events format)
             # Check if this looks like SSE format (can start with "event:" or "data:")
@@ -243,15 +247,15 @@ class CacheAnalyzer:
             if is_streaming or content.startswith(("data:", "event:")):
                 ctx.log.info(f"Processing SSE/streaming response for {request_id}")
                 # Extract JSON from SSE stream
-                lines = content.strip().split('\n')
+                lines = content.strip().split("\n")
                 response_data = None
-                
+
                 # Debug: show what we're dealing with
                 ctx.log.debug(f"SSE response has {len(lines)} lines")
                 if lines:
                     ctx.log.debug(f"First line: {repr(lines[0][:100])}")
                     ctx.log.debug(f"Last line: {repr(lines[-1][:100])}")
-                
+
                 # Look for message_start event which contains usage for streaming
                 # According to docs: cache metrics come in message_start event for streaming
                 for i, line in enumerate(lines):
@@ -269,25 +273,25 @@ class CacheAnalyzer:
                                         break
                                 except json.JSONDecodeError as e:
                                     ctx.log.debug(f"Failed to parse message_start data: {e}")
-                    
+
                     # Also check data lines for different event types
                     elif line.startswith("data: ") and line != "data: [DONE]":
                         try:
                             data = json.loads(line[6:])
-                            
+
                             # Check for message_start type
                             if data.get("type") == "message_start":
                                 if "message" in data and "usage" in data["message"]:
                                     response_data = {"usage": data["message"]["usage"]}
                                     ctx.log.info(f"Found usage in message_start data for {request_id}")
                                     break
-                            
+
                             # Check for direct usage (non-streaming format mixed in)
                             elif "usage" in data:
                                 response_data = data
                                 ctx.log.info(f"Found direct usage in data for {request_id}")
                                 break
-                            
+
                             # Check for message_stop with usage
                             elif data.get("type") == "message_stop":
                                 if "usage" in data:
@@ -296,7 +300,7 @@ class CacheAnalyzer:
                                     break
                         except json.JSONDecodeError:
                             continue
-                
+
                 if not response_data:
                     ctx.log.warn(f"No usage metrics found in streaming response for {request_id}")
                     ctx.log.debug(f"First 5 lines of response: {lines[:5] if len(lines) > 5 else lines}")
@@ -311,14 +315,16 @@ class CacheAnalyzer:
                         ctx.log.error(f"Response content is empty after stripping for {request_id}")
                         del self.current_requests[request_id]
                         return
-                    
+
                     # Check if it starts with expected JSON characters
-                    if not content_stripped[0] in '{[':
+                    if content_stripped[0] not in "{[":
                         # Maybe it's SSE that we didn't catch earlier
                         if content_stripped.startswith(("event:", "data:", "id:")):
-                            ctx.log.info(f"Detected SSE format for non-streaming request {request_id}, processing as SSE")
+                            ctx.log.info(
+                                f"Detected SSE format for non-streaming request {request_id}, processing as SSE"
+                            )
                             # Process as SSE
-                            lines = content_stripped.split('\n')
+                            lines = content_stripped.split("\n")
                             response_data = None
                             for line in lines:
                                 if line.startswith("data: ") and line != "data: [DONE]":
@@ -328,17 +334,19 @@ class CacheAnalyzer:
                                             break
                                     except json.JSONDecodeError:
                                         continue
-                            
+
                             if not response_data:
                                 ctx.log.warn(f"Could not extract data from SSE response for {request_id}")
                                 del self.current_requests[request_id]
                                 return
                         else:
-                            ctx.log.error(f"Response doesn't look like JSON for {request_id}. First char: {repr(content_stripped[0])}")
+                            ctx.log.error(
+                                f"Response doesn't look like JSON for {request_id}. First char: {repr(content_stripped[0])}"
+                            )
                             ctx.log.debug(f"Full content preview: {repr(content_stripped[:200])}")
                             del self.current_requests[request_id]
                             return
-                    
+
                     response_data = json.loads(content_stripped)
                 except json.JSONDecodeError as e:
                     ctx.log.error(f"Failed to parse JSON response for {request_id}: {e}")
@@ -356,10 +364,10 @@ class CacheAnalyzer:
             # Extract usage metrics
             if "usage" in response_data:
                 usage = response_data["usage"]
-                
+
                 # Debug: Log complete usage structure
                 ctx.log.info(f"Complete usage data for {request_id}: {json.dumps(usage, indent=2)}")
-                
+
                 turn.usage = UsageMetrics(
                     input_tokens=usage.get("input_tokens", 0),
                     output_tokens=usage.get("output_tokens", 0),
@@ -368,16 +376,20 @@ class CacheAnalyzer:
                     total_tokens=usage.get("total_tokens", 0),
                 )
                 turn.usage.calculate_efficiency()
-                
+
                 # Debug: Log cache metrics
-                ctx.log.info(f"Cache metrics for {request_id}: "
-                           f"creation={usage.get('cache_creation_input_tokens', 0)}, "
-                           f"read={usage.get('cache_read_input_tokens', 0)}, "
-                           f"total_input={usage.get('input_tokens', 0)}")
+                ctx.log.info(
+                    f"Cache metrics for {request_id}: "
+                    f"creation={usage.get('cache_creation_input_tokens', 0)}, "
+                    f"read={usage.get('cache_read_input_tokens', 0)}, "
+                    f"total_input={usage.get('input_tokens', 0)}"
+                )
             else:
                 ctx.log.warn(f"No usage data found in response for {request_id}")
                 # Debug: Log what keys are available
-                ctx.log.info(f"Response keys for {request_id}: {list(response_data.keys()) if response_data else 'None'}")
+                ctx.log.info(
+                    f"Response keys for {request_id}: {list(response_data.keys()) if response_data else 'None'}"
+                )
 
             # Determine conversation ID
             conversation_id = self._get_conversation_id(flow)
@@ -555,7 +567,7 @@ class UnifiedCacheAnalyzer:
                 conv_data = {
                     "id": conv_id,
                     "start_time": conv.start_time,
-                    "turns": [asdict(turn) for turn in conv.turns],
+                    "turns": [attrs.asdict(turn) for turn in conv.turns],
                     "metrics": {
                         "total_cache_hits": conv.total_cache_hits,
                         "total_cache_misses": conv.total_cache_misses,
@@ -853,4 +865,3 @@ DASHBOARD_HTML = """
 
 # Create addon instance
 addons = [UnifiedCacheAnalyzer()]
-
