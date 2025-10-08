@@ -20,7 +20,7 @@ ccproxy install
 
 ### Manual Setup
 
-If you prefer to set up manually, download the template files:
+For those who prefer not to run the automated setup, you can download the files to the proper locations directly:
 
 ```bash
 # Create the ccproxy configuration directory
@@ -39,17 +39,29 @@ curl -o ~/.ccproxy/ccproxy.yaml \
   https://raw.githubusercontent.com/starbased-co/ccproxy/main/src/ccproxy/templates/ccproxy.yaml
 ```
 
-This creates the configuration files from the built-in templates.
+## Configuration
 
-## Configuration Files
+`ccproxy` has minimal coupling between components, allowing you to disable rules, routing, and other add-ons. A minimal configuration contains:
+
+- **Anthropic Model Deployments**: `anthropic/claude-sonnet-4-20250514` and `anthropic/claude-opus-4-1-20250805` in `config.yaml` (and `anthropic/claude-3-5-haiku-20241022` for non-essential model calls like flavor text)
+- **`ccproxy.hooks.forward_oauth`**: without this in `ccproxy.yaml`, you can not use your logged in Claude Max account to make API requests
+
+The routing model aliases `default`, `background`, and `think`, etc. and are only needed if using the rule & routing systems.
 
 ### `config.yaml` (LiteLLM Configuration)
 
-This file configures the LiteLLM proxy server with model definitions and API settings.
+The [LiteLLM proxy server configuration](https://docs.litellm.ai/docs/proxy/configs) includes several key components used by `ccproxy`:
+
+- Model Deployments: Real model configurations that connect to AI providers (e.g., `claude-sonnet-4-20250514`)
+- Model Aliases: ccproxy routing labels that map to deployments based on rules (e.g., `default`, `background`, `think`)
+- Callbacks: Where `ccproxy` hooks into the request lifecycle (`ccproxy.handler`)
+
+Note the distinction between deployments and aliases: model deployments are your **actual connections to AI providers**, while model aliases **map to deployments**. [See here for more information on model aliases](https://docs.litellm.ai/docs/completion/model_alias).
 
 ```yaml
 # LiteLLM model configuration
 model_list:
+  # === Aliases ===
   # Default model for regular use
   - model_name: default
     litellm_params:
@@ -75,6 +87,7 @@ model_list:
     litellm_params:
       model: gemini-2.5-flash
 
+  # === Deployments ===
   # Anthropic provided claude models, no `api_key` needed
   - model_name: claude-sonnet-4-20250514
     litellm_params:
@@ -110,30 +123,28 @@ general_settings:
 
 Each `model_name` can be either:
 
-- A configured LiteLLM model (e.g., `claude-sonnet-4-20250514`)
+- A [valid LiteLLM model](https://docs.litellm.ai/docs/providers) (e.g., `anthropic/claude-sonnet-4-20250514`)
+- An alias to a valid LiteLLM model
 - The name of a rule configured in `ccproxy.yaml` (e.g., `default`, `background`, `think`)
 
-Model names in `config.yaml` must correspond to rule names in `ccproxy.yaml`. When a rule matches, `ccproxy` routes to the model with the same `model_name`.
+Rule names in `ccproxy.yaml` must correspond to model aliases in `config.yaml`. When a rule matches, `ccproxy` changes the model from Claude Code's request to the matching model alias.
 
-- **Minimum requirements for Claude Code**: For Claude Code to function properly, your `config.yaml` must include at minimum:
-  - **Rule-based models**: `default`, `background`, and `think`
-  - **Claude models**: `claude-sonnet-4-20250514`, `claude-3-5-haiku-20241022`, and `claude-opus-4-1-20250805` (all with `api_base: https://api.anthropic.com`)
+#### ccproxy.py (Handler Integration)
 
-See the [LiteLLM documentation](https://docs.litellm.ai/docs/proxy/configs) for more information.
+This file is the file referenced under `litellm_settings.callbacks`, and it instantiates [the `ccproxy` handler](src/ccproxy/handler.py#L27).
+
+```python
+from ccproxy.handler import CCProxyHandler
+
+# Create the instance that LiteLLM will use
+handler = CCProxyHandler()
+```
 
 ### `ccproxy.yaml` (ccproxy Configuration)
 
-This file configures `ccproxy`-specific behavior including routing rules and hooks.
+This file configures `ccproxy` systems such as routing rules and hooks.
 
 ```yaml
-# LiteLLM proxy settings
-litellm:
-  host: 127.0.0.1
-  port: 4000
-  num_workers: 4
-  debug: true
-  detailed_debug: true
-
 # ccproxy-specific configuration
 ccproxy:
   debug: true
@@ -167,11 +178,19 @@ ccproxy:
       rule: ccproxy.rules.MatchToolRule
       params:
         - tool_name: WebSearch
+
+# See `litellm --help`
+litellm:
+  host: 127.0.0.1
+  port: 4000
+  num_workers: 4
+  debug: true
+  detailed_debug: true
 ```
 
-- **`litellm`**: LiteLLM proxy server process (See `litellm --help`)
 - **`ccproxy.hooks`**: A list of hooks that are executed in series during the `async_pre_call_hook`
-- **`ccproxy.rules`**: Request routing rules (evaluated in order)
+- **`ccproxy.rules`**: Request routing rules (evaluated in order) and parameters
+- **`litellm`**: LiteLLM proxy server process (See `litellm --help`)
 
 #### Built-in Rules
 
@@ -200,28 +219,17 @@ params:
   - keyword: "keyword_value"
 ```
 
-### ccproxy.py (Handler Integration)
-
-This file instantiates the `ccproxy` handler for LiteLLM integration.
-
-```python
-from ccproxy.handler import CCProxyHandler
-
-# Create the instance that LiteLLM will use
-handler = CCProxyHandler()
-```
-
-This file is referenced in `config.yaml` under `litellm_settings.callbacks`.
-
-## Request Routing Flow
+## Request Processing Flow
 
 1. **Request Received**: LiteLLM proxy receives request
 2. **Hook Processing**: `ccproxy` hooks process the request in order:
-   - `rule_evaluator`: Evaluates rules to determine routing
-   - `model_router`: Maps rule name to model configuration
-   - `forward_oauth`: Handles OAuth token forwarding
-3. **Model Selection**: Request routed to appropriate model
+   - `rule_evaluator` (optional): Evaluates rules to determine routing
+   - `model_router` (optional): Maps rule name to model configuration
+   - `forward_oauth` (required): Handles OAuth token forwarding for Anthropic API
+3. **Model Selection**: Request sent to appropriate model (routed if using routing system, otherwise direct)
 4. **Response**: Response returned through LiteLLM proxy
+
+**Note**: Only OAuth forwarding is required for basic Claude Code functionality. The routing system is optional.
 
 ## Custom Rules
 
@@ -254,19 +262,31 @@ ccproxy:
 
 ## Custom Hooks
 
-`ccproxy` provides a hook system that allows you to extend and customize its behavior beyond the built-in rule routing system. Hooks are Python functions that can intercept and modify requests, implement custom logging, filtering, or integrate with external systems. The rule routing system is just itself a custom hook.
+`ccproxy` provides a hook system that allows you to extend and customize its behavior. Hooks are Python functions or classes that can intercept and modify requests, implement custom logging, filtering, or integrate with external systems.
 
-Only the `forward_oauth` is required for Claude Code to function properly.
+**Minimal requirement for Claude Code:**
+
+- `ccproxy.hooks.forward_oauth` - Forwards OAuth tokens for Anthropic API requests
+
+**Optional routing system hooks:**
+
+- `ccproxy.hooks.rule_evaluator` - Evaluates classification rules to determine routing
+- `ccproxy.hooks.model_router` - Routes requests to appropriate models based on classification
+
+The routing system is an extension that provides intelligent request routing, but Claude Code can function with just OAuth token forwarding.
 
 ### Hook Signature
 
 All hooks must follow this signature:
 
 ```python
+from typing import Any
+from ccproxy.handler import CCProxyHandler
+
 def hook_name(
     data: dict[str, Any],
-    user_api_key_dict: dict[str, Any], 
-    handler: Any,
+    user_api_key_dict: dict[str, Any],
+    handler: CCProxyHandler,
     **kwargs: Any
 ) -> dict[str, Any]:
     """
@@ -277,13 +297,17 @@ def hook_name(
             - handler.classifier: RequestClassifier for rule evaluation
             - handler.router: ModelRouter for model routing
             - handler.hooks: List of configured hooks
-            - handler.config: CCProxyConfig instance
         **kwargs: Additional keyword arguments for future extensibility
-    
+
     Returns:
         Modified request data dictionary
     """
-    pass
+    # Access handler components as needed
+    classifier = handler.classifier
+    router = handler.router
+
+    # Your hook logic here
+    return data
 ```
 
 ### Example: Request Logging Hook
@@ -292,12 +316,13 @@ def hook_name(
 # ~/.ccproxy/my_hooks.py
 import logging
 from typing import Any
+from ccproxy.handler import CCProxyHandler
 
 logger = logging.getLogger(__name__)
 
-def request_logger(data: dict[str, Any], user_api_key_dict: dict[str, Any], handler: Any, **kwargs: Any) -> dict[str, Any]:
+def request_logger(data: dict[str, Any], user_api_key_dict: dict[str, Any], handler: CCProxyHandler, **kwargs: Any) -> dict[str, Any]:
     """Log detailed request information.
-    
+
     Args:
         data: Request data dictionary
         user_api_key_dict: User API key information
@@ -306,11 +331,11 @@ def request_logger(data: dict[str, Any], user_api_key_dict: dict[str, Any], hand
     """
     metadata = data.get("metadata", {})
     logger.info(f"Processing request for model: {data.get('model')}")
-    
+
     # You can access handler components if needed:
     # classifier = handler.classifier
     # router = handler.router
-    
+
     return data
 ```
 
@@ -319,8 +344,66 @@ Add to `ccproxy.yaml`:
 ```yaml
 ccproxy:
   hooks:
-    - my_hooks.request_logger # Your custom hook
-    - ccproxy.hooks.forward_oauth # Required for Claude Code
+    - ccproxy.hooks.rule_evaluator # Optional: Evaluate classification rules
+    - ccproxy.hooks.model_router # Optional: Route to appropriate model
+    - my_hooks.request_logger # Optional: Your custom logging hook
+    - ccproxy.hooks.forward_oauth # Required: Handle OAuth tokens for Anthropic API
+```
+
+### Class-Based Hooks
+
+For more complex functionality, you can create class-based hooks using the `BaseHook` abstract class:
+
+```python
+# ~/.ccproxy/my_hooks.py
+from typing import Any
+from ccproxy.hooks import BaseHook
+from ccproxy.handler import CCProxyHandler
+
+class MetricsHook(BaseHook):
+    """Hook that collects request metrics."""
+
+    def __init__(self):
+        self.request_count = 0
+        self.total_tokens = 0
+
+    def __call__(
+        self,
+        data: dict[str, Any],
+        user_api_key_dict: dict[str, Any],
+        handler: CCProxyHandler,
+        **kwargs: Any
+    ) -> dict[str, Any]:
+        """Collect metrics and pass through request."""
+        self.request_count += 1
+
+        # Estimate token count if available
+        messages = data.get("messages", [])
+        estimated_tokens = sum(len(str(msg)) // 4 for msg in messages)
+        self.total_tokens += estimated_tokens
+
+        # Add metrics to metadata for downstream hooks
+        if "metadata" not in data:
+            data["metadata"] = {}
+
+        data["metadata"]["request_number"] = self.request_count
+        data["metadata"]["estimated_tokens"] = estimated_tokens
+
+        return data
+
+# Create instance for ccproxy to use
+metrics_collector = MetricsHook()
+```
+
+Register the class-based hook:
+
+```yaml
+ccproxy:
+  hooks:
+    - ccproxy.hooks.rule_evaluator # Optional: Routing system
+    - ccproxy.hooks.model_router # Optional: Routing system
+    - my_hooks.metrics_collector # Optional: Custom class-based hook
+    - ccproxy.hooks.forward_oauth # Required: OAuth forwarding
 ```
 
 ## Debugging
