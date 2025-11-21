@@ -1,5 +1,6 @@
 """Tests for configuration management."""
 
+import logging
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -426,14 +427,16 @@ ccproxy:
                 clear_config_instance()
 
 
-class TestCredentialsLoading:
-    """Tests for credentials loading at config startup."""
+class TestOAuthLoading:
+    """Tests for OAuth token loading at config startup."""
 
-    def test_credentials_loaded_at_startup_success(self) -> None:
-        """Test that credentials are loaded successfully during config initialization."""
+    def test_oat_sources_loaded_at_startup_success(self) -> None:
+        """Test that OAuth tokens are loaded successfully during config initialization."""
         yaml_content = """
 ccproxy:
-  credentials: echo 'test-token-123'
+  oat_sources:
+    anthropic: echo 'anthropic-token-123'
+    gemini: echo 'gemini-token-456'
   debug: true
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -443,18 +446,20 @@ ccproxy:
         try:
             config = CCProxyConfig.from_yaml(yaml_path)
 
-            # Credentials should be loaded and cached
-            assert config.credentials_value == "test-token-123"
-            assert config.credentials == "echo 'test-token-123'"
+            # OAuth tokens should be loaded and cached
+            assert config.get_oauth_token("anthropic") == "anthropic-token-123"
+            assert config.get_oauth_token("gemini") == "gemini-token-456"
+            assert config.oat_sources == {"anthropic": "echo 'anthropic-token-123'", "gemini": "echo 'gemini-token-456'"}
 
         finally:
             yaml_path.unlink()
 
-    def test_credentials_loaded_with_whitespace_stripped(self) -> None:
-        """Test that whitespace is stripped from credentials output."""
+    def test_oat_sources_loaded_with_whitespace_stripped(self) -> None:
+        """Test that whitespace is stripped from OAuth token output."""
         yaml_content = """
 ccproxy:
-  credentials: echo '  token-with-spaces  '
+  oat_sources:
+    anthropic: echo '  token-with-spaces  '
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
@@ -462,16 +467,18 @@ ccproxy:
 
         try:
             config = CCProxyConfig.from_yaml(yaml_path)
-            assert config.credentials_value == "token-with-spaces"
+            assert config.get_oauth_token("anthropic") == "token-with-spaces"
 
         finally:
             yaml_path.unlink()
 
-    def test_credentials_shell_command_failure(self) -> None:
-        """Test that config loading fails when credentials shell command fails."""
+    def test_oat_sources_shell_command_failure_partial(self) -> None:
+        """Test that config loads successfully even when some OAuth commands fail."""
         yaml_content = """
 ccproxy:
-  credentials: exit 1
+  oat_sources:
+    anthropic: echo 'valid-token'
+    gemini: exit 1
   debug: true
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -479,57 +486,80 @@ ccproxy:
             yaml_path = Path(f.name)
 
         try:
-            # Should raise RuntimeError when shell command fails
-            import pytest
-
-            with pytest.raises(RuntimeError, match="Credentials shell command failed with exit code 1"):
-                CCProxyConfig.from_yaml(yaml_path)
+            # Should load successfully with partial success
+            config = CCProxyConfig.from_yaml(yaml_path)
+            assert config.get_oauth_token("anthropic") == "valid-token"
+            assert config.get_oauth_token("gemini") is None
 
         finally:
             yaml_path.unlink()
 
-    def test_credentials_shell_command_empty_output(self) -> None:
-        """Test that config loading fails when credentials shell command returns empty output."""
+    def test_oat_sources_shell_command_all_fail(self) -> None:
+        """Test that config loading fails when all OAuth commands fail."""
         yaml_content = """
 ccproxy:
-  credentials: echo -n ''
+  oat_sources:
+    anthropic: exit 1
+    gemini: exit 1
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             yaml_path = Path(f.name)
 
         try:
-            # Should raise RuntimeError when output is empty
+            # Should raise RuntimeError when all commands fail
             import pytest
 
-            with pytest.raises(RuntimeError, match="Credentials shell command returned empty output"):
+            with pytest.raises(RuntimeError, match="Failed to load OAuth tokens for all 2 provider"):
                 CCProxyConfig.from_yaml(yaml_path)
 
         finally:
             yaml_path.unlink()
 
-    def test_credentials_shell_command_timeout(self) -> None:
-        """Test that config loading fails when credentials shell command times out."""
+    def test_oat_sources_shell_command_empty_output(self) -> None:
+        """Test that provider is skipped when OAuth command returns empty output."""
         yaml_content = """
 ccproxy:
-  credentials: sleep 10
+  oat_sources:
+    anthropic: echo 'valid-token'
+    gemini: echo -n ''
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
             yaml_path = Path(f.name)
 
         try:
-            # Should raise RuntimeError when command times out
-            import pytest
-
-            with pytest.raises(RuntimeError, match="Credentials shell command timed out after 5 seconds"):
-                CCProxyConfig.from_yaml(yaml_path)
+            # Should load with only valid provider
+            config = CCProxyConfig.from_yaml(yaml_path)
+            assert config.get_oauth_token("anthropic") == "valid-token"
+            assert config.get_oauth_token("gemini") is None
 
         finally:
             yaml_path.unlink()
 
-    def test_credentials_not_configured(self) -> None:
-        """Test that config loads successfully when no credentials configured."""
+    def test_oat_sources_shell_command_timeout(self) -> None:
+        """Test that provider is skipped when OAuth command times out."""
+        yaml_content = """
+ccproxy:
+  oat_sources:
+    anthropic: echo 'valid-token'
+    gemini: sleep 10
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            yaml_path = Path(f.name)
+
+        try:
+            # Should load with only non-timeout provider
+            config = CCProxyConfig.from_yaml(yaml_path)
+            assert config.get_oauth_token("anthropic") == "valid-token"
+            assert config.get_oauth_token("gemini") is None
+
+        finally:
+            yaml_path.unlink()
+
+    def test_oat_sources_not_configured(self) -> None:
+        """Test that config loads successfully when no OAuth sources configured."""
         yaml_content = """
 ccproxy:
   debug: true
@@ -541,26 +571,29 @@ ccproxy:
         try:
             config = CCProxyConfig.from_yaml(yaml_path)
 
-            # Should load successfully with no credentials
-            assert config.credentials is None
-            assert config.credentials_value is None
+            # Should load successfully with no OAuth tokens
+            assert config.oat_sources == {}
+            assert config.oat_values == {}
+            assert config.get_oauth_token("anthropic") is None
 
         finally:
             yaml_path.unlink()
 
-    def test_credentials_value_property_readonly(self) -> None:
-        """Test that credentials_value is accessible via property."""
-        config = CCProxyConfig(credentials=None)
-        config._credentials_value = "cached-token"
+    def test_oat_values_property_readonly(self) -> None:
+        """Test that oat_values is accessible via property."""
+        config = CCProxyConfig()
+        config._oat_values = {"anthropic": "cached-token"}
 
         # Should be accessible via property
-        assert config.credentials_value == "cached-token"
+        assert config.oat_values == {"anthropic": "cached-token"}
+        assert config.get_oauth_token("anthropic") == "cached-token"
 
-    def test_credentials_cached_once(self) -> None:
-        """Test that credentials are cached and not re-executed."""
+    def test_oauth_tokens_cached_once(self) -> None:
+        """Test that OAuth tokens are cached and not re-executed."""
         yaml_content = """
 ccproxy:
-  credentials: echo 'initial-token'
+  oat_sources:
+    anthropic: echo 'initial-token'
 """
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(yaml_content)
@@ -570,12 +603,66 @@ ccproxy:
             config = CCProxyConfig.from_yaml(yaml_path)
 
             # Get the cached value
-            first_value = config.credentials_value
+            first_value = config.get_oauth_token("anthropic")
             assert first_value == "initial-token"
 
             # Accessing again should return same cached value
-            second_value = config.credentials_value
+            second_value = config.get_oauth_token("anthropic")
             assert second_value == first_value
+
+        finally:
+            yaml_path.unlink()
+
+    def test_deprecated_credentials_field_migration(self, caplog) -> None:
+        """Test that deprecated 'credentials' field is migrated to oat_sources['anthropic']."""
+        yaml_content = """
+ccproxy:
+  credentials: echo 'legacy-token-123'
+  debug: true
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            yaml_path = Path(f.name)
+
+        try:
+            with caplog.at_level(logging.ERROR):
+                config = CCProxyConfig.from_yaml(yaml_path)
+
+            # Should have migrated credentials to oat_sources
+            assert config.get_oauth_token("anthropic") == "legacy-token-123"
+            assert config.oat_sources == {"anthropic": "echo 'legacy-token-123'"}
+
+            # Should have logged deprecation error
+            assert "DEPRECATED: The 'credentials' field is deprecated" in caplog.text
+            assert "oat_sources['anthropic']" in caplog.text
+
+        finally:
+            yaml_path.unlink()
+
+    def test_deprecated_credentials_with_existing_oat_sources(self, caplog) -> None:
+        """Test that oat_sources['anthropic'] takes precedence over deprecated credentials."""
+        yaml_content = """
+ccproxy:
+  credentials: echo 'legacy-token'
+  oat_sources:
+    anthropic: echo 'new-token-456'
+  debug: true
+"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write(yaml_content)
+            yaml_path = Path(f.name)
+
+        try:
+            with caplog.at_level(logging.WARNING):  # Capture WARNING level for the preference message
+                config = CCProxyConfig.from_yaml(yaml_path)
+
+            # Should use oat_sources value, not credentials
+            assert config.get_oauth_token("anthropic") == "new-token-456"
+            assert config.oat_sources == {"anthropic": "echo 'new-token-456'"}
+
+            # Should have logged both deprecation and preference warning
+            assert "DEPRECATED: The 'credentials' field is deprecated" in caplog.text
+            assert 'Using \'oat_sources["anthropic"]\' and ignoring deprecated \'credentials\' field' in caplog.text
 
         finally:
             yaml_path.unlink()
