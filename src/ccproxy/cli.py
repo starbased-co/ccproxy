@@ -631,8 +631,11 @@ def show_status(config_dir: Path, json_output: bool = False) -> None:
     if user_hooks.exists():
         config_paths["ccproxy.py"] = str(user_hooks)
 
-    # Extract callbacks from config.yaml
+    # Extract callbacks from config.yaml and port from ccproxy.yaml
     callbacks = []
+    port = None
+    host = None
+
     if litellm_config.exists():
         try:
             with litellm_config.open() as f:
@@ -642,6 +645,16 @@ def show_status(config_dir: Path, json_output: bool = False) -> None:
         except (yaml.YAMLError, OSError):
             pass
 
+    if ccproxy_config.exists():
+        try:
+            with ccproxy_config.open() as f:
+                ccproxy_data = yaml.safe_load(f)
+            litellm_section = ccproxy_data.get("litellm", {}) if ccproxy_data else {}
+            host = os.environ.get("HOST", litellm_section.get("host", "127.0.0.1"))
+            port = int(os.environ.get("PORT", litellm_section.get("port", 4000)))
+        except (yaml.YAMLError, OSError, ValueError):
+            pass
+
     # Build status data
     status_data = {
         "proxy": proxy_running,
@@ -649,6 +662,11 @@ def show_status(config_dir: Path, json_output: bool = False) -> None:
         "callbacks": callbacks,
         "log": str(log_file) if log_file.exists() else None,
     }
+
+    # Add port info if proxy is running
+    if proxy_running and port:
+        status_data["port"] = port
+        status_data["host"] = host
 
     if json_output:
         builtin_print(json.dumps(status_data, indent=2))
@@ -663,6 +681,11 @@ def show_status(config_dir: Path, json_output: bool = False) -> None:
         # Proxy status
         proxy_status = "[green]true[/green]" if status_data["proxy"] else "[red]false[/red]"
         table.add_row("proxy", proxy_status)
+
+        # Add port and host if proxy is running
+        if status_data["proxy"] and "port" in status_data:
+            port_display = f"[cyan]{status_data['host']}[/cyan]:[green]{status_data['port']}[/green]"
+            table.add_row("address", port_display)
 
         # Config files
         if status_data["config"]:
