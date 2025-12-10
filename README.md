@@ -232,9 +232,40 @@ general_settings:
 
 See [docs/configuration.md](docs/configuration.md) for more information on how to customize your Claude Code experience using `ccproxy`.
 
-<!-- ## Extended Thinking -->
+## Extended Thinking Budget Hook
 
-<!-- Normally, when you send a message, Claude Code does a simple keyword scan for words/phrases like "think deeply" to determine whether or not to enable thinking, as well the size of the thinking token budget. [Simply including the word "ultrathink](https://claudelog.com/mechanics/ultrathink-plus-plus/) sets the thinking token budget to the maximum of `31999`. -->
+`ccproxy` includes a `thinking_budget` hook that manages Claude's extended thinking `budget_tokens` parameter:
+
+- Injects default `budget_tokens` when thinking is enabled but budget is missing
+- Overrides `budget_tokens` when below a configurable minimum
+- Ensures `budget_tokens < max_tokens` (API constraint)
+- Optionally injects thinking for thinking-capable models
+
+Note: `thinking` is Anthropic-specific. Non-Anthropic providers will ignore it.
+
+### Configuration
+
+```yaml
+ccproxy:
+  hooks:
+    - ccproxy.hooks.rule_evaluator
+    - ccproxy.hooks.model_router
+    - ccproxy.hooks.forward_oauth
+    - ccproxy.hooks.thinking_budget  # Simple form - uses defaults
+
+    # OR with custom parameters:
+    # - hook: ccproxy.hooks.thinking_budget
+    #   params:
+    #     budget_default: 16000      # Default budget (default: 10000)
+    #     budget_min: 4000           # Minimum threshold (default: 1024)
+    #     inject_if_missing: false   # Inject thinking if absent (default: false)
+    #     log_modifications: true    # Log changes (default: true)
+```
+
+### Behavior
+
+- **Existing thinking**: If request has `thinking`, adjusts budget as needed (trusts caller on model choice)
+- **inject_if_missing**: Only injects thinking for Claude 3.7+ and Claude 4 models
 
 ## Routing Rules
 
