@@ -9,12 +9,16 @@ import pytest
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import clear_config_instance
 from ccproxy.hooks import (
+    API_MIN_BUDGET_TOKENS,
+    THINKING_CAPABLE_PATTERNS,
+    _is_thinking_capable_model,
     capture_headers,
     extract_session_id,
     forward_apikey,
     forward_oauth,
     model_router,
     rule_evaluator,
+    thinking_budget,
 )
 from ccproxy.router import ModelRouter, clear_router
 
@@ -1258,3 +1262,405 @@ class TestExtractSessionId:
         assert trace_meta["existing_trace_key"] == "existing_trace_value"
         assert trace_meta["claude_user_hash"] == "hash123"
         assert trace_meta["claude_account_id"] == "acct456"
+
+
+class TestIsThinkingCapableModel:
+    """Test the _is_thinking_capable_model helper function."""
+
+    def test_claude_3_7_sonnet(self):
+        """Test claude-3-7-sonnet is recognized."""
+        assert _is_thinking_capable_model("claude-3-7-sonnet-20250219") is True
+
+    def test_claude_4_models(self):
+        """Test claude-4 models are recognized."""
+        assert _is_thinking_capable_model("claude-4-opus-20250101") is True
+        assert _is_thinking_capable_model("claude-4-sonnet-20250101") is True
+
+    def test_claude_sonnet_4(self):
+        """Test claude-sonnet-4 models are recognized."""
+        assert _is_thinking_capable_model("claude-sonnet-4-5-20250929") is True
+        assert _is_thinking_capable_model("claude-sonnet-4-20250514") is True
+
+    def test_claude_opus_4(self):
+        """Test claude-opus-4 models are recognized."""
+        assert _is_thinking_capable_model("claude-opus-4-5-20251101") is True
+        assert _is_thinking_capable_model("claude-opus-4-20250514") is True
+
+    def test_claude_haiku_4(self):
+        """Test claude-haiku-4 models are recognized."""
+        assert _is_thinking_capable_model("claude-haiku-4-5-20251001") is True
+
+    def test_older_models_not_capable(self):
+        """Test older models are not recognized as thinking-capable."""
+        assert _is_thinking_capable_model("claude-3-5-sonnet-20241022") is False
+        assert _is_thinking_capable_model("claude-3-5-haiku-20241022") is False
+        assert _is_thinking_capable_model("claude-3-opus-20240229") is False
+
+    def test_non_claude_models(self):
+        """Test non-Claude models are not recognized."""
+        assert _is_thinking_capable_model("gpt-4") is False
+        assert _is_thinking_capable_model("gemini-pro") is False
+
+    def test_none_model(self):
+        """Test None model returns False."""
+        assert _is_thinking_capable_model(None) is False
+
+    def test_empty_model(self):
+        """Test empty model returns False."""
+        assert _is_thinking_capable_model("") is False
+
+    def test_case_insensitive(self):
+        """Test model matching is case-insensitive."""
+        assert _is_thinking_capable_model("CLAUDE-SONNET-4-5-20250929") is True
+        assert _is_thinking_capable_model("Claude-Opus-4-5-20251101") is True
+
+
+class TestThinkingBudgetHookBasic:
+    """Test basic thinking_budget hook functionality."""
+
+    def test_no_modification_without_thinking(self, user_api_key_dict):
+        """Test hook doesn't modify request without thinking field."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "messages": [{"role": "user", "content": "test message"}],
+            "max_tokens": 16000,
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert "thinking" not in result
+
+    def test_preserves_existing_thinking(self, user_api_key_dict):
+        """Test hook preserves existing thinking configuration above minimum."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "messages": [{"role": "user", "content": "test message"}],
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 5000,
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["type"] == "enabled"
+        assert result["thinking"]["budget_tokens"] == 5000
+
+    def test_returns_data_dict(self, user_api_key_dict):
+        """Test hook returns a dict."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "messages": [{"role": "user", "content": "test message"}],
+            "max_tokens": 16000,
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert isinstance(result, dict)
+
+
+class TestThinkingBudgetHookModification:
+    """Test thinking_budget hook modification behavior."""
+
+    def test_inject_missing_budget_tokens(self, user_api_key_dict):
+        """Test hook injects budget_tokens when missing."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["budget_tokens"] == 10000
+
+    def test_override_low_budget(self, user_api_key_dict):
+        """Test hook overrides budget below minimum."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 500,
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["budget_tokens"] == 10000
+
+    def test_custom_budget_min(self, user_api_key_dict):
+        """Test hook with custom budget_min parameter."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 3000,
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict, budget_min=5000, budget_default=8000)
+        assert result["thinking"]["budget_tokens"] == 8000
+
+    def test_respects_budget_above_min(self, user_api_key_dict):
+        """Test hook doesn't modify budget above minimum."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 8000,
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["budget_tokens"] == 8000
+
+
+class TestThinkingBudgetHookMaxTokensConstraint:
+    """Test max_tokens constraint handling."""
+
+    def test_adjust_budget_when_exceeds_max_tokens(self, user_api_key_dict):
+        """Test hook adjusts budget when it exceeds max_tokens."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 5000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 6000,
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["budget_tokens"] == 4999
+
+    def test_adjust_budget_equals_max_tokens(self, user_api_key_dict):
+        """Test hook adjusts budget when it equals max_tokens."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 5000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 5000,
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["budget_tokens"] == 4999
+
+    def test_no_adjustment_when_budget_below_max_tokens(self, user_api_key_dict):
+        """Test hook doesn't adjust when budget is properly below max_tokens."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 10000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 5000,
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["budget_tokens"] == 5000
+
+    def test_max_tokens_too_low_warning(self, user_api_key_dict, caplog):
+        """Test warning when max_tokens is too low for any budget."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 500,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 2000,
+            },
+        }
+        with caplog.at_level(logging.WARNING):
+            thinking_budget(data, user_api_key_dict)
+        assert "max_tokens=500 too low for thinking" in caplog.text
+
+
+class TestThinkingBudgetHookInjection:
+    """Test inject_if_missing behavior."""
+
+    def test_inject_thinking_when_missing(self, user_api_key_dict):
+        """Test hook injects thinking when configured to do so."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "messages": [{"role": "user", "content": "test"}],
+        }
+        result = thinking_budget(data, user_api_key_dict, inject_if_missing=True)
+        assert "thinking" in result
+        assert result["thinking"]["type"] == "enabled"
+        assert result["thinking"]["budget_tokens"] == 10000
+
+    def test_no_inject_by_default(self, user_api_key_dict):
+        """Test hook doesn't inject thinking by default."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "messages": [{"role": "user", "content": "test message"}],
+            "max_tokens": 16000,
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert "thinking" not in result
+
+    def test_inject_adjusts_for_max_tokens(self, user_api_key_dict):
+        """Test injected thinking respects max_tokens constraint."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 5000,
+            "messages": [{"role": "user", "content": "test"}],
+        }
+        result = thinking_budget(data, user_api_key_dict, inject_if_missing=True, budget_default=10000)
+        assert result["thinking"]["budget_tokens"] == 4999
+
+    def test_inject_skipped_when_max_tokens_too_low(self, user_api_key_dict, caplog):
+        """Test injection is skipped when max_tokens is too low."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 500,
+            "messages": [{"role": "user", "content": "test"}],
+        }
+        with caplog.at_level(logging.DEBUG):
+            result = thinking_budget(data, user_api_key_dict, inject_if_missing=True)
+        assert "thinking" not in result
+        assert "Skipping thinking injection" in caplog.text
+
+    def test_inject_sets_temperature(self, user_api_key_dict):
+        """Test injected thinking sets temperature to 1."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "temperature": 0.7,
+            "messages": [{"role": "user", "content": "test"}],
+        }
+        result = thinking_budget(data, user_api_key_dict, inject_if_missing=True)
+        assert result["temperature"] == 1
+
+
+class TestThinkingBudgetHookModelFilter:
+    """Test model filtering behavior (only applies to inject_if_missing)."""
+
+    def test_existing_thinking_processed_regardless_of_model(self, user_api_key_dict):
+        """Test hook processes existing thinking even for non-thinking models (trust caller)."""
+        data = {
+            "model": "claude-3-5-sonnet-20241022",  # Old model
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 500,  # Below default min
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        # Should still adjust budget - caller explicitly enabled thinking
+        assert result["thinking"]["budget_tokens"] == 10000
+
+    def test_inject_skipped_for_non_thinking_model(self, user_api_key_dict, caplog):
+        """Test inject_if_missing skipped for non-thinking-capable models."""
+        data = {
+            "model": "claude-3-5-sonnet-20241022",  # Old model
+            "max_tokens": 16000,
+            "messages": [{"role": "user", "content": "test"}],
+        }
+        with caplog.at_level(logging.DEBUG):
+            result = thinking_budget(data, user_api_key_dict, inject_if_missing=True)
+        assert "thinking" not in result
+        assert "Skipping thinking injection for model" in caplog.text
+
+    def test_inject_allowed_for_thinking_model(self, user_api_key_dict):
+        """Test inject_if_missing works for thinking-capable models."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "messages": [{"role": "user", "content": "test"}],
+        }
+        result = thinking_budget(data, user_api_key_dict, inject_if_missing=True)
+        assert "thinking" in result
+        assert result["thinking"]["budget_tokens"] == 10000
+
+
+class TestThinkingBudgetHookLogging:
+    """Test logging behavior."""
+
+    def test_logs_modification(self, user_api_key_dict, caplog):
+        """Test hook logs when it modifies a request."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+            },
+        }
+        with caplog.at_level(logging.INFO):
+            thinking_budget(data, user_api_key_dict)
+        assert "Adjusted thinking budget" in caplog.text
+        assert "injected budget_tokens" in caplog.text
+
+    def test_disable_logging(self, user_api_key_dict, caplog):
+        """Test hook doesn't log when logging disabled."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+            },
+        }
+        with caplog.at_level(logging.INFO):
+            thinking_budget(data, user_api_key_dict, log_modifications=False)
+        assert "Adjusted thinking budget" not in caplog.text
+
+
+class TestThinkingBudgetHookEdgeCases:
+    """Test edge cases and error handling."""
+
+    def test_thinking_type_not_enabled(self, user_api_key_dict):
+        """Test hook handles thinking with type != enabled."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "disabled",
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["type"] == "disabled"
+        assert "budget_tokens" not in result["thinking"]
+
+    def test_thinking_not_dict(self, user_api_key_dict):
+        """Test hook handles thinking that's not a dict."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "max_tokens": 16000,
+            "thinking": "enabled",
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"] == "enabled"
+
+    def test_no_max_tokens(self, user_api_key_dict):
+        """Test hook handles missing max_tokens."""
+        data = {
+            "model": "claude-sonnet-4-5-20250929",
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 500,
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        assert result["thinking"]["budget_tokens"] == 10000
+
+    def test_empty_data(self, user_api_key_dict):
+        """Test hook handles empty data."""
+        data = {}
+        result = thinking_budget(data, user_api_key_dict)
+        assert result == {}
+
+    def test_none_model_with_thinking(self, user_api_key_dict):
+        """Test hook processes thinking even with None model (trust caller)."""
+        data = {
+            "model": None,
+            "max_tokens": 16000,
+            "thinking": {
+                "type": "enabled",
+                "budget_tokens": 500,  # Below min
+            },
+        }
+        result = thinking_budget(data, user_api_key_dict)
+        # Should process - caller explicitly enabled thinking
+        assert result["thinking"]["budget_tokens"] == 10000
+
+    def test_none_model_inject_skipped(self, user_api_key_dict):
+        """Test inject_if_missing skipped with None model."""
+        data = {
+            "model": None,
+            "max_tokens": 16000,
+        }
+        result = thinking_budget(data, user_api_key_dict, inject_if_missing=True)
+        # Should not inject - model not recognized as thinking-capable
+        assert "thinking" not in result
