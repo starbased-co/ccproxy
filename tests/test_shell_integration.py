@@ -47,13 +47,14 @@ def test_generate_shell_integration_explicit_shell(tmp_path: Path, capsys):
     generate_shell_integration(tmp_path, shell="zsh", install=False)  # noqa: S604
 
     captured = capsys.readouterr()
-    assert "# ccproxy shell integration" in captured.out
+    output = captured.out.replace("\n", "")  # Handle console line wrapping
+    assert "# ccproxy shell integration" in output
     # Check the path components separately to handle line breaks
-    assert str(tmp_path) in captured.out
-    # Check for lock file by looking for the pattern split across lines
-    assert "local" in captured.out
-    assert "pid_file=" in captured.out
-    assert "litellm.lock" in captured.out.replace("\n", "")  # Handle line breaks
+    assert str(tmp_path) in output
+    # Check for lock file by looking for the pattern
+    assert "local" in output
+    assert "pid_file=" in output
+    assert "litellm.lock" in output
 
 
 def test_generate_shell_integration_unsupported_shell(tmp_path: Path):
@@ -78,10 +79,11 @@ def test_generate_shell_integration_install_zsh(tmp_path: Path, capsys):
     assert "ccproxy_check_running()" in content
     assert "precmd_functions" in content
 
-    # Check output
+    # Check output (handle console line wrapping)
     captured = capsys.readouterr()
-    assert "✓ ccproxy shell integration installed" in captured.out
-    assert str(zshrc) in captured.out
+    output = captured.out.replace("\n", "")
+    assert "✓ ccproxy shell integration installed" in output
+    assert str(zshrc) in output
 
 
 def test_generate_shell_integration_install_bash(tmp_path: Path, capsys):
@@ -99,10 +101,11 @@ def test_generate_shell_integration_install_bash(tmp_path: Path, capsys):
     assert "ccproxy_check_running()" in content
     assert "PROMPT_COMMAND" in content
 
-    # Check output
+    # Check output (handle console line wrapping)
     captured = capsys.readouterr()
-    assert "✓ ccproxy shell integration installed" in captured.out
-    assert str(bashrc) in captured.out
+    output = captured.out.replace("\n", "")
+    assert "✓ ccproxy shell integration installed" in output
+    assert str(bashrc) in output
 
 
 def test_generate_shell_integration_already_installed(tmp_path: Path):
@@ -133,11 +136,12 @@ def test_shell_integration_script_content(tmp_path: Path, capsys):
     generate_shell_integration(tmp_path, shell="bash", install=False)  # noqa: S604
 
     captured = capsys.readouterr()
+    output = captured.out.replace("\n", "")
 
-    # Check key components
-    assert str(tmp_path) in captured.out  # Path is included
-    assert "litellm.lock" in captured.out.replace("\n", "")  # Handle line breaks
-    assert 'kill -0 "$pid"' in captured.out  # Process check
-    assert "alias claude='ccproxy run claude'" in captured.out
-    assert "unalias claude 2>/dev/null || true" in captured.out
-    assert "ccproxy_setup_alias" in captured.out
+    # Check key components (handle line breaks)
+    assert str(tmp_path) in output  # Path is included
+    assert "litellm.lock" in output  # Lock file referenced
+    assert 'kill -0 "$pid"' in output  # Process check
+    assert "alias claude='ccproxy run claude'" in output
+    assert "unalias claude 2>/dev/null || true" in output
+    assert "ccproxy_setup_alias" in output

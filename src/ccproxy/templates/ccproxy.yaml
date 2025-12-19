@@ -3,14 +3,15 @@ ccproxy:
   handler: "ccproxy.handler:CCProxyHandler"
 
   # OAuth token sources - shell commands to retrieve tokens for each provider
-  oat_sources:
-    # Simple string form
-    anthropic: "jq -r '.claudeAiOauth.accessToken' ~/.claude/.credentials.json"
-
-    # Extended form with custom User-Agent
-    # gemini:
-    #   command: "jq -r '.access_token' ~/.gemini/oauth_creds.json"
-    #   user_agent: "MyApp/1.0.0"
+  # Uncomment and configure after setting up your credentials file
+  # oat_sources:
+  #   # Simple string form - for Claude Code OAuth
+  #   anthropic: "jq -r '.claudeAiOauth.accessToken' ~/.claude/.credentials.json"
+  #
+  #   # Extended form with custom User-Agent
+  #   # gemini:
+  #   #   command: "jq -r '.access_token' ~/.gemini/oauth_creds.json"
+  #   #   user_agent: "MyApp/1.0.0"
 
   hooks:
     - ccproxy.hooks.rule_evaluator # evaluates rules against request

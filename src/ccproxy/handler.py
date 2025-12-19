@@ -8,6 +8,7 @@ from rich import print
 
 from ccproxy.classifier import RequestClassifier
 from ccproxy.config import get_config
+from ccproxy.metrics import get_metrics
 from ccproxy.router import get_router
 from ccproxy.utils import calculate_duration_ms
 
@@ -31,6 +32,7 @@ class CCProxyHandler(CustomLogger):
         super().__init__()
         self.classifier = RequestClassifier()
         self.router = get_router()
+        self.metrics = get_metrics()
         self._langfuse_client = None
 
         config = get_config()
@@ -51,7 +53,7 @@ class CCProxyHandler(CustomLogger):
                 from langfuse import Langfuse
 
                 self._langfuse_client = Langfuse()
-            except Exception:
+            except ImportError:
                 pass
         return self._langfuse_client
 
@@ -69,10 +71,10 @@ class CCProxyHandler(CustomLogger):
             logger.debug("Skipping hooks for health check request")
             return data
 
-        # Debug: Print thinking parameters if present
+        # Debug: Log thinking parameters if present
         thinking_params = data.get("thinking")
         if thinking_params is not None:
-            print(f"🧠 Thinking parameters: {thinking_params}")
+            logger.debug(f"Thinking parameters: {thinking_params}")
 
         # Run all processors in sequence with error handling
         for hook, params in self.hooks:
@@ -100,6 +102,15 @@ class CCProxyHandler(CustomLogger):
             model_config=metadata.get("ccproxy_model_config"),
             is_passthrough=metadata.get("ccproxy_is_passthrough", False),
         )
+
+        # Record metrics
+        config = get_config()
+        if config.metrics_enabled:
+            self.metrics.record_request(
+                model_name=metadata.get("ccproxy_model_name"),
+                rule_name=metadata.get("ccproxy_matched_rule"),
+                is_passthrough=metadata.get("ccproxy_is_passthrough", False),
+            )
 
         return data
 
@@ -253,6 +264,11 @@ class CCProxyHandler(CustomLogger):
 
         logger.info("ccproxy request completed", extra=log_data)
 
+        # Record success metric
+        config = get_config()
+        if config.metrics_enabled:
+            self.metrics.record_success()
+
     async def async_log_failure_event(
         self,
         kwargs: dict[str, Any],
@@ -288,6 +304,11 @@ class CCProxyHandler(CustomLogger):
             log_data["error_message"] = error_message[:500]  # Truncate long messages
 
         logger.error("ccproxy request failed", extra=log_data)
+
+        # Record failure metric
+        config = get_config()
+        if config.metrics_enabled:
+            self.metrics.record_failure()
 
     async def async_log_stream_event(
         self,

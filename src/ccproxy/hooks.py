@@ -19,17 +19,26 @@ logger = logging.getLogger(__name__)
 _request_metadata_store: dict[str, tuple[dict[str, Any], float]] = {}
 _store_lock = threading.Lock()
 _STORE_TTL = 60.0  # Clean up entries older than 60 seconds
+_STORE_MAX_SIZE = 10000  # Maximum entries to prevent memory leak under irregular traffic
 
 
 def store_request_metadata(call_id: str, metadata: dict[str, Any]) -> None:
     """Store metadata for a request by its call ID."""
     with _store_lock:
         _request_metadata_store[call_id] = (metadata, time.time())
-        # Clean up old entries
+        # Clean up old entries (TTL-based)
         now = time.time()
         expired = [k for k, (_, ts) in _request_metadata_store.items() if now - ts > _STORE_TTL]
         for k in expired:
             del _request_metadata_store[k]
+        
+        # Enforce max size limit (LRU-style: remove oldest entries if over limit)
+        if len(_request_metadata_store) > _STORE_MAX_SIZE:
+            # Sort by timestamp (oldest first) and remove excess
+            sorted_entries = sorted(_request_metadata_store.items(), key=lambda x: x[1][1])
+            excess_count = len(_request_metadata_store) - _STORE_MAX_SIZE
+            for k, _ in sorted_entries[:excess_count]:
+                del _request_metadata_store[k]
 
 
 def get_request_metadata(call_id: str) -> dict[str, Any]:
@@ -429,3 +438,88 @@ def forward_apikey(data: dict[str, Any], user_api_key_dict: dict[str, Any], **kw
         )
 
     return data
+
+
+def configure_retry(
+    data: dict[str, Any],
+    user_api_key_dict: dict[str, Any],
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Configure retry settings for the request.
+
+    Adds LiteLLM retry configuration based on ccproxy settings:
+    - num_retries: Number of retry attempts
+    - retry_after: Initial delay between retries
+    - fallbacks: List of fallback models
+
+    Args:
+        data: Request data (model, messages, etc.)
+        user_api_key_dict: User API key metadata
+        **kwargs: Additional arguments (classifier, router, config_override)
+
+    Returns:
+        Modified request data with retry configuration
+    """
+    config = kwargs.get("config_override") or get_config()
+
+    if not config.retry_enabled:
+        return data
+
+    # Set number of retries
+    data["num_retries"] = config.retry_max_attempts
+
+    # Set retry delay (LiteLLM uses retry_after for backoff)
+    data["retry_after"] = config.retry_initial_delay
+
+    # Configure fallback models if specified
+    if config.retry_fallback_model:
+        if "fallbacks" not in data:
+            data["fallbacks"] = []
+
+        # Add fallback model if not already present
+        fallback_entry = {"model": config.retry_fallback_model}
+        if fallback_entry not in data["fallbacks"]:
+            data["fallbacks"].append(fallback_entry)
+
+    # Store retry metadata for logging
+    if "metadata" not in data:
+        data["metadata"] = {}
+
+    data["metadata"]["ccproxy_retry_enabled"] = True
+    data["metadata"]["ccproxy_retry_max_attempts"] = config.retry_max_attempts
+    if config.retry_fallback_model:
+        data["metadata"]["ccproxy_retry_fallback"] = config.retry_fallback_model
+
+    logger.debug(
+        "Retry configured",
+        extra={
+            "event": "retry_configured",
+            "max_attempts": config.retry_max_attempts,
+            "initial_delay": config.retry_initial_delay,
+            "fallback_model": config.retry_fallback_model,
+        },
+    )
+
+    return data
+
+
+def calculate_retry_delay(
+    attempt: int,
+    initial_delay: float = 1.0,
+    max_delay: float = 60.0,
+    multiplier: float = 2.0,
+) -> float:
+    """Calculate exponential backoff delay for retry.
+
+    Args:
+        attempt: Current attempt number (1-indexed)
+        initial_delay: Initial delay in seconds
+        max_delay: Maximum delay cap
+        multiplier: Exponential multiplier
+
+    Returns:
+        Delay in seconds for the given attempt
+    """
+    delay = initial_delay * (multiplier ** (attempt - 1))
+    return min(delay, max_delay)
+

@@ -2,6 +2,7 @@
 
 import logging
 import threading
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,8 @@ class ModelRouter:
         self._model_group_alias: dict[str, list[str]] = {}
         self._available_models: set[str] = set()
         self._models_loaded = False
+        self._last_reload_time: float = 0.0
+        self._RELOAD_COOLDOWN: float = 5.0  # Minimum seconds between reload attempts
 
         # Models will be loaded on first actual request when proxy is guaranteed to be ready
 
@@ -58,11 +61,14 @@ class ModelRouter:
             if self._models_loaded:
                 return
 
-            self._load_model_mapping()
-
-            # Mark as loaded regardless of success - models should be available by now
-            # If no models are found, it's likely a configuration issue
-            self._models_loaded = True
+            try:
+                self._load_model_mapping()
+                # Only mark as loaded on successful load
+                self._models_loaded = True
+            except Exception as e:
+                # Keep _models_loaded as False so next attempt can retry
+                logger.error(f"Failed to load model mapping: {e}")
+                return
 
             if self._available_models:
                 logger.info(
@@ -224,15 +230,27 @@ class ModelRouter:
         with self._lock:
             return model_name in self._available_models
 
-    def reload_models(self) -> None:
+    def reload_models(self) -> bool:
         """Force reload model configuration from LiteLLM proxy.
 
         This can be used to refresh model configuration if it changes
-        during runtime.
+        during runtime. Includes cooldown to prevent reload thrashing.
+
+        Returns:
+            True if reload was performed, False if skipped due to cooldown.
         """
         with self._lock:
+            now = time.time()
+            if now - self._last_reload_time < self._RELOAD_COOLDOWN:
+                logger.debug(
+                    f"Reload skipped: cooldown active ({self._RELOAD_COOLDOWN - (now - self._last_reload_time):.1f}s remaining)"
+                )
+                return False
+            
+            self._last_reload_time = now
             self._models_loaded = False
             self._ensure_models_loaded()
+            return True
 
 
 # Global router instance

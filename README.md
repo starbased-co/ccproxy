@@ -1,4 +1,4 @@
-# `ccproxy` - Claude Code Proxy [![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/starbased-co/ccproxy)
+# `ccproxy` - Claude Code Proxy [![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/starbased-co/ccproxy)
 
 > [Join starbased HQ](https://discord.gg/HDuYQAFsbw) for questions, sharing setups, and contributing to development.
 
@@ -21,6 +21,23 @@ response = await litellm.acompletion(
 ```
 
 > ⚠️ **Note**: While core functionality is complete, real-world testing and community input are welcomed. Please [open an issue](https://github.com/starbased-co/ccproxy/issues) to share your experience, report bugs, or suggest improvements, or even better, submit a PR!
+
+## Features
+
+### Core Features
+- **Intelligent Model Routing**: Route requests to different models based on token count, thinking mode, tools, etc.
+- **OAuth Token Forwarding**: Use your Claude MAX subscription seamlessly
+- **Extensible Hook System**: Customize request/response processing
+
+### New in v1.3.0 ✨
+- **Health Metrics**: Monitor request statistics with `ccproxy status --health`
+- **Shell Integration**: Easy shell aliases with `ccproxy shell-integration`
+- **Cost Tracking**: Per-request cost calculation with budget alerts
+- **Request Caching**: LRU cache for identical prompts
+- **Multi-User Support**: Per-user token limits and access control
+- **A/B Testing**: Compare models with statistical analysis
+- **OAuth Token Refresh**: Background refresh for long-running sessions
+- **Configuration Validation**: Catch config errors at startup
 
 ## Installation
 
@@ -101,6 +118,15 @@ ccproxy:
 
   # Optional: Shell command to load oauth token on startup (for litellm/anthropic sdk)
   credentials: "jq -r '.claudeAiOauth.accessToken' ~/.claude/.credentials.json"
+  
+  # OAuth token refresh interval (seconds, 0 to disable)
+  oauth_refresh_interval: 3600  # Refresh every hour
+
+  # Retry configuration
+  retry_enabled: true
+  retry_max_attempts: 3
+  retry_initial_delay: 1.0
+  retry_fallback_model: "gpt-4o-mini"
 
   hooks:
     - ccproxy.hooks.rule_evaluator # evaluates rules against request 󰁎─┬─ (optional, needed for
@@ -189,6 +215,13 @@ graph LR
     style config_yaml fill:#ffffff,stroke:#333,stroke-width:2px
 ```
 
+<details>
+<summary>📷 View as image (if mermaid doesn't render)</summary>
+
+![Routing Diagram](docs/images/routing-diagram.png)
+
+</details>
+
 And the corresponding `config.yaml`:
 
 ```yaml
@@ -244,6 +277,7 @@ See [docs/configuration.md](docs/configuration.md) for more information on how t
 - **ThinkingRule**: Routes requests containing a "thinking" field
 - **TokenCountRule**: Routes requests with large token counts to high-capacity models
 - **MatchToolRule**: Routes based on tool usage (e.g., WebSearch)
+- **DefaultRule**: Catch-all rule that always matches
 
 See [`rules.py`](src/ccproxy/rules.py) for implementing your own rules.
 
@@ -263,15 +297,20 @@ ccproxy start [--detach]
 # Stop LiteLLM
 ccproxy stop
 
-# Check that the proxy server is working
+# Check proxy status
 ccproxy status
+
+# Check proxy status with health metrics
+ccproxy status --health
 
 # View proxy server logs
 ccproxy logs [-f] [-n LINES]
 
+# Generate shell integration script
+ccproxy shell-integration --shell [bash|zsh|fish]
+
 # Run any command with proxy environment variables
 ccproxy run <command> [args...]
-
 ```
 
 After installation and setup, you can run any command through the `ccproxy`:
@@ -284,7 +323,6 @@ ccproxy run claude -p "Explain quantum computing"
 # Run other tools through the proxy
 ccproxy run curl http://localhost:4000/health
 ccproxy run python my_script.py
-
 ```
 
 The `ccproxy run` command sets up the following environment variables:
@@ -292,6 +330,74 @@ The `ccproxy run` command sets up the following environment variables:
 - `ANTHROPIC_BASE_URL` - For Anthropic SDK compatibility
 - `OPENAI_API_BASE` - For OpenAI SDK compatibility
 - `OPENAI_BASE_URL` - For OpenAI SDK compatibility
+
+## Advanced Features
+
+### Cost Tracking
+
+Track API costs with budget alerts:
+
+```python
+from ccproxy.metrics import get_metrics
+
+metrics = get_metrics()
+
+# Set budget with alerts at 75%, 90%, 100%
+metrics.set_budget(total=100.0, per_model={"gpt-4": 50.0})
+metrics.set_alert_callback(lambda msg: send_slack_alert(msg))
+
+# Record usage
+cost = metrics.record_cost("gpt-4", input_tokens=10000, output_tokens=5000)
+print(f"Request cost: ${cost:.4f}")
+```
+
+### Request Caching
+
+Cache responses for identical prompts:
+
+```python
+from ccproxy.cache import get_cache
+
+cache = get_cache()
+# TTL in seconds (default: 1 hour)
+cache.set("gpt-4", messages, response, ttl=3600)
+cached = cache.get("gpt-4", messages)
+```
+
+### Multi-User Support
+
+Per-user token limits and access control:
+
+```python
+from ccproxy.users import get_user_manager, UserConfig
+
+manager = get_user_manager()
+manager.register_user(UserConfig(
+    user_id="user-123",
+    daily_token_limit=100000,
+    monthly_token_limit=1000000,
+    allowed_models=["gpt-4", "claude-3-sonnet"],
+    requests_per_minute=60,
+))
+```
+
+### A/B Testing
+
+Compare models with statistical analysis:
+
+```python
+from ccproxy.ab_testing import get_ab_manager, ExperimentVariant
+
+manager = get_ab_manager()
+manager.create_experiment("model-compare", "GPT vs Claude", [
+    ExperimentVariant("control", "gpt-4", weight=0.5),
+    ExperimentVariant("treatment", "claude-3-sonnet", weight=0.5),
+])
+
+# Get experiment summary
+summary = manager.get_active_experiment().get_summary()
+print(f"Winner: {summary.winner} (confidence: {summary.confidence:.2%})")
+```
 
 ## Development Setup
 
@@ -320,6 +426,8 @@ uv run pytest
 The handler file (`~/.ccproxy/ccproxy.py`) is automatically regenerated on every `ccproxy start`.
 
 ## Troubleshooting
+
+See [docs/troubleshooting.md](docs/troubleshooting.md) for common issues and solutions.
 
 ### ImportError: Could not import handler from ccproxy
 
@@ -371,6 +479,13 @@ which litellm
 $(dirname $(which litellm))/python -c "import ccproxy; print(ccproxy.__file__)"
 # Should print path without errors
 ```
+
+## Documentation
+
+- [Configuration Guide](docs/configuration.md) - Detailed configuration options
+- [Architecture](docs/architecture.md) - System design and request flow
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [Examples](docs/examples.md) - Configuration examples for various use cases
 
 ## Contributing
 
