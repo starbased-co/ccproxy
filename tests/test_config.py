@@ -469,3 +469,80 @@ ccproxy:
             finally:
                 os.chdir(original_cwd)
                 clear_config_instance()
+
+
+class TestConfigValidation:
+    """Tests for configuration validation."""
+
+    def test_valid_config_passes(self) -> None:
+        """Test that a valid configuration returns no errors."""
+        config = CCProxyConfig(
+            handler="ccproxy.handler:CCProxyHandler",
+            hooks=["ccproxy.hooks.rule_evaluator"],
+            rules=[
+                RuleConfig("rule1", "ccproxy.rules.TokenCountRule", [{"threshold": 1000}]),
+                RuleConfig("rule2", "ccproxy.rules.MatchModelRule", [{"model_name": "test"}]),
+            ],
+        )
+        errors = config.validate()
+        assert errors == []
+
+    def test_duplicate_rule_names(self) -> None:
+        """Test that duplicate rule names are detected."""
+        config = CCProxyConfig(
+            rules=[
+                RuleConfig("duplicate", "ccproxy.rules.TokenCountRule", []),
+                RuleConfig("unique", "ccproxy.rules.MatchModelRule", []),
+                RuleConfig("duplicate", "ccproxy.rules.ThinkingRule", []),
+            ],
+        )
+        errors = config.validate()
+        assert len(errors) == 1
+        assert "Duplicate rule names" in errors[0]
+        assert "duplicate" in errors[0]
+
+    def test_invalid_handler_format(self) -> None:
+        """Test that invalid handler format is detected."""
+        config = CCProxyConfig(
+            handler="ccproxy.handler.CCProxyHandler",  # Missing colon
+        )
+        errors = config.validate()
+        assert len(errors) == 1
+        assert "Invalid handler format" in errors[0]
+        assert "module.path:ClassName" in errors[0]
+
+    def test_invalid_hook_path(self) -> None:
+        """Test that invalid hook path is detected."""
+        config = CCProxyConfig(
+            hooks=["invalid_hook_without_dots"],
+        )
+        errors = config.validate()
+        assert len(errors) == 1
+        assert "Invalid hook path" in errors[0]
+        assert "module.path.function" in errors[0]
+
+    def test_empty_oauth_command(self) -> None:
+        """Test that empty OAuth commands are detected."""
+        config = CCProxyConfig(
+            oat_sources={"anthropic": "   "},  # Empty after strip
+        )
+        errors = config.validate()
+        assert len(errors) == 1
+        assert "Empty OAuth command" in errors[0]
+        assert "anthropic" in errors[0]
+
+    def test_multiple_validation_errors(self) -> None:
+        """Test that multiple validation errors are all reported."""
+        config = CCProxyConfig(
+            handler="invalid_handler",
+            hooks=["bad_hook"],
+            rules=[
+                RuleConfig("dup", "ccproxy.rules.TokenCountRule", []),
+                RuleConfig("dup", "ccproxy.rules.TokenCountRule", []),
+            ],
+            oat_sources={"empty": ""},
+        )
+        errors = config.validate()
+        # Should have: duplicate rule, invalid handler, invalid hook, empty oauth
+        assert len(errors) == 4
+

@@ -158,11 +158,26 @@ class CCProxyConfig(BaseSettings):
     # Extended: {"gemini": {"command": "jq -r '.token' ~/.gemini/creds.json", "user_agent": "MyApp/1.0"}}
     oat_sources: dict[str, str | OAuthSource] = Field(default_factory=dict)
 
+    # OAuth token refresh interval in seconds (0 = disabled, default = 3600 = 1 hour)
+    oauth_refresh_interval: int = 3600
+
+    # Request retry configuration
+    retry_enabled: bool = False
+    retry_max_attempts: int = 3
+    retry_initial_delay: float = 1.0  # seconds
+    retry_max_delay: float = 60.0  # seconds
+    retry_multiplier: float = 2.0  # exponential backoff multiplier
+    retry_fallback_model: str | None = None  # Model to use on final failure
+
     # Cached OAuth tokens (loaded at startup) - dict mapping provider name to token
     _oat_values: dict[str, str] = PrivateAttr(default_factory=dict)
 
     # Cached OAuth user agents (loaded at startup) - dict mapping provider name to user-agent
     _oat_user_agents: dict[str, str] = PrivateAttr(default_factory=dict)
+
+    # Background refresh thread
+    _refresh_thread: threading.Thread | None = PrivateAttr(default=None)
+    _refresh_stop_event: threading.Event = PrivateAttr(default_factory=threading.Event)
 
     # Hook configurations (function import paths or dict with params)
     hooks: list[str | dict[str, Any]] = Field(default_factory=list)
@@ -292,12 +307,153 @@ class CCProxyConfig(BaseSettings):
                 f"but {len(errors)} provider(s) failed to load"
             )
 
-        # If all providers failed, raise error
+        # If all providers failed, log warning but continue (graceful degradation)
+        # This allows the proxy to start even when credentials file is missing
         if errors and not loaded_tokens:
-            raise RuntimeError(
-                f"Failed to load OAuth tokens for all {len(self.oat_sources)} provider(s):\n"
+            logger.warning(
+                f"Failed to load OAuth tokens for all {len(self.oat_sources)} provider(s) - "
+                f"OAuth forwarding will be disabled:\n"
                 + "\n".join(f"  - {err}" for err in errors)
             )
+
+    def refresh_credentials(self) -> bool:
+        """Refresh OAuth tokens by re-executing shell commands.
+
+        This method is thread-safe and can be called at any time.
+
+        Returns:
+            True if at least one token was refreshed, False otherwise
+        """
+        if not self.oat_sources:
+            return False
+
+        refreshed = 0
+        for provider, source in self.oat_sources.items():
+            # Normalize to OAuthSource for consistent handling
+            if isinstance(source, str):
+                oauth_source = OAuthSource(command=source)
+            elif isinstance(source, OAuthSource):
+                oauth_source = source
+            elif isinstance(source, dict):
+                oauth_source = OAuthSource(**source)
+            else:
+                continue
+
+            try:
+                result = subprocess.run(  # noqa: S602
+                    oauth_source.command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+
+                if result.returncode == 0:
+                    token = result.stdout.strip()
+                    if token:
+                        self._oat_values[provider] = token
+                        refreshed += 1
+                        logger.debug(f"Refreshed OAuth token for provider '{provider}'")
+            except Exception as e:
+                logger.debug(f"Failed to refresh OAuth token for '{provider}': {e}")
+
+        if refreshed:
+            logger.info(f"Refreshed {refreshed} OAuth token(s)")
+        return refreshed > 0
+
+    def start_background_refresh(self) -> None:
+        """Start background thread for periodic OAuth token refresh.
+
+        Only starts if oauth_refresh_interval > 0 and oat_sources is configured.
+        """
+        if self.oauth_refresh_interval <= 0 or not self.oat_sources:
+            return
+
+        if self._refresh_thread is not None and self._refresh_thread.is_alive():
+            return  # Already running
+
+        self._refresh_stop_event.clear()
+
+        def refresh_loop() -> None:
+            while not self._refresh_stop_event.wait(self.oauth_refresh_interval):
+                try:
+                    self.refresh_credentials()
+                except Exception as e:
+                    logger.error(f"Error during OAuth token refresh: {e}")
+
+        self._refresh_thread = threading.Thread(
+            target=refresh_loop,
+            name="oauth-token-refresh",
+            daemon=True,
+        )
+        self._refresh_thread.start()
+        logger.debug(f"Started OAuth token refresh thread (interval: {self.oauth_refresh_interval}s)")
+
+    def stop_background_refresh(self) -> None:
+        """Stop the background refresh thread."""
+        if self._refresh_thread is None:
+            return
+
+        self._refresh_stop_event.set()
+        self._refresh_thread.join(timeout=1)
+        self._refresh_thread = None
+        logger.debug("Stopped OAuth token refresh thread")
+
+    def validate(self) -> list[str]:
+        """Validate the configuration and return list of errors.
+
+        Checks:
+        - Rule name uniqueness
+        - Handler path format
+        - Hook path format
+        - OAuth command non-empty
+
+        Returns:
+            List of error messages (empty if valid)
+        """
+        errors: list[str] = []
+
+        # 1. Rule name uniqueness check
+        if self.rules:
+            rule_names = [r.model_name for r in self.rules]
+            seen: set[str] = set()
+            duplicates: set[str] = set()
+            for name in rule_names:
+                if name in seen:
+                    duplicates.add(name)
+                seen.add(name)
+            if duplicates:
+                errors.append(f"Duplicate rule names found: {sorted(duplicates)}")
+
+        # 2. Handler path format check
+        if self.handler:
+            if ":" not in self.handler:
+                errors.append(
+                    f"Invalid handler format '{self.handler}' - "
+                    "expected 'module.path:ClassName'"
+                )
+
+        # 3. Hook path format check
+        for hook in self.hooks:
+            hook_path = hook if isinstance(hook, str) else hook.get("hook", "")
+            if hook_path and "." not in hook_path:
+                errors.append(
+                    f"Invalid hook path '{hook_path}' - "
+                    "expected 'module.path.function'"
+                )
+
+        # 4. OAuth command non-empty check
+        for provider, source in self.oat_sources.items():
+            if isinstance(source, OAuthSource):
+                cmd = source.command
+            elif isinstance(source, dict):
+                cmd = source.get("command", "")
+            else:
+                cmd = source
+            if not cmd or (isinstance(cmd, str) and not cmd.strip()):
+                errors.append(f"Empty OAuth command for provider '{provider}'")
+
+        return errors
 
     def load_hooks(self) -> list[tuple[Any, dict[str, Any]]]:
         """Load hook functions from their import paths.
@@ -387,6 +543,22 @@ class CCProxyConfig(BaseSettings):
                     instance.default_model_passthrough = ccproxy_data["default_model_passthrough"]
                 if "oat_sources" in ccproxy_data:
                     instance.oat_sources = ccproxy_data["oat_sources"]
+                if "oauth_refresh_interval" in ccproxy_data:
+                    instance.oauth_refresh_interval = ccproxy_data["oauth_refresh_interval"]
+
+                # Load retry configuration
+                if "retry_enabled" in ccproxy_data:
+                    instance.retry_enabled = ccproxy_data["retry_enabled"]
+                if "retry_max_attempts" in ccproxy_data:
+                    instance.retry_max_attempts = ccproxy_data["retry_max_attempts"]
+                if "retry_initial_delay" in ccproxy_data:
+                    instance.retry_initial_delay = ccproxy_data["retry_initial_delay"]
+                if "retry_max_delay" in ccproxy_data:
+                    instance.retry_max_delay = ccproxy_data["retry_max_delay"]
+                if "retry_multiplier" in ccproxy_data:
+                    instance.retry_multiplier = ccproxy_data["retry_multiplier"]
+                if "retry_fallback_model" in ccproxy_data:
+                    instance.retry_fallback_model = ccproxy_data["retry_fallback_model"]
 
                 # Backwards compatibility: migrate deprecated 'credentials' field
                 if "credentials" in ccproxy_data:
@@ -427,6 +599,14 @@ class CCProxyConfig(BaseSettings):
 
         # Load credentials at startup (raises RuntimeError if fails)
         instance._load_credentials()
+
+        # Validate configuration and log warnings for any issues
+        validation_errors = instance.validate()
+        for error in validation_errors:
+            logger.warning(f"Configuration issue: {error}")
+
+        # Start background OAuth token refresh if configured
+        instance.start_background_refresh()
 
         return instance
 

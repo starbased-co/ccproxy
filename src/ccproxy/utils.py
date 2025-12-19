@@ -72,10 +72,13 @@ def calculate_duration_ms(start_time: Any, end_time: Any) -> float:
     try:
         if isinstance(end_time, float) and isinstance(start_time, float):
             duration_ms = (end_time - start_time) * 1000
-        else:
-            # Handle timedelta objects or mixed types
-            duration_seconds = (end_time - start_time).total_seconds()  # type: ignore[operator,unused-ignore,unreachable]
+        elif hasattr(end_time, "total_seconds") and hasattr(start_time, "__sub__"):
+            # Handle timedelta objects (duck typing)
+            diff = end_time - start_time  # type: ignore[operator]
+            duration_seconds = diff.total_seconds()
             duration_ms = duration_seconds * 1000
+        else:
+            duration_ms = 0.0
     except (TypeError, AttributeError):
         duration_ms = 0.0
 
@@ -176,7 +179,7 @@ def _print_object(obj: Any, title: str, max_width: int | None, show_methods: boo
             if not show_methods and callable(value):
                 continue
             attrs[name] = value
-        except Exception:
+        except AttributeError:
             attrs[name] = "<unable to access>"
 
     # Sort and display

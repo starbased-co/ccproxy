@@ -1,6 +1,7 @@
 """Classification rules for request routing."""
 
 import logging
+import threading
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
@@ -8,6 +9,10 @@ logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from ccproxy.config import CCProxyConfig
+
+# Global tokenizer cache shared across all rule instances
+_tokenizer_cache: dict[str, Any] = {}
+_tokenizer_cache_lock = threading.Lock()
 
 
 class ClassificationRule(ABC):
@@ -36,8 +41,33 @@ class ClassificationRule(ABC):
 
 
 class DefaultRule(ClassificationRule):
-    def __init__(self, passthrough: bool):
+    """Default rule that always matches.
+
+    This rule is used as a fallback when no other rules match.
+    The passthrough flag indicates whether to use the original model
+    or route to a configured default model.
+    """
+
+    def __init__(self, passthrough: bool) -> None:
+        """Initialize the default rule.
+
+        Args:
+            passthrough: If True, use the original model from the request.
+                        If False, route to the configured default model.
+        """
         self.passthrough = passthrough
+
+    def evaluate(self, request: dict[str, Any], config: "CCProxyConfig") -> bool:
+        """Default rule always matches.
+
+        Args:
+            request: The request to evaluate
+            config: The current configuration
+
+        Returns:
+            Always returns True as this is the fallback rule
+        """
+        return True
 
 
 class ThinkingRule(ClassificationRule):
@@ -83,7 +113,10 @@ class MatchModelRule(ClassificationRule):
 
 
 class TokenCountRule(ClassificationRule):
-    """Rule for classifying requests based on token count."""
+    """Rule for classifying requests based on token count.
+    
+    Uses a global tokenizer cache shared across all instances for better performance.
+    """
 
     def __init__(self, threshold: int) -> None:
         """Initialize the rule with a threshold.
@@ -92,10 +125,11 @@ class TokenCountRule(ClassificationRule):
             threshold: The token count threshold
         """
         self.threshold = threshold
-        self._tokenizer_cache: dict[str, Any] = {}
 
     def _get_tokenizer(self, model: str) -> Any:
         """Get appropriate tokenizer for the model.
+
+        Uses global cache shared across all TokenCountRule instances.
 
         Args:
             model: Model name to get tokenizer for
@@ -103,31 +137,39 @@ class TokenCountRule(ClassificationRule):
         Returns:
             Tokenizer instance or None if not available
         """
-        # Cache tokenizers to avoid repeated initialization
-        if model in self._tokenizer_cache:
-            return self._tokenizer_cache[model]
+        global _tokenizer_cache
 
-        try:
-            import tiktoken
+        # Check cache first (outside lock for performance)
+        if model in _tokenizer_cache:
+            return _tokenizer_cache[model]
 
-            # Map model names to appropriate tiktoken encodings
-            if "gpt-4" in model or "gpt-3.5" in model:
-                encoding = tiktoken.encoding_for_model(model)
-            elif "claude" in model:
-                # Claude uses similar tokenization to cl100k_base
-                encoding = tiktoken.get_encoding("cl100k_base")
-            elif "gemini" in model:
-                # Gemini uses similar tokenization to cl100k_base
-                encoding = tiktoken.get_encoding("cl100k_base")
-            else:
-                # Default to cl100k_base for unknown models
-                encoding = tiktoken.get_encoding("cl100k_base")
+        # Use lock for thread-safe cache population
+        with _tokenizer_cache_lock:
+            # Double-check after acquiring lock
+            if model in _tokenizer_cache:
+                return _tokenizer_cache[model]
 
-            self._tokenizer_cache[model] = encoding
-            return encoding
-        except Exception:
-            # If tiktoken fails, return None to fall back to estimation
-            return None
+            try:
+                import tiktoken
+
+                # Map model names to appropriate tiktoken encodings
+                if "gpt-4" in model or "gpt-3.5" in model:
+                    encoding = tiktoken.encoding_for_model(model)
+                elif "claude" in model:
+                    # Claude uses similar tokenization to cl100k_base
+                    encoding = tiktoken.get_encoding("cl100k_base")
+                elif "gemini" in model:
+                    # Gemini uses similar tokenization to cl100k_base
+                    encoding = tiktoken.get_encoding("cl100k_base")
+                else:
+                    # Default to cl100k_base for unknown models
+                    encoding = tiktoken.get_encoding("cl100k_base")
+
+                _tokenizer_cache[model] = encoding
+                return encoding
+            except (ImportError, KeyError, ValueError):
+                # If tiktoken fails (import/unknown model/encoding), return None to fall back to estimation
+                return None
 
     def _count_tokens(self, text: str, model: str) -> int:
         """Count tokens in text using model-specific tokenizer.
