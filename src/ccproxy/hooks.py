@@ -13,6 +13,17 @@ from ccproxy.router import ModelRouter
 # Set up structured logging
 logger = logging.getLogger(__name__)
 
+# Minimum budget_tokens allowed by the Anthropic API for extended thinking
+API_MIN_BUDGET_TOKENS = 1024
+
+# Models that support extended thinking (regex patterns)
+# Note: thinking is Anthropic-specific; non-Anthropic providers will ignore it
+THINKING_CAPABLE_PATTERNS = [
+    r"claude-3-7",        # Claude 3.7 (e.g., claude-3-7-sonnet-20250219)
+    r"claude-[a-z]+-4",   # Claude 4.x (e.g., claude-sonnet-4-*, claude-opus-4-*)
+    r"claude-4",          # Future claude-4-* models
+]
+
 # Global storage for request metadata, keyed by litellm_call_id
 # Required because LiteLLM doesn't preserve custom metadata from async_pre_call_hook
 # to logging callbacks - only internal fields like user_id and hidden_params survive.
@@ -426,6 +437,112 @@ def forward_apikey(data: dict[str, Any], user_api_key_dict: dict[str, Any], **kw
                 "event": "apikey_forwarding",
                 "api_key_present": True,
             },
+        )
+
+    return data
+
+
+def _is_thinking_capable_model(model: str | None) -> bool:
+    """Check if the model supports extended thinking."""
+    if not model:
+        return False
+    model_lower = model.lower()
+    return any(re.search(pattern, model_lower) for pattern in THINKING_CAPABLE_PATTERNS)
+
+
+def thinking_budget(data: dict[str, Any], user_api_key_dict: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+    """Manage thinking budget_tokens for Anthropic extended thinking requests.
+
+    Adjusts budget_tokens when thinking is enabled:
+    - Injects default budget when missing
+    - Overrides budget below minimum threshold
+    - Ensures budget < max_tokens (API constraint)
+
+    Optionally injects thinking config when not present (for thinking-capable models only).
+
+    Note: thinking is Anthropic-specific. Non-Anthropic providers will ignore it.
+
+    Args:
+        data: Request data from LiteLLM
+        user_api_key_dict: User API key dictionary
+        **kwargs: Hook parameters:
+            - budget_default: Default budget (default: 10000)
+            - budget_min: Minimum threshold (default: 1024)
+            - inject_if_missing: Inject thinking if absent (default: False)
+            - log_modifications: Log changes (default: True)
+    """
+    budget_default = kwargs.get("budget_default", 10000)
+    budget_min = kwargs.get("budget_min", API_MIN_BUDGET_TOKENS)
+    inject_if_missing = kwargs.get("inject_if_missing", False)
+    log_modifications = kwargs.get("log_modifications", True)
+
+    # Ensure minimums respect API constraint
+    budget_min = max(budget_min, API_MIN_BUDGET_TOKENS)
+    budget_default = max(budget_default, API_MIN_BUDGET_TOKENS)
+
+    # Get fields from request
+    request = data.get("proxy_server_request", {})
+    body = request.get("body", {})
+    thinking = data.get("thinking") or body.get("thinking")
+    model = data.get("model") or body.get("model")
+    max_tokens = data.get("max_tokens") or body.get("max_tokens")
+
+    modified = False
+    reason = ""
+
+    if thinking is not None:
+        # Request has thinking - adjust budget if needed (trust caller on model choice)
+        if isinstance(thinking, dict) and thinking.get("type") == "enabled":
+            current_budget = thinking.get("budget_tokens")
+
+            if current_budget is None:
+                thinking["budget_tokens"] = budget_default
+                modified = True
+                reason = f"injected budget_tokens={budget_default}"
+            elif current_budget < budget_min:
+                thinking["budget_tokens"] = budget_default
+                modified = True
+                reason = f"increased budget_tokens {current_budget} -> {budget_default} (min: {budget_min})"
+
+            # Ensure budget < max_tokens
+            if max_tokens is not None and thinking.get("budget_tokens", 0) >= max_tokens:
+                if max_tokens <= API_MIN_BUDGET_TOKENS:
+                    logger.warning(f"max_tokens={max_tokens} too low for thinking (min budget: {API_MIN_BUDGET_TOKENS})")
+                else:
+                    thinking["budget_tokens"] = max_tokens - 1
+                    modified = True
+                    reason += f"; capped at {max_tokens - 1} (max_tokens constraint)"
+
+            data["thinking"] = thinking
+
+    elif inject_if_missing:
+        # No thinking present - inject only for thinking-capable models
+        if not _is_thinking_capable_model(model):
+            logger.debug(f"Skipping thinking injection for model: {model}")
+            return data
+
+        if max_tokens is not None and max_tokens <= API_MIN_BUDGET_TOKENS:
+            logger.debug(f"Skipping thinking injection: max_tokens={max_tokens} too low")
+            return data
+
+        budget = budget_default
+        if max_tokens is not None and budget >= max_tokens:
+            budget = max_tokens - 1
+
+        data["thinking"] = {"type": "enabled", "budget_tokens": budget}
+        modified = True
+        reason = f"injected thinking with budget_tokens={budget}"
+
+        # Thinking requires temperature=1
+        current_temp = data.get("temperature") or body.get("temperature")
+        if current_temp is not None and current_temp != 1:
+            data["temperature"] = 1
+            reason += "; set temperature=1"
+
+    if modified and log_modifications:
+        logger.info(
+            f"Adjusted thinking budget for {model}: {reason}",
+            extra={"event": "thinking_budget_modified", "model": model, "reason": reason},
         )
 
     return data
