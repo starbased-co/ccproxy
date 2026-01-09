@@ -35,3 +35,9 @@ litellm_settings:
 
 general_settings:
   forward_client_headers_to_llm_api: true
+  # Disable database-dependent features to prevent 404 errors and Prisma errors
+  # when no database is configured
+  disable_spend_logs: true
+  disable_spend_updates: true
+  disable_reset_budget: true
+  allow_requests_on_db_unavailable: true
